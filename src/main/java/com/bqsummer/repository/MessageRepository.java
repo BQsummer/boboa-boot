@@ -17,6 +17,7 @@ public class MessageRepository {
     private MessageMapper messageMapper;
 
     public List<Message> findByRecipientIdAndIdGreaterThanOrderByIdAsc(String userId, long lastSyncId, int limit) {
+        //log.info("Querying messages for userId: {}, lastSyncId: {}, limit: {}", userId, lastSyncId, limit);
         QueryWrapper<Message> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("receiver_id", userId)
                 .gt("id", lastSyncId)

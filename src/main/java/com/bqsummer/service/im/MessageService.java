@@ -2,6 +2,8 @@ package com.bqsummer.service.im;
 
 import com.bqsummer.common.dto.Message;
 import com.bqsummer.repository.MessageRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -10,6 +12,7 @@ import java.time.Duration;
 import java.util.List;
 
 @Service
+@Slf4j
 public class MessageService {
 
     // 轮询数据库的间隔
@@ -23,49 +26,47 @@ public class MessageService {
         this.messageRepository = messageRepository;
     }
 
-    /**
-     * 执行长轮询拉取消息
-     * @param userId 用户ID
-     * @param lastSyncId 客户端最后同步的消息ID
-     * @param limit 数量限制
-     * @return 包含新消息列表的 Mono
-     */
     public Mono<List<Message>> pollMessages(String userId, long lastSyncId, int limit) {
-        // 定义一次数据库查询操作
+        // 这一步使用了 Mono.fromCallable，这是将你阻塞的 MySQL JDBC 查询
+        // 包装成响应式 Mono 的正确方式。
+        // Reactor 会在一个专门的线程池 (Schedulers.boundedElastic) 上运行这个阻塞调用，
+        // 从而不会阻塞主事件循环线程。
         Mono<List<Message>> queryOnce = Mono.fromCallable(() ->
                 messageRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(userId, lastSyncId, limit)
         );
 
-        // 核心逻辑
         return queryOnce.flatMap(initialMessages -> {
-            if (!initialMessages.isEmpty()) {
-                // 1. 首次查询就有消息（追赶离线消息），立即返回
-                return Mono.just(initialMessages);
-            } else {
-                // 2. 首次查询无消息，进入长轮询等待
-                return startPollingLoop(userId, lastSyncId, limit);
-            }
-        });
+                    if (!initialMessages.isEmpty()) {
+                        return Mono.just(initialMessages);
+                    } else {
+                        return startPollingLoop(userId, lastSyncId, limit);
+                    }
+                })
+                // 这一步是修复 401 错误的关键。它确保了即使在 startPollingLoop
+                // 的 Flux.interval 切换线程后，安全上下文依然存在。
+                .transform(this::attachSecurityContext);
     }
 
     /**
-     * 启动一个响应式的、非阻塞的数据库轮询循环
+     * 辅助方法，用于将 SecurityContext 附加到响应式流中
      */
+    private <T> Mono<T> attachSecurityContext(Mono<T> publisher) {
+        return ReactiveSecurityContextHolder.getContext()
+            .flatMap(securityContext ->
+                publisher.contextWrite(ReactiveSecurityContextHolder.withSecurityContext(Mono.just(securityContext)))
+            );
+    }
+
     private Mono<List<Message>> startPollingLoop(String userId, long lastSyncId, int limit) {
-        // 定义一次数据库查询操作
+        // 同样，这里的 queryOnce 也是对阻塞 JDBC 调用的正确封装
         Mono<List<Message>> queryOnce = Mono.fromCallable(() ->
                 messageRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(userId, lastSyncId, limit)
         );
 
-        // Flux.interval 创建一个每隔 POLL_INTERVAL 发射一个信号的流
         return Flux.interval(POLL_INTERVAL)
-                // 每次收到信号，都去查询数据库
-                .flatMap(tick -> queryOnce)
-                // 我们只关心非空的结果
+                .flatMap(tick -> queryOnce) // 每次轮询都会在一个安全的、非阻塞的上下文中执行
                 .filter(messages -> !messages.isEmpty())
-                // 只要找到第一个非空结果，就结束这个流
-                .next() // .next() 将 Flux<List<Message>> 转换为 Mono<List<Message>>
-                // 为整个轮询过程设置总超时。如果超时，返回一个空列表的 Mono
+                .next()
                 .timeout(LONG_POLL_TIMEOUT, Mono.just(List.of()));
     }
 }

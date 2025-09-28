@@ -23,7 +23,6 @@ public class FluxMessageController {
 
     @GetMapping("/api/v1/messages/poll")
     public Mono<ResponseEntity<Map<String, List<Message>>>> pollMessages(
-            // CHANGE THIS: Get the Principal directly, not as a Mono.
             Principal principal,
             @RequestParam(defaultValue = "0") long last_sync_id,
             @RequestParam(defaultValue = "50", required = false) int limit) {
