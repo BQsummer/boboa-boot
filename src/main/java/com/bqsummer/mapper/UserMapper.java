@@ -1,0 +1,76 @@
+package com.bqsummer.mapper;
+
+import com.bqsummer.common.dto.Role;
+import com.bqsummer.common.dto.User;
+import org.apache.ibatis.annotations.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+/**
+ * 用户数据访问接口
+ */
+@Mapper
+public interface UserMapper {
+
+    @Select("SELECT u.*, r.role_name FROM users u " +
+            "LEFT JOIN user_roles ur ON u.id = ur.user_id " +
+            "LEFT JOIN roles r ON ur.role_id = r.id " +
+            "WHERE u.username = #{username} OR u.email = #{username}")
+    @Results({
+        @Result(property = "id", column = "id"),
+        @Result(property = "username", column = "username"),
+        @Result(property = "email", column = "email"),
+        @Result(property = "phone", column = "phone"),
+        @Result(property = "password", column = "password"),
+        @Result(property = "nickName", column = "nick_name"),
+        @Result(property = "avatar", column = "avatar"),
+        @Result(property = "status", column = "status"),
+        @Result(property = "lastLoginTime", column = "last_login_time"),
+        @Result(property = "createdTime", column = "created_time"),
+        @Result(property = "updatedTime", column = "updated_time"),
+        @Result(property = "roles", column = "id", many = @Many(select = "findRolesByUserId"))
+    })
+    User findByUsernameOrEmail(@Param("username") String username);
+
+    @Select("SELECT r.* FROM roles r " +
+            "INNER JOIN user_roles ur ON r.id = ur.role_id " +
+            "WHERE ur.user_id = #{userId}")
+    @Results({
+        @Result(property = "id", column = "id"),
+        @Result(property = "roleName", column = "role_name"),
+        @Result(property = "description", column = "description"),
+        @Result(property = "createdTime", column = "created_time"),
+        @Result(property = "updatedTime", column = "updated_time")
+    })
+    List<Role> findRolesByUserId(@Param("userId") Long userId);
+
+    @Select("SELECT * FROM users WHERE id = #{id}")
+    @Results({
+        @Result(property = "nickName", column = "nick_name"),
+        @Result(property = "lastLoginTime", column = "last_login_time"),
+        @Result(property = "createdTime", column = "created_time"),
+        @Result(property = "updatedTime", column = "updated_time")
+    })
+    User findById(@Param("id") Long id);
+
+    @Select("SELECT COUNT(*) FROM users WHERE username = #{username}")
+    boolean existsByUsername(@Param("username") String username);
+
+    @Select("SELECT COUNT(*) FROM users WHERE email = #{email}")
+    boolean existsByEmail(@Param("email") String email);
+
+    @Insert("INSERT INTO users (username, email, phone, password, nick_name, status) " +
+            "VALUES (#{username}, #{email}, #{phone}, #{password}, #{nickName}, #{status})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(User user);
+
+    @Insert("INSERT INTO user_roles (user_id, role_id) VALUES (#{userId}, #{roleId})")
+    int insertUserRole(@Param("userId") Long userId, @Param("roleId") Long roleId);
+
+    @Select("SELECT id FROM roles WHERE role_name = #{roleName}")
+    Long findRoleIdByName(@Param("roleName") String roleName);
+
+    @Update("UPDATE users SET last_login_time = #{loginTime} WHERE id = #{userId}")
+    int updateLastLoginTime(@Param("userId") Long userId, @Param("loginTime") LocalDateTime loginTime);
+}
