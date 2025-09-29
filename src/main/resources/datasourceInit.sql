@@ -427,3 +427,42 @@ CREATE TABLE IF NOT EXISTS `invite_usage` (
   CONSTRAINT `fk_invite_usage_code` FOREIGN KEY (`invite_code_id`) REFERENCES `invite_codes` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_invite_usage_invitee` FOREIGN KEY (`invitee_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邀请码使用记录表';
+
+-- AI 人物模板表
+CREATE TABLE IF NOT EXISTS `ai_characters` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `name` VARCHAR(128) NOT NULL COMMENT '人物名称',
+  `image_url` VARCHAR(512) NULL COMMENT '图片/头像URL',
+  `author` VARCHAR(128) NULL COMMENT '传作者/出处',
+  `created_by_user_id` BIGINT NULL COMMENT '创建者用户ID',
+  `visibility` VARCHAR(16) NOT NULL DEFAULT 'PUBLIC' COMMENT 'PUBLIC/PRIVATE',
+  `status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=启用,0=禁用',
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_visibility_status` (`visibility`, `status`),
+  KEY `idx_creator` (`created_by_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 人物模板';
+
+-- AI 人物用户个性化设置表
+CREATE TABLE IF NOT EXISTS `ai_character_settings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `character_id` BIGINT NOT NULL COMMENT '人物ID',
+  `name` VARCHAR(128) NULL COMMENT '自定义人名',
+  `avatar_url` VARCHAR(512) NULL COMMENT '自定义头像URL',
+  `memorial_day` DATE NULL COMMENT '纪念日',
+  `relationship` VARCHAR(64) NULL COMMENT '关系',
+  `background` VARCHAR(1024) NULL COMMENT '背景信息',
+  `language` VARCHAR(32) NULL COMMENT '语言',
+  `custom_params` VARCHAR(2000) NULL COMMENT '自定义参数(JSON)',
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_character` (`user_id`, `character_id`),
+  KEY `idx_character` (`character_id`),
+  CONSTRAINT `fk_ai_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ai_settings_character` FOREIGN KEY (`character_id`) REFERENCES `ai_characters` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 人物用户设置';
