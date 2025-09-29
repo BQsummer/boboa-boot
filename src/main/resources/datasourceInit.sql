@@ -274,6 +274,67 @@ CREATE TABLE `refresh_tokens` (
                                   CONSTRAINT `fk_refresh_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='刷新令牌表';
 
+-- 积分系统表
+CREATE TABLE IF NOT EXISTS `points_account` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `balance` BIGINT NOT NULL DEFAULT 0 COMMENT '当前可用积分',
+    `created_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分账户';
+
+CREATE TABLE IF NOT EXISTS `points_activity` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `code` VARCHAR(64) NOT NULL COMMENT '唯一活动编码',
+    `name` VARCHAR(128) NOT NULL COMMENT '活动名称',
+    `description` VARCHAR(512) NULL COMMENT '活动描述',
+    `status` VARCHAR(16) NOT NULL DEFAULT 'ENABLED' COMMENT 'ENABLED/DISABLED',
+    `start_time` DATETIME NULL COMMENT '开始时间',
+    `end_time` DATETIME NULL COMMENT '结束时间',
+    `created_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分活动';
+
+CREATE TABLE IF NOT EXISTS `points_bucket` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `activity_code` VARCHAR(64) NULL COMMENT '活动编码',
+    `amount` BIGINT NOT NULL COMMENT '获得积分',
+    `remaining` BIGINT NOT NULL COMMENT '剩余可用积分',
+    `expire_at` DATETIME NULL COMMENT '过期时间',
+    `created_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_expire` (`user_id`, `expire_at`),
+    KEY `idx_user_remaining` (`user_id`, `remaining`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分桶（按过期批次管理剩余积分）';
+
+CREATE TABLE IF NOT EXISTS `points_transaction` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `type` VARCHAR(16) NOT NULL COMMENT 'EARN/CONSUME/EXPIRE/REFUND',
+    `amount` BIGINT NOT NULL COMMENT '本次变动积分（正数）',
+    `activity_code` VARCHAR(64) NULL COMMENT '活动编码',
+    `description` VARCHAR(512) NULL COMMENT '备注',
+    `created_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_time` (`user_id`, `created_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分流水';
+
+CREATE TABLE IF NOT EXISTS `points_deduction_detail` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `tx_id` BIGINT NOT NULL COMMENT '消费流水ID',
+    `bucket_id` BIGINT NOT NULL COMMENT '被扣减的桶ID',
+    `amount` BIGINT NOT NULL COMMENT '从该桶扣减的积分',
+    PRIMARY KEY (`id`),
+    KEY `idx_tx` (`tx_id`),
+    KEY `idx_bucket` (`bucket_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分消费扣减明细';
+
 -- 插入默认角色
 INSERT INTO `roles` (`role_name`, `description`) VALUES
                                                      ('ROLE_USER', '普通用户'),

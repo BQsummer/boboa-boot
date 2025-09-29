@@ -1,24 +1,27 @@
 package com.bqsummer.service.im;
 
 import com.bqsummer.common.dto.Message;
+import com.bqsummer.common.vo.req.SendMessageRequest;
 import com.bqsummer.repository.MessageRepository;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
 public class MessageService {
 
-    // 轮询数据库的间隔
-    private static final Duration POLL_INTERVAL = Duration.ofSeconds(1);
+    private final Map<Long, Sinks.Many<String>> userNotifiers = new ConcurrentHashMap<>();
+
     // 长轮询总超时时间
     private static final Duration LONG_POLL_TIMEOUT = Duration.ofSeconds(30);
 
@@ -28,28 +31,50 @@ public class MessageService {
         this.messageRepository = messageRepository;
     }
 
-    public Mono<List<Message>> pollMessages(long lastSyncId, int limit) {
-        Mono<List<Message>> queryOnce = Mono.fromCallable(() ->
-                messageRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(null, lastSyncId, limit)
-        );
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return queryOnce.flatMap(initialMessages -> {
-                    if (!initialMessages.isEmpty()) {
-                        return Mono.just(initialMessages);
-                    } else {
-                        return startPollingLoop(queryOnce);
-                    }
-                })
-                // 直接在入口处注入认证信息到响应式上下文
-                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+    private Sinks.Many<String> getNotifier(Long userId) {
+        return userNotifiers.computeIfAbsent(userId,
+                id -> Sinks.many().unicast().onBackpressureBuffer());
     }
 
-    private Mono<List<Message>> startPollingLoop(Mono<List<Message>> queryOnce) {
-        return Flux.interval(POLL_INTERVAL)
-                .flatMap(tick -> queryOnce)
-                .filter(messages -> !messages.isEmpty())
-                .next()
-                .timeout(LONG_POLL_TIMEOUT, Mono.just(List.of()));
+    /**
+     * 入库成功后调用，发一个通知事件
+     */
+    public void notifyUser(Long userId) {
+        getNotifier(userId).tryEmitNext("notify");
+    }
+
+    /**
+     * 长轮询接口
+     */
+    public Mono<List<Message>> pollMessages(Long userId, long lastSyncId, int limit) {
+        // 数据库查询封装，避免提前执行
+        Mono<List<Message>> dbQuery = Mono.fromSupplier(
+                () -> messageRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(userId, lastSyncId, limit)
+        );
+
+        // 等待通知事件；超时则走兜底查询。无论是否收到事件，都会执行一次查询。
+        return getNotifier(userId).asFlux().next()
+                .timeout(LONG_POLL_TIMEOUT, Mono.just("timeout"))
+                .flatMap(ignored -> dbQuery);
+    }
+
+
+    public void sendMessage(@Valid SendMessageRequest request) {
+        Long uid = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        Message msg = new Message();
+        msg.setSenderId(uid);
+        msg.setReceiverId(request.getReceiverId());
+        msg.setType(request.getType());
+        msg.setContent(request.getContent());
+        msg.setStatus("sent");
+        msg.setIsDeleted(0);
+        msg.setCreatedAt(LocalDateTime.now());
+        msg.setUpdatedAt(LocalDateTime.now());
+
+        // 入库
+        messageRepository.save(msg);
+
+        // 通知接收方有新消息
+        notifyUser(request.getReceiverId());
     }
 }

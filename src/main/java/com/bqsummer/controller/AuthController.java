@@ -4,7 +4,9 @@ package com.bqsummer.controller;
 import com.bqsummer.common.vo.resp.AuthResponse;
 import com.bqsummer.common.vo.req.LoginRequest;
 import com.bqsummer.common.vo.req.RegisterRequest;
+import com.bqsummer.framework.security.TokenBlacklistService;
 import com.bqsummer.service.auth.AuthService;
+import com.bqsummer.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final JwtUtil jwtUtil;
 
     /**
      * 用户注册
@@ -69,7 +73,13 @@ public class AuthController {
     public ResponseEntity<Void> logout(HttpServletRequest request,
                                        @RequestParam(required = false) String refreshToken) {
         String accessToken = extractBearerToken(request.getHeader("Authorization"));
-        authService.logout(accessToken, refreshToken);
+        if (StringUtils.hasText(accessToken) && jwtUtil.validateToken(accessToken)) {
+            long expiresAt = jwtUtil.getExpirationMillis(accessToken);
+            if (expiresAt > 0L) {
+                tokenBlacklistService.add(accessToken, expiresAt);
+            }
+        }
+        authService.logout(refreshToken);
         return ResponseEntity.ok().build();
     }
 

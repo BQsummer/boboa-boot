@@ -16,7 +16,7 @@ public class MessageRepository {
     @Autowired
     private MessageMapper messageMapper;
 
-    public List<Message> findByRecipientIdAndIdGreaterThanOrderByIdAsc(String userId, long lastSyncId, int limit) {
+    public List<Message> findByRecipientIdAndIdGreaterThanOrderByIdAsc(Long userId, long lastSyncId, int limit) {
         //log.info("Querying messages for userId: {}, lastSyncId: {}, limit: {}", userId, lastSyncId, limit);
         QueryWrapper<Message> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("receiver_id", userId)
@@ -24,5 +24,11 @@ public class MessageRepository {
                 .orderByAsc("id")
                 .last("LIMIT " + limit);
         return messageMapper.selectList(queryWrapper);
+    }
+
+    // save
+    public Message save(Message msg) {
+        messageMapper.insert(msg);
+        return msg;
     }
 }

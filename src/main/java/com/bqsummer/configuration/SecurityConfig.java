@@ -2,6 +2,7 @@ package com.bqsummer.configuration;
 
 import com.bqsummer.framework.security.JwtAuthenticationEntryPoint;
 import com.bqsummer.framework.security.JwtAuthenticationFilter;
+import com.bqsummer.framework.http.IpRateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +32,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final IpRateLimitFilter ipRateLimitFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -56,6 +58,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 );
 
+        // 在JWT过滤器之前添加IP限流过滤器
+        http.addFilterBefore(ipRateLimitFilter, JwtAuthenticationFilter.class);
         // 添加JWT过滤器
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -43,7 +43,7 @@ public class FluxMessageController {
         }
         Long userId = jwtUtil.getUserIdFromToken(token);
         // 可将userId传递给messageService
-        return messageService.pollMessages(last_sync_id, limit)
+        return messageService.pollMessages(userId, last_sync_id, limit)
                 .map(messages -> {
                     Map<String, List<Message>> response = new HashMap<>();
                     response.put("messages", messages);
