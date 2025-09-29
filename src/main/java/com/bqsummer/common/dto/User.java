@@ -25,6 +25,7 @@ public class User {
     private String nickName;
     private String avatar;
     private Integer status;
+    private Integer isDeleted; // 0: 未删除, 1: 已删除
     private LocalDateTime lastLoginTime;
     private LocalDateTime createdTime;
     private LocalDateTime updatedTime;

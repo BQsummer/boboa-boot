@@ -225,6 +225,7 @@ CREATE TABLE `users` (
                          `nick_name` varchar(100) DEFAULT NULL COMMENT '昵称',
                          `avatar` varchar(255) DEFAULT NULL COMMENT '头像URL',
                          `status` tinyint(1) DEFAULT 1 COMMENT '状态: 0-禁用, 1-启用',
+                         `is_deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除: 0-否, 1-是',
                          `last_login_time` datetime DEFAULT NULL COMMENT '最后登录时间',
                          `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                          `updated_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

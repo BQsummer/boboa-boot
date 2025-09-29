@@ -16,7 +16,7 @@ public interface UserMapper {
     @Select("SELECT u.*, r.role_name FROM users u " +
             "LEFT JOIN user_roles ur ON u.id = ur.user_id " +
             "LEFT JOIN roles r ON ur.role_id = r.id " +
-            "WHERE u.username = #{username} OR u.email = #{username}")
+            "WHERE (u.username = #{username} OR u.email = #{username}) AND u.is_deleted = 0")
     @Results({
         @Result(property = "id", column = "id"),
         @Result(property = "username", column = "username"),
@@ -26,6 +26,7 @@ public interface UserMapper {
         @Result(property = "nickName", column = "nick_name"),
         @Result(property = "avatar", column = "avatar"),
         @Result(property = "status", column = "status"),
+        @Result(property = "isDeleted", column = "is_deleted"),
         @Result(property = "lastLoginTime", column = "last_login_time"),
         @Result(property = "createdTime", column = "created_time"),
         @Result(property = "updatedTime", column = "updated_time"),
@@ -45,9 +46,10 @@ public interface UserMapper {
     })
     List<Role> findRolesByUserId(@Param("userId") Long userId);
 
-    @Select("SELECT * FROM users WHERE id = #{id}")
+    @Select("SELECT * FROM users WHERE id = #{id} AND is_deleted = 0")
     @Results({
         @Result(property = "nickName", column = "nick_name"),
+        @Result(property = "isDeleted", column = "is_deleted"),
         @Result(property = "lastLoginTime", column = "last_login_time"),
         @Result(property = "createdTime", column = "created_time"),
         @Result(property = "updatedTime", column = "updated_time")
@@ -73,4 +75,7 @@ public interface UserMapper {
 
     @Update("UPDATE users SET last_login_time = #{loginTime} WHERE id = #{userId}")
     int updateLastLoginTime(@Param("userId") Long userId, @Param("loginTime") LocalDateTime loginTime);
+
+    @Update("UPDATE users SET is_deleted = 1, status = 0, updated_time = NOW() WHERE id = #{userId} AND is_deleted = 0")
+    int softDelete(@Param("userId") Long userId);
 }

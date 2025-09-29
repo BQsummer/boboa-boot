@@ -1,5 +1,7 @@
 package com.bqsummer.framework.security;
 
+import com.bqsummer.mapper.UserMapper;
+import com.bqsummer.common.dto.User;
 import com.bqsummer.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserMapper userMapper;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -46,8 +49,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             if (jwtUtil.validateToken(token)) {
-                String username = jwtUtil.getUsernameFromToken(token);
                 Long userId = jwtUtil.getUserIdFromToken(token);
+                // 读取数据库，拒绝已删除或被禁用的账号
+                User dbUser = (userId != null) ? userMapper.findById(userId) : null;
+                if (dbUser == null || dbUser.getStatus() == null || dbUser.getStatus() == 0) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                String username = jwtUtil.getUsernameFromToken(token);
                 List<String> roles = jwtUtil.getRolesFromToken(token);
                 if (roles == null) {
                     roles = Collections.emptyList();
