@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 /**
  * Per-IP rate limiting filter based on Guava RateLimiter with optional blacklist.
  */
+@Order(1)
 @Slf4j
 @Component
 public class IpRateLimitFilter extends OncePerRequestFilter {

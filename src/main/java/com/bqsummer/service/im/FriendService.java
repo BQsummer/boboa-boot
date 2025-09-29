@@ -1,10 +1,3 @@
-
-    private boolean exists(Long userId, Long friendId) {
-        QueryWrapper<Friend> qw = new QueryWrapper<>();
-        qw.eq("user_id", userId).eq("friend_user_id", friendId);
-        return friendMapper.selectCount(qw) > 0;
-        }
-}
 package com.bqsummer.service.im;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -17,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -66,4 +60,12 @@ public class FriendService {
         users.forEach(u -> u.setPassword(null));
         return users;
     }
+
+    private boolean exists(Long userId, Long friendId) {
+        QueryWrapper<Friend> qw = new QueryWrapper<>();
+        qw.eq("user_id", userId).eq("friend_user_id", friendId);
+        return friendMapper.selectCount(qw) > 0;
+    }
+}
+
 

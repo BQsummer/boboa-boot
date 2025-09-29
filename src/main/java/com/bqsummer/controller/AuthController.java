@@ -72,7 +72,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request,
                                        @RequestParam(required = false) String refreshToken) {
-        String accessToken = extractBearerToken(request.getHeader("Authorization"));
+        String accessToken = JwtUtil.extractBearerToken(request.getHeader("Authorization"));
         if (StringUtils.hasText(accessToken) && jwtUtil.validateToken(accessToken)) {
             long expiresAt = jwtUtil.getExpirationMillis(accessToken);
             if (expiresAt > 0L) {
@@ -83,10 +83,5 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
-    private String extractBearerToken(String header) {
-        if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
-            return header.substring(7);
-        }
-        return null;
-    }
+
 }

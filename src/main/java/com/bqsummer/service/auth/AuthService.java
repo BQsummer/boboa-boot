@@ -10,6 +10,7 @@ import com.bqsummer.mapper.RefreshTokenMapper;
 import com.bqsummer.mapper.UserMapper;
 import com.bqsummer.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 /**
  * 认证服务
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -76,16 +78,19 @@ public class AuthService {
         // 查找用户
         User user = userMapper.findByUsernameOrEmail(request.getUsernameOrEmail());
         if (user == null) {
+            log.warn("登录失败，用户不存在: {}", request.getUsernameOrEmail());
             throw new RuntimeException("用户名或密码错误");
         }
 
         // 检查账户状态
         if (user.getStatus() == 0) {
+            log.warn("登录失败，账户已被禁用: {}", request.getUsernameOrEmail());
             throw new RuntimeException("账户已被禁用");
         }
 
         // 验证密码
         if (!BCrypt.checkpw(request.getPassword(), user.getPassword())) {
+            log.warn("登录失败，密码错误: {}", request.getUsernameOrEmail());
             throw new RuntimeException("用户名或密码错误");
         }
 

@@ -15,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -59,7 +60,7 @@ public class SecurityConfig {
                 );
 
         // 在JWT过滤器之前添加IP限流过滤器
-        http.addFilterBefore(ipRateLimitFilter, JwtAuthenticationFilter.class);
+        http.addFilterBefore(ipRateLimitFilter, X509AuthenticationFilter.class);
         // 添加JWT过滤器
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

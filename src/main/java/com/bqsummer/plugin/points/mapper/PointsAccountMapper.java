@@ -1,4 +1,3 @@
-}
 package com.bqsummer.plugin.points.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
@@ -21,3 +20,4 @@ public interface PointsAccountMapper extends BaseMapper<PointsAccount> {
     @Select("SELECT id, user_id, balance, created_time, updated_time FROM points_account WHERE user_id = #{userId} LIMIT 1")
     PointsAccount selectByUserId(@Param("userId") Long userId);
 
+}

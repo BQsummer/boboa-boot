@@ -387,4 +387,42 @@ CREATE TABLE IF NOT EXISTS `conversations` (
   CONSTRAINT `fk_conversations_peer` FOREIGN KEY (`peer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户会话表';
 
+-- 邀请码主表
+CREATE TABLE IF NOT EXISTS `invite_codes` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `code` VARCHAR(32) NOT NULL COMMENT '邀请码明文',
+  `code_hash` CHAR(64) NOT NULL COMMENT '邀请码哈希(SHA-256 HEX)',
+  `creator_user_id` BIGINT NULL COMMENT '创建者用户ID',
+  `max_uses` INT NOT NULL DEFAULT 1 COMMENT '最多可使用次数(>=1)',
+  `used_count` INT NOT NULL DEFAULT 0 COMMENT '已使用次数',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/USED/EXPIRED/REVOKED',
+  `expire_at` DATETIME NULL COMMENT '过期时间(null表示长期有效)',
+  `remark` VARCHAR(255) NULL COMMENT '备注',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_code` (`code`),
+  UNIQUE KEY `uk_code_hash` (`code_hash`),
+  KEY `idx_creator` (`creator_user_id`),
+  KEY `idx_status_expire` (`status`, `expire_at`),
+  CONSTRAINT `fk_invite_codes_creator` FOREIGN KEY (`creator_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邀请码表';
 
+-- 邀请码使用记录表
+CREATE TABLE IF NOT EXISTS `invite_usage` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `invite_code_id` BIGINT NOT NULL COMMENT '邀请码ID',
+  `code_hash` CHAR(64) NOT NULL COMMENT '邀请码哈希(冗余便于查询)',
+  `inviter_user_id` BIGINT NULL COMMENT '邀请人(冗余)',
+  `invitee_user_id` BIGINT NOT NULL COMMENT '受邀用户',
+  `client_ip` VARCHAR(64) NULL COMMENT '使用时IP',
+  `user_agent` VARCHAR(255) NULL COMMENT 'UA',
+  `used_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '使用时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_invitee` (`invitee_user_id`),
+  KEY `idx_code` (`invite_code_id`),
+  KEY `idx_hash_time` (`code_hash`, `used_at`),
+  KEY `idx_ip_time` (`client_ip`, `used_at`),
+  CONSTRAINT `fk_invite_usage_code` FOREIGN KEY (`invite_code_id`) REFERENCES `invite_codes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_invite_usage_invitee` FOREIGN KEY (`invitee_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邀请码使用记录表';

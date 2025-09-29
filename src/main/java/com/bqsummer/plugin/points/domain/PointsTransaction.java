@@ -1,3 +1,11 @@
+package com.bqsummer.plugin.points.domain;
+
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+
 @Data
 @TableName("points_transaction")
 public class PointsTransaction {
@@ -9,11 +17,5 @@ public class PointsTransaction {
     private String description;
     private LocalDateTime createdTime;
 }
-package com.bqsummer.plugin.points.domain;
-
-import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
-
-import java.time.LocalDateTime;
 
 

@@ -1,5 +1,6 @@
 package com.bqsummer.controller;
 
+import com.alibaba.druid.stat.DruidStatManagerFacade;
 import com.bqsummer.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,41 +23,10 @@ public class AdminController {
     /**
      * 获取系统统计信息 - 需要ADMIN角色
      */
-    @GetMapping("/stats")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> getSystemStats() {
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("totalUsers", 100); // 这里应该从数据库查询实际数据
-        stats.put("activeUsers", 85);
-        stats.put("todayRegistrations", 5);
-        stats.put("systemStatus", "运行正常");
-
-        return ResponseEntity.ok(stats);
+    @GetMapping("/druid/stat")
+    public Object druidStat() {
+        return DruidStatManagerFacade.getInstance().getDataSourceStatDataList();
     }
 
-    /**
-     * 禁用/启用用户 - 需要ADMIN角色
-     */
-    @PutMapping("/users/{userId}/status")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> updateUserStatus(@PathVariable Long userId,
-                                                 @RequestParam Integer status) {
-        // 这里应该添加更新用户状态的逻辑
-        return ResponseEntity.ok(String.format("用户ID %d 状态已更新为 %s",
-                                             userId, status == 1 ? "启用" : "禁用"));
-    }
-
-    /**
-     * 系统配置管理 - 需要ADMIN角色
-     */
-    @GetMapping("/config")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> getSystemConfig() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("jwtExpiration", "24小时");
-        config.put("maxLoginAttempts", 5);
-        config.put("passwordPolicy", "最少6位，包含字母和数字");
-
-        return ResponseEntity.ok(config);
-    }
 }
