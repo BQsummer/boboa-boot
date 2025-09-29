@@ -22,13 +22,16 @@ public class MessageService {
 
     private final Map<Long, Sinks.Many<String>> userNotifiers = new ConcurrentHashMap<>();
 
-    // 长轮询总超时时间
+    // 长轮询超时时间
     private static final Duration LONG_POLL_TIMEOUT = Duration.ofSeconds(30);
 
     private final MessageRepository messageRepository;
+    private final com.bqsummer.mapper.ConversationMapper conversationMapper;
 
-    public MessageService(MessageRepository messageRepository) {
+    public MessageService(MessageRepository messageRepository,
+                          com.bqsummer.mapper.ConversationMapper conversationMapper) {
         this.messageRepository = messageRepository;
+        this.conversationMapper = conversationMapper;
     }
 
     private Sinks.Many<String> getNotifier(Long userId) {
@@ -73,6 +76,14 @@ public class MessageService {
 
         // 入库
         messageRepository.save(msg);
+
+        // 更新会话（发送方、接收方）
+        try {
+            conversationMapper.upsertSender(uid, msg.getReceiverId(), msg.getId(), msg.getCreatedAt());
+            conversationMapper.upsertReceiver(msg.getReceiverId(), uid, msg.getId(), msg.getCreatedAt());
+        } catch (Exception e) {
+            log.warn("update conversation failed: {}", e.getMessage());
+        }
 
         // 通知接收方有新消息
         notifyUser(request.getReceiverId());

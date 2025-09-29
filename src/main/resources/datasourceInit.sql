@@ -340,6 +340,51 @@ INSERT INTO `roles` (`role_name`, `description`) VALUES
                                                      ('ROLE_USER', '普通用户'),
                                                      ('ROLE_ADMIN', '管理员');
 
+-- 消息表（如不存在则创建）
+CREATE TABLE IF NOT EXISTS `message` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `sender_id` BIGINT NOT NULL COMMENT '发送者用户ID',
+  `receiver_id` BIGINT NOT NULL COMMENT '接收者用户ID',
+  `type` VARCHAR(32) NOT NULL COMMENT '消息类型',
+  `content` VARCHAR(2048) NOT NULL COMMENT '消息内容',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'sent' COMMENT '消息状态',
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除(0=否,1=是)',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_receiver_id_id` (`receiver_id`, `id`),
+  KEY `idx_both_users_time` (`sender_id`, `receiver_id`, `id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息表';
+
+-- 好友关系表（双向各存一条记录）
+CREATE TABLE IF NOT EXISTS `friends` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `friend_user_id` BIGINT NOT NULL COMMENT '好友用户ID',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_friend` (`user_id`, `friend_user_id`),
+  KEY `idx_user` (`user_id`),
+  CONSTRAINT `fk_friends_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_friends_friend` FOREIGN KEY (`friend_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='好友关系表';
+
+-- 会话表（按用户维度管理与对端的会话）
+CREATE TABLE IF NOT EXISTS `conversations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '会话所属用户',
+  `peer_id` BIGINT NOT NULL COMMENT '对端用户ID',
+  `last_message_id` BIGINT NULL COMMENT '最后一条消息ID',
+  `last_message_time` DATETIME NULL COMMENT '最后消息时间',
+  `unread_count` INT NOT NULL DEFAULT 0 COMMENT '未读数',
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_peer` (`user_id`, `peer_id`),
+  KEY `idx_user_updated` (`user_id`, `updated_time`),
+  CONSTRAINT `fk_conversations_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_conversations_peer` FOREIGN KEY (`peer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户会话表';
 
 
-commit;

@@ -31,4 +31,15 @@ public class MessageRepository {
         messageMapper.insert(msg);
         return msg;
     }
+
+    public List<Message> findDialogHistory(Long userId, Long peerId, Long beforeId, int limit) {
+        QueryWrapper<Message> qw = new QueryWrapper<>();
+        qw.nested(n -> n.eq("sender_id", userId).eq("receiver_id", peerId))
+          .or(n -> n.eq("sender_id", peerId).eq("receiver_id", userId));
+        if (beforeId != null && beforeId > 0) {
+            qw.lt("id", beforeId);
+        }
+        qw.orderByDesc("id").last("LIMIT " + limit);
+        return messageMapper.selectList(qw);
+    }
 }
