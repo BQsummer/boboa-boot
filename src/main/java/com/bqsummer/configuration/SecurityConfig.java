@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/test/public").permitAll()
                         .requestMatchers("/api/v1/test/test").permitAll()
                         .requestMatchers("/api/v1/test/test2").permitAll()
+                        .requestMatchers("/flux/**").permitAll()
                         .requestMatchers("/home").permitAll()
                         .requestMatchers("/", "/index.html", "/static/**").permitAll()
                         // 需要USER角色的接口

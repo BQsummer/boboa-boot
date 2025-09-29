@@ -5,9 +5,11 @@ import com.bqsummer.common.vo.resp.AuthResponse;
 import com.bqsummer.common.vo.req.LoginRequest;
 import com.bqsummer.common.vo.req.RegisterRequest;
 import com.bqsummer.service.auth.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -64,8 +66,17 @@ public class AuthController {
      * 用户登出
      */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestParam(required = false) String refreshToken) {
-        authService.logout(refreshToken);
+    public ResponseEntity<Void> logout(HttpServletRequest request,
+                                       @RequestParam(required = false) String refreshToken) {
+        String accessToken = extractBearerToken(request.getHeader("Authorization"));
+        authService.logout(accessToken, refreshToken);
         return ResponseEntity.ok().build();
+    }
+
+    private String extractBearerToken(String header) {
+        if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
     }
 }

@@ -5,6 +5,7 @@ import com.bqsummer.common.dto.*;
 import com.bqsummer.common.vo.req.LoginRequest;
 import com.bqsummer.common.vo.req.RegisterRequest;
 import com.bqsummer.common.vo.resp.AuthResponse;
+import com.bqsummer.framework.security.TokenBlacklistService;
 import com.bqsummer.mapper.RefreshTokenMapper;
 import com.bqsummer.mapper.UserMapper;
 import com.bqsummer.util.JwtUtil;
@@ -27,6 +28,7 @@ public class AuthService {
     private final UserMapper userMapper;
     private final RefreshTokenMapper refreshTokenMapper;
     private final JwtUtil jwtUtil;
+    private final TokenBlacklistService tokenBlacklistService;
 
     /**
      * 用户注册
@@ -128,13 +130,29 @@ public class AuthService {
     }
 
     /**
-     * 登出
+     * 登出：将当前访问令牌加入黑名单，并删除可选的刷新令牌
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void logout(String accessToken, String refreshToken) {
+        // 处理访问令牌：加入黑名单，过期时间与JWT自身过期时间一致
+        if (accessToken != null && jwtUtil.validateToken(accessToken)) {
+            long expiresAt = jwtUtil.getExpirationMillis(accessToken);
+            if (expiresAt > 0L) {
+                tokenBlacklistService.add(accessToken, expiresAt);
+            }
+        }
+        // 处理刷新令牌：从数据库中删除
+        if (refreshToken != null && !refreshToken.isEmpty()) {
+            refreshTokenMapper.deleteByToken(refreshToken);
+        }
+    }
+
+    /**
+     * 兼容旧签名：仅删除刷新令牌
      */
     @Transactional(rollbackFor = Exception.class)
     public void logout(String refreshToken) {
-        if (refreshToken != null) {
-            refreshTokenMapper.deleteByToken(refreshToken);
-        }
+        logout(null, refreshToken);
     }
 
     /**

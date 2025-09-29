@@ -87,6 +87,15 @@ public class JwtUtil {
     }
 
     /**
+     * 获取令牌过期时间（毫秒时间戳）
+     */
+    public long getExpirationMillis(String token) {
+        Claims claims = getClaimsFromToken(token);
+        Date exp = claims.getExpiration();
+        return exp != null ? exp.getTime() : 0L;
+    }
+
+    /**
      * 验证令牌
      */
     public boolean validateToken(String token) {
