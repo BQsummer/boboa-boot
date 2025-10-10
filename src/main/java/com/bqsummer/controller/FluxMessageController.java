@@ -1,6 +1,6 @@
 package com.bqsummer.controller;
 
-import com.bqsummer.common.dto.Message;
+import com.bqsummer.common.dto.im.Message;
 import com.bqsummer.service.im.MessageService;
 import com.bqsummer.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;

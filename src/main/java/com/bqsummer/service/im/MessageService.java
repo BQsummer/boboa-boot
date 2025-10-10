@@ -1,7 +1,7 @@
 package com.bqsummer.service.im;
 
-import com.bqsummer.common.dto.Message;
-import com.bqsummer.common.vo.req.SendMessageRequest;
+import com.bqsummer.common.dto.im.Message;
+import com.bqsummer.common.vo.req.im.SendMessageRequest;
 import com.bqsummer.repository.MessageRepository;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;

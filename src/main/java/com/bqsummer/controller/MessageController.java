@@ -1,7 +1,7 @@
 package com.bqsummer.controller;
 
-import com.bqsummer.common.dto.Message;
-import com.bqsummer.common.vo.req.SendMessageRequest;
+import com.bqsummer.common.dto.im.Message;
+import com.bqsummer.common.vo.req.im.SendMessageRequest;
 import com.bqsummer.repository.MessageRepository;
 import com.bqsummer.service.im.MessageService;
 import jakarta.validation.Valid;
@@ -29,7 +29,6 @@ public class MessageController {
     }
 
     @GetMapping("/history")
-    @PreAuthorize("hasRole('USER')")
     public List<Message> history(@RequestParam Long peerId,
                                  @RequestParam(required = false) Long beforeId,
                                  @RequestParam(defaultValue = "20") int limit) {

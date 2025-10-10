@@ -1,6 +1,6 @@
 package com.bqsummer.service.im;
 
-import com.bqsummer.common.vo.resp.ConversationItem;
+import com.bqsummer.common.vo.resp.im.ConversationItem;
 import com.bqsummer.mapper.ConversationMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

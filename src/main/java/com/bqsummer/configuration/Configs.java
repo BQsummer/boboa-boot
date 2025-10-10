@@ -1,7 +1,7 @@
 package com.bqsummer.configuration;
 
-import com.bqsummer.plugin.configplus.annotation.AppConfig;
-import com.bqsummer.plugin.configplus.annotation.ConfigEle;
+import com.bqsummer.service.configplus.annotation.AppConfig;
+import com.bqsummer.service.configplus.annotation.ConfigEle;
 import lombok.Getter;
 
 @AppConfig(name = "con")

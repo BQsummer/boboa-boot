@@ -466,3 +466,153 @@ CREATE TABLE IF NOT EXISTS `ai_character_settings` (
   CONSTRAINT `fk_ai_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ai_settings_character` FOREIGN KEY (`character_id`) REFERENCES `ai_characters` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 人物用户设置';
+
+-- 充值/支付模块表结构
+CREATE TABLE IF NOT EXISTS `recharge_order` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `order_no` VARCHAR(64) NOT NULL COMMENT '订单号',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `amount_cents` BIGINT NOT NULL COMMENT '充值金额(分)',
+  `currency` VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '币种',
+  `points` BIGINT NOT NULL DEFAULT 0 COMMENT '充值获得积分',
+  `channel` VARCHAR(32) NOT NULL COMMENT '支付渠道',
+  `channel_order_no` VARCHAR(128) NULL COMMENT '渠道订单号',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/SUCCESS/FAILED/CLOSED/REFUNDED',
+  `client_req_id` VARCHAR(64) NOT NULL COMMENT '客户端幂等ID',
+  `extra` VARCHAR(1024) NULL COMMENT '额外信息(JSON)',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `paid_time` DATETIME NULL COMMENT '支付成功时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_no` (`order_no`),
+  UNIQUE KEY `uk_user_client_req` (`user_id`, `client_req_id`),
+  KEY `idx_user_created` (`user_id`, `created_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='充值订单';
+
+CREATE TABLE IF NOT EXISTS `wallet_account` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `balance_cents` BIGINT NOT NULL DEFAULT 0 COMMENT '余额(分)',
+  `freeze_cents` BIGINT NOT NULL DEFAULT 0 COMMENT '冻结余额(分)',
+  `version` BIGINT NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='钱包账户';
+
+CREATE TABLE IF NOT EXISTS `wallet_tx` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `order_no` VARCHAR(64) NULL COMMENT '关联订单号',
+  `type` VARCHAR(16) NOT NULL COMMENT 'RECHARGE/ADJUST/REFUND/DEDUCT',
+  `amount_cents` BIGINT NOT NULL COMMENT '变动金额(分, 正数)',
+  `balance_after` BIGINT NOT NULL COMMENT '变动后余额(分)',
+  `trace_id` VARCHAR(64) NULL COMMENT '追踪ID/幂等键',
+  `remark` VARCHAR(255) NULL COMMENT '备注',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_time` (`user_id`, `created_time`),
+  KEY `idx_order_no` (`order_no`),
+  UNIQUE KEY `uk_order_type` (`order_no`, `type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='钱包资金流水';
+
+CREATE TABLE IF NOT EXISTS `idempotent_record` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `biz_type` VARCHAR(32) NOT NULL COMMENT '业务类型',
+  `idem_key` VARCHAR(128) NOT NULL COMMENT '幂等键',
+  `biz_id` VARCHAR(128) NULL COMMENT '业务ID(如订单号)',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'CREATED' COMMENT 'CREATED/SUCCESS/FAILED',
+  `result_hash` VARCHAR(64) NULL COMMENT '结果校验',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_biz_key` (`biz_type`,`idem_key`),
+  KEY `idx_biz` (`biz_type`,`biz_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='幂等控制记录';
+
+CREATE TABLE IF NOT EXISTS `risk_check_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `order_no` VARCHAR(64) NULL COMMENT '订单号',
+  `amount_cents` BIGINT NOT NULL COMMENT '金额(分)',
+  `risk_code` VARCHAR(32) NOT NULL COMMENT '规则编码',
+  `pass` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否通过',
+  `detail` VARCHAR(512) NULL COMMENT '详情',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_time` (`user_id`,`created_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='风控记录';
+
+CREATE TABLE IF NOT EXISTS `payment_notify_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `order_no` VARCHAR(64) NOT NULL COMMENT '订单号',
+  `channel` VARCHAR(32) NOT NULL COMMENT '渠道',
+  `status` VARCHAR(16) NOT NULL COMMENT '收到/验签/已处理',
+  `notify_body` TEXT NULL COMMENT '通知原文',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_channel` (`order_no`,`channel`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付回调日志';
+
+-- 用户扩展资料表（1:1）
+CREATE TABLE IF NOT EXISTS `user_profiles` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `gender` VARCHAR(16) NULL COMMENT '性别',
+  `birthday` DATE NULL COMMENT '生日',
+  `height_cm` INT NULL COMMENT '身高(厘米)',
+  `mbti` VARCHAR(16) NULL COMMENT 'MBTI',
+  `occupation` VARCHAR(128) NULL COMMENT '职业',
+  `interests` VARCHAR(2048) NULL COMMENT '兴趣（逗号分隔或JSON）',
+  `photos` VARCHAR(4096) NULL COMMENT '照片URL（逗号分隔或JSON）',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_id` (`user_id`),
+  CONSTRAINT `fk_user_profiles_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户扩展资料表';
+
+-- 用户反馈表
+CREATE TABLE IF NOT EXISTS `feedback` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `type` VARCHAR(32) NOT NULL COMMENT 'bug|suggestion|content|ux|other',
+  `content` VARCHAR(4096) NOT NULL COMMENT '反馈内容',
+  `contact` VARCHAR(255) NULL COMMENT '联系方式',
+  `images` VARCHAR(4096) NULL COMMENT '图片(数组JSON)',
+  `app_version` VARCHAR(64) NULL COMMENT '应用版本',
+  `os_version` VARCHAR(64) NULL COMMENT '系统版本',
+  `device_model` VARCHAR(128) NULL COMMENT '设备型号',
+  `network_type` VARCHAR(16) NULL COMMENT 'wifi|4g|5g',
+  `page_route` VARCHAR(255) NULL COMMENT '页面路由',
+  `user_id` BIGINT NULL COMMENT '用户ID',
+  `extra_data` VARCHAR(4000) NULL COMMENT '扩展信息(JSON)',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'NEW' COMMENT 'NEW/IN_PROGRESS/RESOLVED/REJECTED',
+  `handler_user_id` BIGINT NULL COMMENT '处理人',
+  `handler_remark` VARCHAR(1024) NULL COMMENT '处理备注',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_status_time` (`status`, `created_time`),
+  KEY `idx_type_time` (`type`, `created_time`),
+  KEY `idx_user_time` (`user_id`, `created_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户反馈';
+
+-- 语音资源表（保存语音文件元数据）
+CREATE TABLE IF NOT EXISTS `voice_assets` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '所属用户ID',
+  `message_id` BIGINT NULL COMMENT '关联消息ID',
+  `file_key` VARCHAR(512) NOT NULL COMMENT '存储键',
+  `content_type` VARCHAR(64) NULL COMMENT 'MIME 类型',
+  `size_bytes` BIGINT NULL COMMENT '大小(字节)',
+  `duration_ms` INT NULL COMMENT '时长(毫秒)',
+  `format` VARCHAR(16) NULL COMMENT 'mp3/wav/ogg等',
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_time` (`user_id`, `id`),
+  KEY `idx_message` (`message_id`),
+  UNIQUE KEY `uk_file_key` (`file_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='语音资源表';

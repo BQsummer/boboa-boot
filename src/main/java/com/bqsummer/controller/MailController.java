@@ -1,9 +1,9 @@
 package com.bqsummer.controller;
 
-import com.bqsummer.common.vo.req.SendMailRequest;
-import com.bqsummer.plugin.message.center.EmailTemplate;
-import com.bqsummer.plugin.message.center.MessageCenterService;
-import com.bqsummer.plugin.message.center.NotifyUser;
+import com.bqsummer.common.vo.req.auth.SendMailRequest;
+import com.bqsummer.service.notify.EmailTemplate;
+import com.bqsummer.service.notify.MessageCenterService;
+import com.bqsummer.service.notify.NotifyUser;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;

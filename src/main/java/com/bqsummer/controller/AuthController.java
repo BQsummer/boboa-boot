@@ -1,15 +1,16 @@
 package com.bqsummer.controller;
 
 
-import com.bqsummer.common.vo.resp.AuthResponse;
-import com.bqsummer.common.vo.req.LoginRequest;
-import com.bqsummer.common.vo.req.RegisterRequest;
+import com.bqsummer.common.vo.resp.auth.AuthResponse;
+import com.bqsummer.common.vo.req.auth.LoginRequest;
+import com.bqsummer.common.vo.req.auth.RegisterRequest;
 import com.bqsummer.framework.security.TokenBlacklistService;
 import com.bqsummer.service.auth.AuthService;
 import com.bqsummer.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Slf4j
 public class AuthController {
 
     private final AuthService authService;
@@ -36,6 +38,7 @@ public class AuthController {
             AuthResponse response = authService.register(request);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            log.warn("Registration error: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
@@ -49,6 +52,7 @@ public class AuthController {
             AuthResponse response = authService.login(request);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            log.warn("Login error: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
@@ -62,6 +66,7 @@ public class AuthController {
             AuthResponse response = authService.refreshToken(refreshToken);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            log.warn("Refresh token error: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }

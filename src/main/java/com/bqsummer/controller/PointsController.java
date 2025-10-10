@@ -1,11 +1,14 @@
 package com.bqsummer.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.bqsummer.plugin.points.domain.PointsActivity;
-import com.bqsummer.plugin.points.domain.PointsAccount;
-import com.bqsummer.plugin.points.domain.PointsTransaction;
-import com.bqsummer.plugin.points.service.PointsService;
-import com.bqsummer.plugin.points.service.dto.*;
+import com.bqsummer.common.dto.point.PointsActivity;
+import com.bqsummer.common.dto.point.PointsAccount;
+import com.bqsummer.common.dto.point.PointsTransaction;
+import com.bqsummer.service.PointsService;
+import com.bqsummer.common.vo.req.point.ConsumePointsRequest;
+import com.bqsummer.common.vo.req.chararcter.CreateActivityRequest;
+import com.bqsummer.common.vo.req.point.EarnPointsRequest;
+import com.bqsummer.common.vo.req.auth.UpdateActivityRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

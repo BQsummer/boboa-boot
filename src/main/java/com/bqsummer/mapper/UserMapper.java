@@ -1,7 +1,7 @@
 package com.bqsummer.mapper;
 
-import com.bqsummer.common.dto.Role;
-import com.bqsummer.common.dto.User;
+import com.bqsummer.common.dto.auth.Role;
+import com.bqsummer.common.dto.auth.User;
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
@@ -78,4 +78,18 @@ public interface UserMapper {
 
     @Update("UPDATE users SET is_deleted = 1, status = 0, updated_time = NOW() WHERE id = #{userId} AND is_deleted = 0")
     int softDelete(@Param("userId") Long userId);
+
+    /**
+     * 搜索用户（按用户名或昵称模糊搜索，排除当前用户）
+     */
+    @Select("SELECT * FROM users WHERE (username LIKE CONCAT('%', #{keyword}, '%') OR nick_name LIKE CONCAT('%', #{keyword}, '%')) " +
+            "AND id != #{currentUserId} AND is_deleted = 0 AND status = 1 ORDER BY username LIMIT 20")
+    @Results({
+        @Result(property = "nickName", column = "nick_name"),
+        @Result(property = "isDeleted", column = "is_deleted"),
+        @Result(property = "lastLoginTime", column = "last_login_time"),
+        @Result(property = "createdTime", column = "created_time"),
+        @Result(property = "updatedTime", column = "updated_time")
+    })
+    List<User> searchUsers(@Param("keyword") String keyword, @Param("currentUserId") Long currentUserId);
 }

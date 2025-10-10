@@ -1,7 +1,7 @@
 package com.bqsummer.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.bqsummer.common.dto.Message;
+import com.bqsummer.common.dto.im.Message;
 import com.bqsummer.mapper.MessageMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

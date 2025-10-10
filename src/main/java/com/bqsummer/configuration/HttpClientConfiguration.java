@@ -1,7 +1,6 @@
 package com.bqsummer.configuration;
 
 
-import com.bqsummer.framework.http.HttpClientTemplate;
 import feign.Feign;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
@@ -9,6 +8,8 @@ import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.zalando.logbook.Logbook;
+import org.zalando.logbook.okhttp.LogbookInterceptor;
 
 import java.util.concurrent.TimeUnit;
 
@@ -27,20 +28,14 @@ public class HttpClientConfiguration {
     }
 
     @Bean
-    public OkHttpClient okHttpClient() {
+    public OkHttpClient okHttpClient(Logbook logbook) {
         return new OkHttpClient.Builder()
                 .connectTimeout(properties.getConnectTimeout(), TimeUnit.SECONDS)
                 .readTimeout(properties.getReadTimeout(), TimeUnit.SECONDS)
                 .writeTimeout(properties.getWriteTimeout(), TimeUnit.SECONDS)
                 .retryOnConnectionFailure(properties.getRetryOnConnectionFailure())
                 .connectionPool(new ConnectionPool(properties.getConnectionPool().getMaxIdleConnections(), properties.getConnectionPool().getKeepAliveDuration(), properties.getConnectionPool().getTimeUnit()))
-//                .addInterceptor(new OkHttpInterceptor(properties))
+                .addNetworkInterceptor(new LogbookInterceptor(logbook))
                 .build();
     }
-
-    @Bean
-    public HttpClientTemplate getHttpClientTemplate() {
-        return new HttpClientTemplate();
-    }
-
 }

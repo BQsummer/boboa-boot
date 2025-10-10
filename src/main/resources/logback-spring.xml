@@ -16,7 +16,7 @@
             <maxFileSize>100MB</maxFileSize>
         </triggeringPolicy>
         <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
-            <layout class="com.bqsummer.framework.log.SnorlaxLogPatternLayout">
+            <layout class="com.bqsummer.framework.log.LogPatternLayout">
                 <pattern>
 <!--                    {"logtime":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","thread":"%thread","logger":"%logger{36}","line":%line,"msg":%msg}\n-->
                     ${CONSOLE_LOG_PATTERN:-%highlight(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}}){faint} %highlight(${LOG_LEVEL_PATTERN:-%5p}) [%L] %highlight([%15.15t]){faint} %highlight(%-40.40logger{39}){cyan} %highlight(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%ex}}
@@ -28,7 +28,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
-            <layout class="com.bqsummer.framework.log.SnorlaxLogPatternLayout">
+            <layout class="com.bqsummer.framework.log.LogPatternLayout">
                 <pattern>${CONSOLE_LOG_PATTERN:-%highlight(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}}){faint} %highlight(${LOG_LEVEL_PATTERN:-%5p}) %highlight([%15.15t]){faint} %highlight(%-40.40logger{39}){cyan} [%L] %highlight(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%ex}}
                 </pattern>
             </layout>

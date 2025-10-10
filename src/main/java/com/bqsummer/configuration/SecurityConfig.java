@@ -50,6 +50,7 @@ public class SecurityConfig {
                         .requestMatchers("/flux/**").permitAll()
                         .requestMatchers("/home").permitAll()
                         .requestMatchers("/", "/index.html", "/static/**").permitAll()
+                        .requestMatchers("/api/v1/feedback/submit").permitAll()
                         // 需要USER角色的接口
                         .requestMatchers("/api/v1/user/**").hasRole("USER")
                         // 需要ADMIN角色的接口

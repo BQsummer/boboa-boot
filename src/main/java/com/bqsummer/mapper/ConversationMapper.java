@@ -1,8 +1,8 @@
 package com.bqsummer.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.bqsummer.common.dto.Conversation;
-import com.bqsummer.common.vo.resp.ConversationItem;
+import com.bqsummer.common.dto.im.Conversation;
+import com.bqsummer.common.vo.resp.im.ConversationItem;
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;

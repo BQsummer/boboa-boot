@@ -1,9 +1,11 @@
 package com.bqsummer.controller;
 
-import com.bqsummer.common.dto.User;
+import com.bqsummer.common.dto.auth.User;
+import com.bqsummer.common.dto.auth.UserProfile;
 import com.bqsummer.framework.security.TokenBlacklistService;
 import com.bqsummer.mapper.RefreshTokenMapper;
 import com.bqsummer.mapper.UserMapper;
+import com.bqsummer.mapper.UserProfileMapper;
 import com.bqsummer.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -23,12 +25,12 @@ public class UserController {
     private final JwtUtil jwtUtil;
     private final RefreshTokenMapper refreshTokenMapper;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserProfileMapper userProfileMapper;
 
     /**
      * 获取当前用户信息 - 需要USER角色
      */
     @GetMapping("/profile")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<User> getCurrentUserProfile(HttpServletRequest request) {
         String token = getTokenFromRequest(request);
         if (token != null) {
@@ -44,10 +46,60 @@ public class UserController {
     }
 
     /**
+     * 获取当前用户的扩展资料
+     */
+    @GetMapping("/profile/ext")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<UserProfile> getCurrentUserExtProfile(HttpServletRequest request) {
+        String token = getTokenFromRequest(request);
+        if (token == null || !jwtUtil.validateToken(token)) {
+            return ResponseEntity.status(401).build();
+        }
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        UserProfile profile = userProfileMapper.selectByUserId(userId);
+        if (profile == null) {
+            // 返回一个仅包含userId的空资料，便于前端渲染和后续提交
+            profile = UserProfile.builder().userId(userId).build();
+        }
+        return ResponseEntity.ok(profile);
+    }
+
+    /**
+     * 更新当前用户的扩展资料（无则创建）
+     */
+    @PutMapping("/profile/ext")
+    public ResponseEntity<String> upsertCurrentUserExtProfile(@RequestBody UserProfile req,
+                                                              HttpServletRequest request) {
+        String token = getTokenFromRequest(request);
+        if (token == null || !jwtUtil.validateToken(token)) {
+            return ResponseEntity.status(401).body("未授权");
+        }
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        if (userId == null) {
+            return ResponseEntity.status(401).body("未授权");
+        }
+        // 服务端强制绑定当前用户，忽略客户端传入的userId和id
+        UserProfile toSave = UserProfile.builder()
+                .userId(userId)
+                .gender(req.getGender())
+                .birthday(req.getBirthday())
+                .heightCm(req.getHeightCm())
+                .mbti(req.getMbti())
+                .occupation(req.getOccupation())
+                .interests(req.getInterests())
+                .photos(req.getPhotos())
+                .build();
+        userProfileMapper.upsert(toSave);
+        return ResponseEntity.ok("扩展资料已保存");
+    }
+
+    /**
      * 更新用户信息 - 需要USER角色
      */
     @PutMapping("/profile")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<String> updateProfile(@RequestBody User updateRequest,
                                               HttpServletRequest request) {
         String token = getTokenFromRequest(request);
@@ -64,7 +116,6 @@ public class UserController {
      * 软删除当前账号（自删）- 需要USER角色
      */
     @DeleteMapping("/profile")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Void> deleteCurrentUser(HttpServletRequest request) {
         String token = getTokenFromRequest(request);
         if (token == null || !jwtUtil.validateToken(token)) {

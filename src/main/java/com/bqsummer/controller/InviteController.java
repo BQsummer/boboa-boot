@@ -1,14 +1,18 @@
 package com.bqsummer.controller;
 
-import com.bqsummer.plugin.invite.domain.InviteCode;
-import com.bqsummer.plugin.invite.service.InviteService;
-import com.bqsummer.plugin.invite.service.dto.*;
+import com.bqsummer.common.dto.invite.InviteCode;
+import com.bqsummer.common.vo.req.invite.CreateInviteCodeRequest;
+import com.bqsummer.common.vo.req.invite.RedeemInviteRequest;
+import com.bqsummer.common.vo.resp.invite.CreateInviteCodeResponse;
+import com.bqsummer.common.vo.resp.invite.MyInviteStatsResponse;
+import com.bqsummer.common.vo.resp.invite.RedeemInviteResponse;
+import com.bqsummer.common.vo.resp.invite.ValidateInviteResponse;
+import com.bqsummer.service.InviteService;
 import com.bqsummer.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,7 +27,6 @@ public class InviteController {
     private final JwtUtil jwtUtil;
 
     @PostMapping("/codes")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<CreateInviteCodeResponse> create(@Valid @RequestBody CreateInviteCodeRequest request,
                                                            HttpServletRequest http) {
         Long userId = currentUserId(http);
@@ -40,7 +43,6 @@ public class InviteController {
     }
 
     @GetMapping("/codes/my")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<List<CreateInviteCodeResponse>> myCodes(HttpServletRequest http) {
         Long userId = currentUserId(http);
         List<CreateInviteCodeResponse> list = inviteService.listMyCodes(userId).stream().map(ic ->
@@ -69,7 +71,6 @@ public class InviteController {
     }
 
     @PostMapping("/redeem")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<RedeemInviteResponse> redeem(@Valid @RequestBody RedeemInviteRequest request,
                                                        HttpServletRequest http) {
         Long userId = currentUserId(http);
@@ -84,7 +85,6 @@ public class InviteController {
     }
 
     @PostMapping("/codes/{id}/revoke")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Void> revoke(@PathVariable("id") Long id, HttpServletRequest http) {
         Long userId = currentUserId(http);
         inviteService.revoke(userId, id);
@@ -92,7 +92,6 @@ public class InviteController {
     }
 
     @GetMapping("/my/stats")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<MyInviteStatsResponse> myStats(HttpServletRequest http) {
         Long userId = currentUserId(http);
         List<InviteCode> codes = inviteService.listMyCodes(userId);

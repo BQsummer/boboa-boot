@@ -1,10 +1,12 @@
 package com.bqsummer.service.auth;
 
 
-import com.bqsummer.common.dto.*;
-import com.bqsummer.common.vo.req.LoginRequest;
-import com.bqsummer.common.vo.req.RegisterRequest;
-import com.bqsummer.common.vo.resp.AuthResponse;
+import com.bqsummer.common.dto.auth.RefreshToken;
+import com.bqsummer.common.dto.auth.Role;
+import com.bqsummer.common.dto.auth.User;
+import com.bqsummer.common.vo.req.auth.LoginRequest;
+import com.bqsummer.common.vo.req.auth.RegisterRequest;
+import com.bqsummer.common.vo.resp.auth.AuthResponse;
 import com.bqsummer.framework.security.TokenBlacklistService;
 import com.bqsummer.mapper.RefreshTokenMapper;
 import com.bqsummer.mapper.UserMapper;
@@ -53,7 +55,6 @@ public class AuthService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .password(BCrypt.hashpw(request.getPassword(), BCrypt.gensalt()))
-                .nickName(request.getNickName() != null ? request.getNickName() : request.getUsername())
                 .status(1)
                 .build();
 
@@ -181,7 +182,6 @@ public class AuthService {
                 .userId(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
-                .nickName(user.getNickName())
                 .roles(roles)
                 .expiresIn(jwtUtil.getJwtExpiration() / 1000)
                 .build();

@@ -2,6 +2,7 @@ package com.bqsummer.util;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -18,7 +19,7 @@ import java.util.List;
 public class JwtUtil {
 
     @Value("${jwt.secret:mySecretKey123456789012345678901234567890}")
-    private String jwtSecret;
+    private static String jwtSecret;
 
     @Value("${jwt.expiration:86400000}") // 24小时
     private long jwtExpiration;
@@ -26,7 +27,7 @@ public class JwtUtil {
     @Value("${jwt.refresh-expiration:604800000}") // 7天
     private long refreshExpiration;
 
-    private SecretKey getSigningKey() {
+    private static SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -73,9 +74,18 @@ public class JwtUtil {
     /**
      * 从令牌中获取用户ID
      */
-    public Long getUserIdFromToken(String token) {
+    public static Long getUserIdFromToken(String token) {
         Claims claims = getClaimsFromToken(token);
         return claims.get("userId", Long.class);
+    }
+
+    public static Long getUserIdFromRequest(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        String token = extractBearerToken(header);
+        if (token != null && validateToken(token)) {
+            return getUserIdFromToken(token);
+        }
+        return null;
     }
 
     /**
@@ -99,7 +109,7 @@ public class JwtUtil {
     /**
      * 验证令牌
      */
-    public boolean validateToken(String token) {
+    public static boolean validateToken(String token) {
         try {
             getClaimsFromToken(token);
             return true;
@@ -123,7 +133,7 @@ public class JwtUtil {
     /**
      * 从令牌中获取Claims
      */
-    private Claims getClaimsFromToken(String token) {
+    private static Claims getClaimsFromToken(String token) {
         return Jwts.parser()
                 .setSigningKey(getSigningKey())
                 .build()

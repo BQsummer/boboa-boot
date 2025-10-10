@@ -1,7 +1,7 @@
 package com.bqsummer.framework.security;
 
 import com.bqsummer.mapper.UserMapper;
-import com.bqsummer.common.dto.User;
+import com.bqsummer.common.dto.auth.User;
 import com.bqsummer.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

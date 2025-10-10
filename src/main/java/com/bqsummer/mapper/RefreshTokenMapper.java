@@ -1,6 +1,6 @@
 package com.bqsummer.mapper;
 
-import com.bqsummer.common.dto.RefreshToken;
+import com.bqsummer.common.dto.auth.RefreshToken;
 import org.apache.ibatis.annotations.*;
 
 /**

@@ -1,60 +1,57 @@
 package com.bqsummer.common.vo;
 
-import com.google.common.collect.Maps;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
-import java.util.Map;
-
+/**
+ * 通用响应类
+ */
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
 @Builder
-public class Response {
+@NoArgsConstructor
+@AllArgsConstructor
+public class Response<T> {
 
-    public static final int SUCCESS_STATUS = 0;
-
-    private int status;
-    private int errCode;
+    private int code;
     private String message;
-    private String developerMessage;
-    private String errorLevel;
-    private String rootUrl;
+    private T data;
+    private boolean success;
 
-    public Response(int status, int code, String rootUrl, String message) {
-        this.status = status;
-        this.rootUrl = rootUrl;
-        this.message = message;
+    public static <T> Response<T> success() {
+        return new Response<>(200, "success", null, true);
     }
 
-    public Response(int status, int code, String rootUrl, String developerMessage, String message) {
-        this.status = status;
-        this.rootUrl = rootUrl;
-        this.developerMessage = developerMessage;
-        this.message = message;
+    public static <T> Response<T> success(T data) {
+        return new Response<>(200, "success", data, true);
     }
 
-    public Map<String, Object> toMap() {
-        Map<String, Object> map = Maps.newHashMap();
-        map.put("status", status);
-        map.put("message", message);
-        map.put("developerMessage", developerMessage);
-        map.put("errorLevel", errorLevel);
-        map.put("rootUrl", rootUrl);
-        return map;
+    public static <T> Response<T> success(String message, T data) {
+        return new Response<>(200, message, data, true);
     }
 
-    public static Response success() {
-        return Response.builder().errCode(SUCCESS_STATUS).build();
+    public static <T> Response<T> error(int code, String message) {
+        return new Response<>(code, message, null, false);
     }
 
-    public static Response fail(Integer errCode, String errMsg) {
-        return Response.builder().errCode(errCode).message(errMsg).build();
+    public static <T> Response<T> error(String message) {
+        return new Response<>(500, message, null, false);
     }
 
-    public static Response fail(Integer errCode, String errMsg, String developMessage) {
-        return Response.builder().errCode(errCode).message(errMsg).developerMessage(developMessage).build();
+    /**
+     * 适配异常处理所需的错误返回（包含额外明细）。
+     * message 会与 detail 合并，保持 data 为 null，success 为 false。
+     */
+    public static <T> Response<T> fail(int code, String message, String detail) {
+        String merged = (detail == null || detail.isBlank()) ? message : (message + ": " + detail);
+        return new Response<>(code, merged, null, false);
+    }
+
+    /**
+     * 适配仅包含 code 与 message 的失败返回；与 error 等价。
+     */
+    public static <T> Response<T> fail(int code, String message) {
+        return error(code, message);
     }
 }

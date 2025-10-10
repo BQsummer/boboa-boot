@@ -1,6 +1,6 @@
 package com.bqsummer.mapper;
 
-import com.bqsummer.common.dto.AiCharacter;
+import com.bqsummer.common.dto.character.AiCharacter;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
