@@ -8,6 +8,6 @@ import lombok.Getter;
 @Getter
 public class Configs {
 
-    @ConfigEle(name = "test")
-    public String testValue;
+    @ConfigEle(name = "ipWhiteList")
+    public String ipWhiteList;
 }

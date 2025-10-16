@@ -5,7 +5,6 @@ import com.bqsummer.common.dto.character.AiCharacterSetting;
 import com.bqsummer.common.vo.req.chararcter.CreateAiCharacterReq;
 import com.bqsummer.common.vo.req.chararcter.UpsertCharacterSettingReq;
 import com.bqsummer.service.AiCharacterService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-import static com.bqsummer.util.JwtUtil.getUserIdFromRequest;
 
 @RestController
 @RequestMapping("/api/v1/ai/characters")

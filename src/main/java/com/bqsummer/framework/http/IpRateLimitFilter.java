@@ -1,5 +1,6 @@
 package com.bqsummer.framework.http;
 
+import com.bqsummer.configuration.Configs;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.util.concurrent.RateLimiter;
@@ -8,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
@@ -31,6 +33,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 public class IpRateLimitFilter extends OncePerRequestFilter {
+
+    @Autowired
+    private Configs configs;
 
     private final Cache<String, RateLimiter> perIpLimiter;
     private final double permitsPerSecond;
@@ -66,21 +71,29 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
             respondForbidden(response, clientIp);
             return;
         }
+        if(StringUtils.isNotBlank(configs.getIpWhiteList())) {
+            String[] ipArray = configs.getIpWhiteList().split(",");
+            boolean isWhite = Arrays.asList(ipArray).contains(clientIp);
+            if(!isWhite) {
+                RateLimiter limiter = perIpLimiter.get(clientIp, ip -> RateLimiter.create(permitsPerSecond));
 
-        RateLimiter limiter = perIpLimiter.get(clientIp, ip -> RateLimiter.create(permitsPerSecond));
+                boolean allowed;
+                if (tryAcquireTimeoutMillis > 0) {
+                    allowed = limiter.tryAcquire(1, tryAcquireTimeoutMillis, TimeUnit.MILLISECONDS);
+                } else {
+                    allowed = limiter.tryAcquire();
+                }
 
-        boolean allowed;
-        if (tryAcquireTimeoutMillis > 0) {
-            allowed = limiter.tryAcquire(1, tryAcquireTimeoutMillis, TimeUnit.MILLISECONDS);
-        } else {
-            allowed = limiter.tryAcquire();
+                if (!allowed) {
+                    // Too many requests
+                    log.error("IP {} is rate limited", clientIp);
+                    respondTooManyRequests(response, clientIp);
+                    return;
+                }
+            }
         }
 
-        if (!allowed) {
-            // Too many requests
-            respondTooManyRequests(response, clientIp);
-            return;
-        }
+
 
         filterChain.doFilter(request, response);
     }
@@ -101,7 +114,7 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType("application/json;charset=UTF-8");
-        String body = "{\"code\":429,\"message\":\"Too many requests from IP: " + escapeJson(ip) + "\"}";
+        String body = "{\"code\":430,\"message\":\"Too many requests from IP: " + escapeJson(ip) + "\"}";
         response.getWriter().write(body);
     }
 

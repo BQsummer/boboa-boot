@@ -56,6 +56,7 @@ public class SecurityConfig {
                         // 需要ADMIN角色的接口
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/test/admin").hasRole("ADMIN")
+                        .requestMatchers("/plugin-manager/config").hasRole("ADMIN")
                         // 其他所有接口都需要认证
                         .anyRequest().authenticated()
                 );

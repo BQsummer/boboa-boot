@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 /**
  * JWT认证过滤器
  */
+@Slf4j
 @Order(2)
 @Component
 @RequiredArgsConstructor
@@ -45,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 黑名单直接拒绝认证
             if (tokenBlacklistService.contains(token)) {
                 filterChain.doFilter(request, response);
+                log.warn("Token is in blacklist, request denied. token={}", org.apache.commons.lang3.StringUtils.substring(token, 0, 10));
                 return;
             }
 
@@ -54,6 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 User dbUser = (userId != null) ? userMapper.findById(userId) : null;
                 if (dbUser == null || dbUser.getStatus() == null || dbUser.getStatus() == 0) {
                     filterChain.doFilter(request, response);
+                    log.warn("User not found or disabled, request denied. userId={}", userId);
                     return;
                 }
 

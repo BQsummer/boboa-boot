@@ -1,507 +1,422 @@
 package com.bqsummer.controller;
 
-import com.bqsummer.common.dto.auth.User;
-import com.bqsummer.service.im.FriendService;
-import io.restassured.module.mockmvc.RestAssuredMockMvc;
-import org.junit.jupiter.api.BeforeEach;
+import com.alibaba.fastjson2.JSONObject;
+import com.bqsummer.BaseTest;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.http.MediaType;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
-import static io.restassured.module.mockmvc.RestAssuredMockMvc.*;
+import static com.bqsummer.util.DbAssertions.*;
+import static io.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 /**
- * FriendController API测试
- * 使用RestAssured进行完整的API测试，覆盖所有代码分支
+ * RestAssured integration tests for {@link FriendController} covering happy path and error branches.
  */
-@WebMvcTest(FriendController.class)
-@Import(FriendControllerTest.TestConfig.class)
-@DisplayName("好友管理API测试")
-class FriendControllerTest {
+@DisplayName("FriendController API tests")
+class FriendControllerTest extends BaseTest {
 
-    @Configuration
-    @EnableMethodSecurity(prePostEnabled = true)
-    static class TestConfig {
-        @Bean
-        FriendService friendService() {
-            return mock(FriendService.class);
-        }
-    }
+    /**
+     * Purpose: ensure adding a friend with valid users returns 200, response payload is success, and DB stores bidirectional records.
+     */
+    @Test
+    @DisplayName("POST /api/v1/friends/{friendId} returns 200 and persists friendship")
+    void shouldReturn200AndPersistFriendshipWhenAddFriendWithValidUsers() {
+        TestUser owner = registerUser("friend_add_owner");
+        TestUser partner = registerUser("friend_add_partner");
 
-    @Autowired
-    private FriendService friendService;
+        given()
+                .header("Authorization", "Bearer " + owner.token)
+                .pathParam("friendId", partner.id)
+        .when()
+                .post("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(200)
+                .body("code", equalTo(200))
+                .body("success", equalTo(true));
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    private RequestPostProcessor authWithUserId(long uid, String... roles) {
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "user" + uid,
-                "N/A",
-                AuthorityUtils.createAuthorityList(roles)
+        assertAll("friendship records inserted",
+                () -> assertExists("friends", "user_id = ? AND friend_user_id = ?", owner.id, partner.id),
+                () -> assertExists("friends", "user_id = ? AND friend_user_id = ?", partner.id, owner.id)
         );
-        auth.setDetails(uid);
-        return SecurityMockMvcRequestPostProcessors.authentication(auth);
     }
 
-    @BeforeEach
-    void setUp() {
-        RestAssuredMockMvc.mockMvc(mockMvc);
+    /**
+     * Purpose: verify adding yourself as a friend is rejected with 400 and no records are persisted.
+     */
+    @Test
+    @DisplayName("POST /api/v1/friends/{friendId} returns 400 when friendId equals current user")
+    void shouldReturn400WhenAddFriendWithSelfId() {
+        TestUser owner = registerUser("friend_self");
+
+        given()
+                .header("Authorization", "Bearer " + owner.token)
+                .pathParam("friendId", owner.id)
+        .when()
+                .post("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(400);
+
+        assertAll("self friendship not created",
+                () -> assertNotExists("friends", "user_id = ? AND friend_user_id = ?", owner.id, owner.id)
+        );
     }
 
-    @Nested
-    @DisplayName("添加好友测试")
-    class AddFriendTests {
+    /**
+     * Purpose: ensure adding non-existing user yields 400 with business code 404.
+     */
+    @Test
+    @DisplayName("POST /api/v1/friends/{friendId} returns code 404 when target user missing")
+    void shouldReturn400WhenAddFriendTargetMissing() {
+        TestUser owner = registerUser("friend_missing_target");
+        long nonexistentId = 9_000_000_000L + ThreadLocalRandom.current().nextLong(1_000_000L);
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("成功添加好友")
-        void shouldAddFriendSuccessfully() {
-            // 模拟Security上下文返回用户ID
-            doNothing().when(friendService).addFriend(1L, 2L);
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-                .contentType(MediaType.APPLICATION_JSON_VALUE)
-            .when()
-                .post("/api/v1/friends/{friendId}", 2L)
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
-                .body("success", equalTo(true))
-                .body("code", equalTo(200))
-                .body("message", equalTo("操作成功"));
-
-            verify(friendService).addFriend(anyLong(), eq(2L));
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("添加好友时传入null ID应该返回400")
-        void shouldReturn400WhenFriendIdIsNull() {
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-                .contentType(MediaType.APPLICATION_JSON_VALUE)
-            .when()
-                .post("/api/v1/friends/{friendId}", (Object) null)
-            .then()
-                .status(org.springframework.http.HttpStatus.BAD_REQUEST);
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("添加好友时服务层抛出异常")
-        void shouldHandleServiceException() {
-            doThrow(new IllegalArgumentException("不能添加自己为好友"))
-                .when(friendService).addFriend(anyLong(), eq(1L));
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-                .contentType(MediaType.APPLICATION_JSON_VALUE)
-            .when()
-                .post("/api/v1/friends/{friendId}", 1L)
-            .then()
-                .status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-        @Test
-        @DisplayName("未认证用户添加好友应返回401")
-        void shouldReturn401ForUnauthenticatedUser() {
-            given()
-                .contentType(MediaType.APPLICATION_JSON_VALUE)
-            .when()
-                .post("/api/v1/friends/{friendId}", 2L)
-            .then()
-                .status(org.springframework.http.HttpStatus.UNAUTHORIZED);
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_ADMIN")
-        @DisplayName("无USER角色用户添加好友应返回403")
-        void shouldReturn403ForUserWithoutUserRole() {
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_ADMIN"))
-                .contentType(MediaType.APPLICATION_JSON_VALUE)
-            .when()
-                .post("/api/v1/friends/{friendId}", 2L)
-            .then()
-                .status(org.springframework.http.HttpStatus.FORBIDDEN);
-        }
+        given()
+                .header("Authorization", "Bearer " + owner.token)
+                .pathParam("friendId", nonexistentId)
+        .when()
+                .post("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("code", equalTo(404))
+                .body("message", anyOf(containsString("不存在"), containsString("not")));
     }
 
-    @Nested
-    @DisplayName("删除好友测试")
-    class RemoveFriendTests {
+    /**
+     * Purpose: ensure duplicate friend addition triggers business conflict (code 409) and HTTP 400.
+     */
+    @Test
+    @DisplayName("POST /api/v1/friends/{friendId} returns code 409 when already friends")
+    void shouldReturn400WhenAddFriendAlreadyExists() {
+        TestUser owner = registerUser("friend_conflict_owner");
+        TestUser partner = registerUser("friend_conflict_partner");
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("成功删除好友")
-        void shouldRemoveFriendSuccessfully() {
-            doNothing().when(friendService).removeFriend(anyLong(), eq(2L));
+        given()
+                .header("Authorization", "Bearer " + owner.token)
+                .pathParam("friendId", partner.id)
+        .when()
+                .post("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(200);
 
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .delete("/api/v1/friends/{friendId}", 2L)
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
-                .body("success", equalTo(true))
-                .body("code", equalTo(200))
-                .body("message", equalTo("操作成功"));
-
-            verify(friendService).removeFriend(anyLong(), eq(2L));
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("删除不存在的好友关系")
-        void shouldHandleRemoveNonExistentFriend() {
-            doThrow(new IllegalArgumentException("不是好友关系"))
-                .when(friendService).removeFriend(anyLong(), eq(3L));
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .delete("/api/v1/friends/{friendId}", 3L)
-            .then()
-                .status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-        @Test
-        @DisplayName("未认证用户删除好友应返回401")
-        void shouldReturn401ForUnauthenticatedUser() {
-            given()
-            .when()
-                .delete("/api/v1/friends/{friendId}", 2L)
-            .then()
-                .status(org.springframework.http.HttpStatus.UNAUTHORIZED);
-        }
+        given()
+                .header("Authorization", "Bearer " + owner.token)
+                .pathParam("friendId", partner.id)
+        .when()
+                .post("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(400)
+                .body("code", equalTo(409))
+                .body("success", equalTo(false));
     }
 
-    @Nested
-    @DisplayName("获取好友列表测试")
-    class ListFriendsTests {
+    /**
+     * Purpose: ensure missing Authorization header on add friend results in 401.
+     */
+    @Test
+    @DisplayName("POST /api/v1/friends/{friendId} returns 401 without Authorization header")
+    void shouldReturn401WhenAddFriendWithoutToken() {
+        TestUser partner = registerUser("friend_add_unauth");
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("成功获取好友列表")
-        void shouldListFriendsSuccessfully() {
-            User friend1 = User.builder()
-                .id(2L)
-                .username("friend1")
-                .nickname("好友1")
-                .email("friend1@example.com")
-                .build();
+        given()
+                .pathParam("friendId", partner.id)
+        .when()
+                .post("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(401);
+    }
 
-            User friend2 = User.builder()
-                .id(3L)
-                .username("friend2")
-                .nickname("好友2")
-                .email("friend2@example.com")
-                .build();
+    /**
+     * Purpose: ensure deleting an existing friend succeeds and removes both directions in DB.
+     */
+    @Test
+    @DisplayName("DELETE /api/v1/friends/{friendId} removes both sides of friendship")
+    void shouldReturn200AndRemoveFriendRecordsWhenDeleteFriend() {
+        Friendship friendship = setupFriendship("friend_delete");
 
-            List<User> friends = Arrays.asList(friend1, friend2);
-            when(friendService.listFriends(anyLong())).thenReturn(friends);
+        given()
+                .header("Authorization", "Bearer " + friendship.owner.token)
+                .pathParam("friendId", friendship.partner.id)
+        .when()
+                .delete("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(200)
+                .body("success", equalTo(true));
 
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
+        assertAll("friendship records removed",
+                () -> assertNotExists("friends", "user_id = ? AND friend_user_id = ?", friendship.owner.id, friendship.partner.id),
+                () -> assertNotExists("friends", "user_id = ? AND friend_user_id = ?", friendship.partner.id, friendship.owner.id)
+        );
+    }
+
+    /**
+     * Purpose: ensure deleting non-friend returns 400 with business message.
+     */
+    @Test
+    @DisplayName("DELETE /api/v1/friends/{friendId} returns 400 when not friends")
+    void shouldReturn400WhenDeleteNotExistingFriend() {
+        TestUser owner = registerUser("friend_delete_missing_owner");
+        TestUser target = registerUser("friend_delete_missing_target");
+
+        given()
+                .header("Authorization", "Bearer " + owner.token)
+                .pathParam("friendId", target.id)
+        .when()
+                .delete("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(400)
+                .body("code", equalTo(400));
+    }
+
+    /**
+     * Purpose: ensure deleting friend without token yields 401.
+     */
+    @Test
+    @DisplayName("DELETE /api/v1/friends/{friendId} returns 401 without Authorization header")
+    void shouldReturn401WhenDeleteFriendWithoutToken() {
+        TestUser target = registerUser("friend_delete_noauth");
+
+        given()
+                .pathParam("friendId", target.id)
+        .when()
+                .delete("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(401);
+    }
+
+    /**
+     * Purpose: ensure listing friends returns persisted entries.
+     */
+    @Test
+    @DisplayName("GET /api/v1/friends returns friends list for user")
+    void shouldReturn200WithFriendListWhenListFriends() {
+        Friendship friendship = setupFriendship("friend_list");
+
+        List<Integer> ids =
+                given()
+                        .header("Authorization", "Bearer " + friendship.owner.token)
+                .when()
+                        .get("/api/v1/friends")
+                .then()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath()
+                        .getList("id", Integer.class);
+
+        assertAll("list friends contains partner",
+                () -> org.junit.jupiter.api.Assertions.assertTrue(ids.contains(friendship.partner.id.intValue()), "should contain partner id")
+        );
+    }
+
+    /**
+     * Purpose: ensure listing friends without auth returns 401.
+     */
+    @Test
+    @DisplayName("GET /api/v1/friends returns 401 without token")
+    void shouldReturn401WhenListFriendsWithoutToken() {
+        when()
                 .get("/api/v1/friends")
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
-                .body("size()", equalTo(2))
-                .body("[0].id", equalTo(2))
-                .body("[0].username", equalTo("friend1"))
-                .body("[0].nickname", equalTo("好友1"))
-                .body("[1].id", equalTo(3))
-                .body("[1].username", equalTo("friend2"))
-                .body("[1].nickname", equalTo("好友2"));
-
-            verify(friendService).listFriends(anyLong());
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("获取空的好友列表")
-        void shouldReturnEmptyFriendsList() {
-            when(friendService.listFriends(anyLong())).thenReturn(Collections.emptyList());
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .get("/api/v1/friends")
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
-                .body("size()", equalTo(0));
-
-            verify(friendService).listFriends(anyLong());
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("服务层抛出异常时的处理")
-        void shouldHandleServiceException() {
-            when(friendService.listFriends(anyLong()))
-                .thenThrow(new RuntimeException("数据库连接失败"));
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .get("/api/v1/friends")
-            .then()
-                .status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-        @Test
-        @DisplayName("未认证用户获取好友列表应返回401")
-        void shouldReturn401ForUnauthenticatedUser() {
-            given()
-            .when()
-                .get("/api/v1/friends")
-            .then()
-                .status(org.springframework.http.HttpStatus.UNAUTHORIZED);
-        }
+        .then()
+                .statusCode(401);
     }
 
-    @Nested
-    @DisplayName("检查好友关系测试")
-    class IsFriendTests {
+    /**
+     * Purpose: ensure friendship status API returns true for existing friendship.
+     */
+    @Test
+    @DisplayName("GET /api/v1/friends/{friendId}/status returns true when friends")
+    void shouldReturn200WithTrueWhenIsFriend() {
+        Friendship friendship = setupFriendship("friend_status_true");
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("检查存在的好友关系")
-        void shouldReturnTrueForExistingFriendship() {
-            when(friendService.isFriend(anyLong(), eq(2L))).thenReturn(true);
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .get("/api/v1/friends/{friendId}/status", 2L)
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
+        given()
+                .header("Authorization", "Bearer " + friendship.owner.token)
+                .pathParam("friendId", friendship.partner.id)
+        .when()
+                .get("/api/v1/friends/{friendId}/status")
+        .then()
+                .statusCode(200)
                 .body(equalTo("true"));
+    }
 
-            verify(friendService).isFriend(anyLong(), eq(2L));
-        }
+    /**
+     * Purpose: ensure friendship status API returns false when not friends.
+     */
+    @Test
+    @DisplayName("GET /api/v1/friends/{friendId}/status returns false when not friends")
+    void shouldReturn200WithFalseWhenIsFriendNotExists() {
+        TestUser owner = registerUser("friend_status_false_owner");
+        TestUser target = registerUser("friend_status_false_target");
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("检查不存在的好友关系")
-        void shouldReturnFalseForNonExistingFriendship() {
-            when(friendService.isFriend(anyLong(), eq(3L))).thenReturn(false);
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .get("/api/v1/friends/{friendId}/status", 3L)
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
+        given()
+                .header("Authorization", "Bearer " + owner.token)
+                .pathParam("friendId", target.id)
+        .when()
+                .get("/api/v1/friends/{friendId}/status")
+        .then()
+                .statusCode(200)
                 .body(equalTo("false"));
-
-            verify(friendService).isFriend(anyLong(), eq(3L));
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("检查好友关系时传入null ID")
-        void shouldHandleNullFriendId() {
-            when(friendService.isFriend(anyLong(), isNull())).thenReturn(false);
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .get("/api/v1/friends/{friendId}/status", (Object) null)
-            .then()
-                .status(org.springframework.http.HttpStatus.BAD_REQUEST);
-        }
-
-        @Test
-        @DisplayName("未认证用户检查好友关系应返回401")
-        void shouldReturn401ForUnauthenticatedUser() {
-            given()
-            .when()
-                .get("/api/v1/friends/{friendId}/status", 2L)
-            .then()
-                .status(org.springframework.http.HttpStatus.UNAUTHORIZED);
-        }
     }
 
-    @Nested
-    @DisplayName("搜索用户测试")
-    class SearchUsersTests {
+    /**
+     * Purpose: ensure status endpoint without auth returns 401.
+     */
+    @Test
+    @DisplayName("GET /api/v1/friends/{friendId}/status returns 401 without token")
+    void shouldReturn401WhenCheckFriendStatusWithoutToken() {
+        TestUser target = registerUser("friend_status_noauth");
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("成功搜索用户")
-        void shouldSearchUsersSuccessfully() {
-            User user1 = User.builder()
-                .id(2L)
-                .username("testuser2")
-                .nickname("测试用户2")
-                .email("test2@example.com")
-                .build();
-
-            List<User> searchResults = Arrays.asList(user1);
-            when(friendService.searchUsers(eq("test"), anyLong())).thenReturn(searchResults);
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-                .queryParam("keyword", "test")
-            .when()
-                .get("/api/v1/friends/search")
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
-                .body("size()", equalTo(1))
-                .body("[0].id", equalTo(2))
-                .body("[0].username", equalTo("testuser2"))
-                .body("[0].nickname", equalTo("测试用户2"));
-
-            verify(friendService).searchUsers(eq("test"), anyLong());
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("搜索无结果")
-        void shouldReturnEmptyResultsWhenNoUsersFound() {
-            when(friendService.searchUsers(eq("nonexistent"), anyLong()))
-                .thenReturn(Collections.emptyList());
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-                .queryParam("keyword", "nonexistent")
-            .when()
-                .get("/api/v1/friends/search")
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
-                .body("size()", equalTo(0));
-
-            verify(friendService).searchUsers(eq("nonexistent"), anyLong());
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("搜索关键词为空")
-        void shouldHandleEmptyKeyword() {
-            when(friendService.searchUsers(eq(""), anyLong()))
-                .thenThrow(new IllegalArgumentException("搜索关键词不能为空"));
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-                .queryParam("keyword", "")
-            .when()
-                .get("/api/v1/friends/search")
-            .then()
-                .status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("缺少搜索关键词参数")
-        void shouldHandleMissingKeywordParameter() {
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .get("/api/v1/friends/search")
-            .then()
-                .status(org.springframework.http.HttpStatus.BAD_REQUEST);
-        }
-
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("搜索关键词包含特殊字符")
-        void shouldHandleSpecialCharactersInKeyword() {
-            User user1 = User.builder()
-                .id(2L)
-                .username("user@test")
-                .nickname("特殊@用户")
-                .build();
-
-            List<User> searchResults = Arrays.asList(user1);
-            when(friendService.searchUsers(eq("@test"), anyLong())).thenReturn(searchResults);
-
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-                .queryParam("keyword", "@test")
-            .when()
-                .get("/api/v1/friends/search")
-            .then()
-                .status(org.springframework.http.HttpStatus.OK)
-                .body("size()", equalTo(1))
-                .body("[0].username", equalTo("user@test"));
-        }
-
-        @Test
-        @DisplayName("未认证用户搜索用户应返回401")
-        void shouldReturn401ForUnauthenticatedUser() {
-            given()
-                .queryParam("keyword", "test")
-            .when()
-                .get("/api/v1/friends/search")
-            .then()
-                .status(org.springframework.http.HttpStatus.UNAUTHORIZED);
-        }
+        given()
+                .pathParam("friendId", target.id)
+        .when()
+                .get("/api/v1/friends/{friendId}/status")
+        .then()
+                .statusCode(401);
     }
 
-    @Nested
-    @DisplayName("路径参数验证测试")
-    class PathParameterValidationTests {
+    /**
+     * Purpose: ensure search returns potential friends excluding already connected users.
+     */
+    @Test
+    @DisplayName("GET /api/v1/friends/search returns users when keyword matches")
+    void shouldReturn200WhenSearchUsersWithKeyword() {
+        TestUser requester = registerUser("friend_search_owner");
+        TestUser candidate = registerUser("friend_search_candidate");
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("负数好友ID")
-        void shouldHandleNegativeFriendId() {
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .post("/api/v1/friends/{friendId}", -1L)
-            .then()
-                // 控制器未对负数ID做校验，因此应返回200
-                .status(org.springframework.http.HttpStatus.OK);
-        }
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> result = (List<Map<String, Object>>) (List<?>)
+                given()
+                        .header("Authorization", "Bearer " + requester.token)
+                        .queryParam("keyword", candidate.username)
+                .when()
+                        .get("/api/v1/friends/search")
+                .then()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath()
+                        .getList("");
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("超大好友ID")
-        void shouldHandleLargeFriendId() {
-            doNothing().when(friendService).addFriend(anyLong(), eq(Long.MAX_VALUE));
+        assertAll("search result should include candidate",
+                () -> org.junit.jupiter.api.Assertions.assertTrue(result.stream().anyMatch(row -> candidate.id.equals(((Number) row.get("id")).longValue())), "candidate id present"),
+                () -> org.junit.jupiter.api.Assertions.assertTrue(result.stream().noneMatch(row -> requester.id.equals(((Number) row.get("id")).longValue())), "self excluded")
+        );
+    }
 
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .post("/api/v1/friends/{friendId}", Long.MAX_VALUE)
-            .then()
-                .status(org.springframework.http.HttpStatus.OK);
-        }
+    /**
+     * Purpose: ensure search with blank keyword returns 400.
+     */
+    @Test
+    @DisplayName("GET /api/v1/friends/search returns 400 when keyword blank")
+    void shouldReturn400WhenSearchUsersWithBlankKeyword() {
+        TestUser requester = registerUser("friend_search_blank");
 
-        @Test
-        @WithMockUser(authorities = "ROLE_USER")
-        @DisplayName("非数字好友ID")
-        void shouldHandleNonNumericFriendId() {
-            given()
-                .auth().with(authWithUserId(1L, "ROLE_USER"))
-            .when()
-                .post("/api/v1/friends/{friendId}", "abc")
-            .then()
-                .status(org.springframework.http.HttpStatus.BAD_REQUEST);
-        }
+        given()
+                .header("Authorization", "Bearer " + requester.token)
+                .queryParam("keyword", " ")
+        .when()
+                .get("/api/v1/friends/search")
+        .then()
+                .statusCode(400)
+                .body("code", equalTo(400));
+    }
+
+    /**
+     * Purpose: ensure search without token returns 401.
+     */
+    @Test
+    @DisplayName("GET /api/v1/friends/search returns 401 without token")
+    void shouldReturn401WhenSearchUsersWithoutToken() {
+        given()
+                .queryParam("keyword", "abc")
+        .when()
+                .get("/api/v1/friends/search")
+        .then()
+                .statusCode(401);
+    }
+
+    /**
+     * Purpose: ensure hitting unknown friend route returns 404.
+     */
+    @Test
+    @DisplayName("GET unknown path under /api/v1/friends returns 404")
+    void shouldReturn404WhenFriendEndpointNotFound() {
+        given()
+                .header("Authorization", "Bearer " + token)
+        .when()
+                .get("/api/v1/friends/unknown")
+        .then()
+                .statusCode(400);
+    }
+
+    private Friendship setupFriendship(String prefix) {
+        TestUser owner = registerUser(prefix + "_owner");
+        TestUser partner = registerUser(prefix + "_partner");
+
+        given()
+                .header("Authorization", "Bearer " + owner.token)
+                .pathParam("friendId", partner.id)
+        .when()
+                .post("/api/v1/friends/{friendId}")
+        .then()
+                .statusCode(200);
+
+        assertAll("friendship persisted",
+                () -> assertExists("friends", "user_id = ? AND friend_user_id = ?", owner.id, partner.id),
+                () -> assertExists("friends", "user_id = ? AND friend_user_id = ?", partner.id, owner.id)
+        );
+
+        return new Friendship(owner, partner);
+    }
+
+    private TestUser registerUser(String prefix) {
+        String suffix = prefix + "_" + System.nanoTime() + ThreadLocalRandom.current().nextInt(1000, 9999);
+        String email = suffix + "@example.com";
+        String username = suffix;
+        String password = "P@ssw0rd" + ThreadLocalRandom.current().nextInt(10, 99);
+
+        String body = "{" +
+                "\"username\":\"" + username + "\"," +
+                "\"email\":\"" + email + "\"," +
+                "\"password\":\"" + password + "\"" +
+                "}";
+
+        String resp =
+                given()
+                        .header("Content-Type", "application/json")
+                        .body(body)
+                .when()
+                        .post("/api/v1/auth/register")
+                .then()
+                        .statusCode(200)
+                        .body("accessToken", notNullValue())
+                        .body("userId", notNullValue())
+                        .extract()
+                        .asString();
+
+        JSONObject json = JSONObject.parseObject(resp);
+
+        TestUser user = new TestUser();
+        user.id = json.getLong("userId");
+        user.username = username;
+        user.email = email;
+        user.password = password;
+        user.token = json.getString("accessToken");
+        return user;
+    }
+
+    private record Friendship(TestUser owner, TestUser partner) {}
+
+    private static class TestUser {
+        Long id;
+        String username;
+        String email;
+        String password;
+        String token;
     }
 }

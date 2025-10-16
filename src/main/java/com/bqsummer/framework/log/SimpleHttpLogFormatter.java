@@ -44,12 +44,12 @@ public class SimpleHttpLogFormatter implements HttpLogFormatter {
         String ct = response.getHeaders().getFirst("Content-Type");
         StringBuilder sb = new StringBuilder();
 //        sb.append("[correlation:").append(correlation.getId()).append("] ")
-          sb.append("status:").append(response.getStatus());
+        sb.append("httpStatus=").append(response.getStatus());
         if (isTextual(ct)) {
             try {
                 String body = response.getBodyAsString();
                 if (body != null && !body.isEmpty()) {
-                    sb.append(" resBody=").append(sanitize(body));
+                    sb.append(" respBody=").append(sanitize(body));
                 }
             } catch (Exception ignore) {
                 // ignore body on error

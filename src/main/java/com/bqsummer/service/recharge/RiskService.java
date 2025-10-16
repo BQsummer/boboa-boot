@@ -22,10 +22,10 @@ public class RiskService {
         Long sumToday = orderMapper.sumAmountToday(userId);
         int countToday = orderMapper.countToday(userId);
         if (sumToday != null && sumToday + amountCents > props.getDailyUserLimitCents()) {
-            throw new SnorlaxClientException(429, "daily amount limit exceeded");
+            throw new SnorlaxClientException(431, "daily amount limit exceeded");
         }
         if (countToday >= props.getDailyUserCountLimit()) {
-            throw new SnorlaxClientException(429, "daily count limit exceeded");
+            throw new SnorlaxClientException(432, "daily count limit exceeded");
         }
     }
 }

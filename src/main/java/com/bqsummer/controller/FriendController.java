@@ -6,7 +6,6 @@ import com.bqsummer.service.im.FriendService;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +29,7 @@ public class FriendController {
      * @return 添加结果
      */
     @PostMapping("/{friendId}")
-    public ResponseEntity<Response> addFriend(@PathVariable @NotNull Long friendId) {
+    public ResponseEntity<Response<Void>> addFriend(@PathVariable @NotNull Long friendId) {
         Long uid = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
         friendService.addFriend(uid, friendId);
         return ResponseEntity.ok(Response.success());
@@ -42,7 +41,7 @@ public class FriendController {
      * @return 删除结果
      */
     @DeleteMapping("/{friendId}")
-    public ResponseEntity<Response> removeFriend(@PathVariable @NotNull Long friendId) {
+    public ResponseEntity<Response<Void>> removeFriend(@PathVariable @NotNull Long friendId) {
         Long uid = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
         friendService.removeFriend(uid, friendId);
         return ResponseEntity.ok(Response.success());

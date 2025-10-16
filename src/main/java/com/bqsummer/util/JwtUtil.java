@@ -19,7 +19,7 @@ import java.util.List;
 public class JwtUtil {
 
     @Value("${jwt.secret:mySecretKey123456789012345678901234567890}")
-    private static String jwtSecret;
+    private String jwtSecret;
 
     @Value("${jwt.expiration:86400000}") // 24小时
     private long jwtExpiration;
@@ -27,7 +27,7 @@ public class JwtUtil {
     @Value("${jwt.refresh-expiration:604800000}") // 7天
     private long refreshExpiration;
 
-    private static SecretKey getSigningKey() {
+    private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -74,12 +74,12 @@ public class JwtUtil {
     /**
      * 从令牌中获取用户ID
      */
-    public static Long getUserIdFromToken(String token) {
+    public Long getUserIdFromToken(String token) {
         Claims claims = getClaimsFromToken(token);
         return claims.get("userId", Long.class);
     }
 
-    public static Long getUserIdFromRequest(HttpServletRequest request) {
+    public Long getUserIdFromRequest(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         String token = extractBearerToken(header);
         if (token != null && validateToken(token)) {
@@ -109,7 +109,7 @@ public class JwtUtil {
     /**
      * 验证令牌
      */
-    public static boolean validateToken(String token) {
+    public boolean validateToken(String token) {
         try {
             getClaimsFromToken(token);
             return true;
@@ -133,7 +133,7 @@ public class JwtUtil {
     /**
      * 从令牌中获取Claims
      */
-    private static Claims getClaimsFromToken(String token) {
+    private Claims getClaimsFromToken(String token) {
         return Jwts.parser()
                 .setSigningKey(getSigningKey())
                 .build()

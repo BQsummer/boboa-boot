@@ -108,7 +108,7 @@ public class InviteService {
         // IP防刷：每天最多次数
         LocalDateTime since = LocalDateTime.now().minusDays(1);
         if (StringUtils.hasText(clientIp) && usageMapper.countByIpSince(clientIp, since) >= MAX_REDEEM_PER_IP_PER_DAY) {
-            throw new SnorlaxClientException(429, "too many redeems from this IP");
+            throw new SnorlaxClientException(433, "too many redeems from this IP");
         }
         InviteCode ic = codeMapper.findByCode(req.getCode());
         if (ic == null) throw new SnorlaxClientException(404, "invalid code");

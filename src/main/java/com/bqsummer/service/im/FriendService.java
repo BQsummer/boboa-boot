@@ -1,172 +1,136 @@
 package com.bqsummer.service.im;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bqsummer.common.dto.auth.User;
+import com.bqsummer.common.dto.im.Friend;
+import com.bqsummer.framework.exception.SnorlaxClientException;
+import com.bqsummer.mapper.FriendMapper;
+import com.bqsummer.mapper.UserMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 好友服务实现类
+ * 好友关系业务逻辑
  */
 @Service
+@RequiredArgsConstructor
 public class FriendService {
 
-    // 模拟数据存储
-    private final Map<Long, User> userStore = new HashMap<>();
-    private final Map<Long, List<Long>> friendRelations = new HashMap<>();
+    private final FriendMapper friendMapper;
+    private final UserMapper userMapper;
 
-    public FriendService() {
-        // 初始化测试数据
-        initTestData();
-    }
-
-    private void initTestData() {
-        // 创建测试用户
-        User user1 = User.builder()
-                .id(1L)
-                .username("testuser1")
-                .nickname("测试用户1")
-                .email("test1@example.com")
-                .avatar("avatar1.jpg")
-                .phone("13800138001")
-                .status(1)
-                .createTime(LocalDateTime.now())
-                .updateTime(LocalDateTime.now())
-                .build();
-
-        User user2 = User.builder()
-                .id(2L)
-                .username("testuser2")
-                .nickname("测试用户2")
-                .email("test2@example.com")
-                .avatar("avatar2.jpg")
-                .phone("13800138002")
-                .status(1)
-                .createTime(LocalDateTime.now())
-                .updateTime(LocalDateTime.now())
-                .build();
-
-        User user3 = User.builder()
-                .id(3L)
-                .username("testuser3")
-                .nickname("测试用户3")
-                .email("test3@example.com")
-                .avatar("avatar3.jpg")
-                .phone("13800138003")
-                .status(1)
-                .createTime(LocalDateTime.now())
-                .updateTime(LocalDateTime.now())
-                .build();
-
-        userStore.put(1L, user1);
-        userStore.put(2L, user2);
-        userStore.put(3L, user3);
-
-        // 初始化好友关系
-        friendRelations.put(1L, new ArrayList<>());
-        friendRelations.put(2L, new ArrayList<>());
-        friendRelations.put(3L, new ArrayList<>());
-    }
-
-    /**
-     * 添加好友
-     */
+    @Transactional
     public void addFriend(Long userId, Long friendId) {
-        if (userId == null || friendId == null) {
-            throw new IllegalArgumentException("用户ID不能为空");
-        }
+        validateUserIds(userId, friendId);
 
-        if (userId.equals(friendId)) {
-            throw new IllegalArgumentException("不能添加自己为好友");
-        }
-
-        if (!userStore.containsKey(userId) || !userStore.containsKey(friendId)) {
-            throw new IllegalArgumentException("用户不存在");
-        }
+        ensureUserExists(userId);
+        ensureUserExists(friendId);
 
         if (isFriend(userId, friendId)) {
-            throw new IllegalArgumentException("已经是好友关系");
+            throw new SnorlaxClientException(409, "已经是好友关系");
         }
 
-        friendRelations.get(userId).add(friendId);
-        friendRelations.get(friendId).add(userId);
+        LocalDateTime now = LocalDateTime.now();
+        Friend forward = new Friend();
+        forward.setUserId(userId);
+        forward.setFriendUserId(friendId);
+        forward.setCreatedTime(now);
+
+        Friend reverse = new Friend();
+        reverse.setUserId(friendId);
+        reverse.setFriendUserId(userId);
+        reverse.setCreatedTime(now);
+
+        try {
+            friendMapper.insert(forward);
+            friendMapper.insert(reverse);
+        } catch (DuplicateKeyException ex) {
+            // 并发场景下的幂等保护，事务会自动回滚
+            throw new SnorlaxClientException(409, "已经是好友关系");
+        }
     }
 
-    /**
-     * 删除好友
-     */
+    @Transactional
     public void removeFriend(Long userId, Long friendId) {
-        if (userId == null || friendId == null) {
-            throw new IllegalArgumentException("用户ID不能为空");
-        }
+        validateUserIds(userId, friendId);
 
         if (!isFriend(userId, friendId)) {
-            throw new IllegalArgumentException("不是好友关系");
+            throw new SnorlaxClientException(400, "不是好友关系");
         }
 
-        friendRelations.get(userId).remove(friendId);
-        friendRelations.get(friendId).remove(userId);
+        friendMapper.delete(new LambdaQueryWrapper<Friend>()
+                .eq(Friend::getUserId, userId)
+                .eq(Friend::getFriendUserId, friendId));
+        friendMapper.delete(new LambdaQueryWrapper<Friend>()
+                .eq(Friend::getUserId, friendId)
+                .eq(Friend::getFriendUserId, userId));
     }
 
-    /**
-     * 获取好友列表
-     */
     public List<User> listFriends(Long userId) {
         if (userId == null) {
-            throw new IllegalArgumentException("用户ID不能为空");
+            throw new SnorlaxClientException(400, "用户ID不能为空");
         }
-
-        List<Long> friendIds = friendRelations.get(userId);
-        if (friendIds == null) {
-            return new ArrayList<>();
-        }
-
-        return friendIds.stream()
-                .map(userStore::get)
-                .collect(Collectors.toList());
+        List<User> users = friendMapper.findFriendUsers(userId);
+        return users == null ? Collections.emptyList() : users;
     }
 
-    /**
-     * 检查是否为好友关系
-     */
     public boolean isFriend(Long userId, Long friendId) {
-        if (userId == null || friendId == null) {
+        if (userId == null || friendId == null || Objects.equals(userId, friendId)) {
             return false;
         }
-
-        List<Long> friendIds = friendRelations.get(userId);
-        return friendIds != null && friendIds.contains(friendId);
+    Long count = friendMapper.selectCount(new LambdaQueryWrapper<Friend>()
+                .eq(Friend::getUserId, userId)
+                .eq(Friend::getFriendUserId, friendId));
+    return count != null && count > 0;
     }
 
-    /**
-     * 搜索用户
-     */
     public List<User> searchUsers(String keyword, Long currentUserId) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            throw new IllegalArgumentException("搜索关键词不能为空");
+        if (currentUserId == null) {
+            throw new SnorlaxClientException(400, "当前用户ID不能为空");
         }
-
-        return userStore.values().stream()
-                .filter(user -> !user.getId().equals(currentUserId))
-                .filter(user -> user.getUsername().contains(keyword) ||
-                              user.getNickname().contains(keyword))
+        if (!StringUtils.hasText(keyword)) {
+            throw new SnorlaxClientException(400, "搜索关键词不能为空");
+        }
+        String trimmed = keyword.trim();
+        List<User> candidates = userMapper.searchUsers(trimmed, currentUserId);
+        if (candidates == null || candidates.isEmpty()) {
+            return Collections.emptyList();
+        }
+    Set<Long> friendIds = friendMapper.selectList(new LambdaQueryWrapper<Friend>()
+            .eq(Friend::getUserId, currentUserId))
+                .stream()
+                .map(Friend::getFriendUserId)
+                .collect(Collectors.toSet());
+        if (friendIds.isEmpty()) {
+            return candidates;
+        }
+        return candidates.stream()
+                .filter(user -> user.getId() != null && !friendIds.contains(user.getId()))
                 .collect(Collectors.toList());
     }
 
-    // 测试辅助方法
-    public User getUserById(Long userId) {
-        return userStore.get(userId);
+    private void validateUserIds(Long userId, Long friendId) {
+        if (userId == null || friendId == null) {
+            throw new SnorlaxClientException(400, "用户ID不能为空");
+        }
+        if (Objects.equals(userId, friendId)) {
+            throw new SnorlaxClientException(400, "不能添加自己为好友");
+        }
     }
 
-    public void clearFriendRelations() {
-        friendRelations.clear();
-        friendRelations.put(1L, new ArrayList<>());
-        friendRelations.put(2L, new ArrayList<>());
-        friendRelations.put(3L, new ArrayList<>());
+    private void ensureUserExists(Long userId) {
+        if (userMapper.findById(userId) == null) {
+            throw new SnorlaxClientException(404, "用户不存在");
+        }
     }
 }

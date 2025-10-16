@@ -19,14 +19,14 @@ public class User {
 
     private Long id;
     private String username;
-    private String nickname;
+    private String nickName;
     private String password;
     private String email;
     private String avatar;
     private String phone;
     private Integer status;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private LocalDateTime createdTime;
+    private LocalDateTime updatedTime;
 
     private Integer isDeleted; // 0: 未删除, 1: 已删除
     private LocalDateTime lastLoginTime;

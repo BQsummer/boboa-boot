@@ -184,6 +184,7 @@ public class ConfigService {
         config.setUpdatedAt(LocalDateTime.now());
         config.setCreatedBy("");
         config.setUpdatedBy("");
+        config.setStatus(ConfigStatus.ACTIVE);
         configMapper.insert(config);
         return Response.success();
     }

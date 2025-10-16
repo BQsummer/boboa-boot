@@ -60,8 +60,8 @@ public class ConfigController {
      * @param req
      * @return
      */
-    @PostMapping(name = "/config")
-    public Response createConfig(CreateConfigReq req) {
+    @PostMapping(name = "/")
+    public Response createConfig(@RequestBody CreateConfigReq req) {
         req.setEnv(env);
         req.setApplication(appName);
         configService.addConfig(req);
@@ -74,8 +74,8 @@ public class ConfigController {
      * @param req
      * @return
      */
-    @PutMapping(name = "/config")
-    public Response updateConfig(UpdateConfigReq req) {
+    @PutMapping(name = "/")
+    public Response updateConfig(@RequestBody UpdateConfigReq req) {
         req.setEnv(env);
         req.setApplication(appName);
         configService.updateValue(req);
