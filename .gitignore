@@ -33,3 +33,6 @@ build/
 .vscode/
 
 *.log
+
+.DS_Store
+Thumbs.db

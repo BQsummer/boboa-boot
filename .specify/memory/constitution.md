@@ -20,19 +20,6 @@ Impact: This constitution codifies existing project practices and adds language 
 
 **所有项目文档必须以中文为主体语言**。代码注释、技术规范、需求文档、设计文档等可以使用英文术语和代码示例，但核心说明、业务逻辑描述、用户场景等**必须使用中文**。
 
-具体要求：
-- 功能规格说明 (Specification)：主体内容使用中文，技术术语可保留英文
-- 实现计划 (Implementation Plan)：中文描述，代码片段使用英文
-- 任务清单 (Tasks)：任务描述使用中文，代码相关内容可使用英文
-- 用户故事 (User Stories)：**必须使用中文**
-- 需求文档 (Requirements)：中文为主，技术参数可使用英文
-- 代码注释：业务逻辑注释使用中文，技术细节注释可使用中英文混合
-
-**例外情况**：
-- 代码本身（类名、方法名、变量名）遵循Java命名规范使用英文
-- Git commit messages 可使用英文（遵循conventional commits）
-- API endpoint路径使用英文
-- 数据库表名、字段名使用英文
 
 ### II. 测试驱动开发 (Test-Driven Development - TDD)
 
