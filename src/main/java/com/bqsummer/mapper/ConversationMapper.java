@@ -47,6 +47,11 @@ public interface ConversationMapper extends BaseMapper<Conversation> {
                        @Param("messageId") Long messageId,
                        @Param("messageTime") LocalDateTime messageTime);
 
+    @Insert("INSERT INTO conversations (user_id, peer_id, unread_count, is_deleted, created_time, updated_time) " +
+            "VALUES (#{userId}, #{peerId}, 0, 0, NOW(), NOW()) " +
+            "ON DUPLICATE KEY UPDATE is_deleted=0, updated_time=NOW()")
+    int insertOrRestore(@Param("userId") Long userId, @Param("peerId") Long peerId);
+
     @Update("UPDATE conversations SET is_deleted=1, unread_count=0, updated_time=NOW() WHERE user_id=#{userId} AND peer_id=#{peerId}")
     int softDelete(@Param("userId") Long userId, @Param("peerId") Long peerId);
 }
