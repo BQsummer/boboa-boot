@@ -5,6 +5,7 @@ import com.bqsummer.common.dto.im.Friend;
 import com.bqsummer.framework.exception.SnorlaxClientException;
 import com.bqsummer.mapper.FriendMapper;
 import com.bqsummer.mapper.UserMapper;
+import com.bqsummer.mapper.ConversationMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +32,9 @@ class FriendServiceTest {
 
     @Mock
     private UserMapper userMapper;
+
+    @Mock
+    private ConversationMapper conversationMapper;
 
     @InjectMocks
     private FriendService friendService;
@@ -64,6 +68,10 @@ class FriendServiceTest {
         assertThat(saved)
                 .extracting(Friend::getFriendUserId)
                 .containsExactlyInAnyOrder(1L, 2L);
+
+        // verify conversation upserts were called for both directions
+        verify(conversationMapper, times(1)).insertOrRestore(1L, 2L);
+        verify(conversationMapper, times(1)).insertOrRestore(2L, 1L);
     }
 
     @Test

@@ -1,0 +1,44 @@
+name: 好友添加自动创建会话
+spec: .specify/specs/friend-conversation-creation.md
+generated_at: 2025-10-17T08:58:09.662Z
+tasks:
+  - id: T1
+    title: 定义/确认请求: POST /api/v1/friends/{friendId}
+    owner: backend
+    status: done
+    files:
+      - src/main/java/com/bqsummer/controller/FriendController.java
+  - id: T2
+    title: ConversationMapper 添加 insertOrRestore(userId, peerId)
+    owner: backend
+    status: done
+    files:
+      - src/main/java/com/bqsummer/mapper/ConversationMapper.java
+  - id: T3
+    title: FriendService.addFriend 中创建/恢复双向会话（同一事务）
+    owner: backend
+    status: done
+    files:
+      - src/main/java/com/bqsummer/service/im/FriendService.java
+  - id: T4
+    title: 编译验证
+    owner: backend
+    status: done
+    run:
+      - mvn -q -DskipTests compile
+  - id: T5
+    title: 新增集成测试：添加好友后自动创建会话
+    owner: backend
+    status: todo
+  - id: T6
+    title: 测试软删除会话恢复与并发幂等
+    owner: backend
+    status: todo
+  - id: T7
+    title: 运行测试
+    owner: backend
+    status: todo
+    run:
+      - mvn test
+notes:
+  - 确保 conversations(user_id, peer_id) 存在唯一索引

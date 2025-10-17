@@ -28,6 +28,7 @@ public class FriendService {
 
     private final FriendMapper friendMapper;
     private final UserMapper userMapper;
+    private final com.bqsummer.mapper.ConversationMapper conversationMapper;
 
     @Transactional
     public void addFriend(Long userId, Long friendId) {
@@ -54,6 +55,9 @@ public class FriendService {
         try {
             friendMapper.insert(forward);
             friendMapper.insert(reverse);
+            // 为双方创建或恢复会话（幂等）
+            conversationMapper.insertOrRestore(userId, friendId);
+            conversationMapper.insertOrRestore(friendId, userId);
         } catch (DuplicateKeyException ex) {
             // 并发场景下的幂等保护，事务会自动回滚
             throw new SnorlaxClientException(409, "已经是好友关系");
