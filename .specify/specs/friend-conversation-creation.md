@@ -1,144 +1,144 @@
-# Feature Specification: Friend Conversation Creation
+# 功能规格说明：添加好友时自动创建会话
 
-**Feature Branch**: `feature/friend-conversation-creation`  
-**Created**: 2025-10-17  
-**Status**: Draft  
-**Input**: User description: "我需要做一些修改, FriendController添加好友的时候, 需要添加会话Conversation"
+**功能分支**: `feature/friend-conversation-creation`  
+**创建日期**: 2025-10-17  
+**状态**: 草稿 (Draft)  
+**用户需求**: "我需要做一些修改, FriendController添加好友的时候, 需要添加会话Conversation"
 
-## User Scenarios & Testing *(mandatory)*
+## 用户场景与测试 *(必填)*
 
-### User Story 1 - Automatic Conversation Creation on Friend Add (Priority: P1)
+### 用户故事 1 - 添加好友时自动创建会话 (优先级: P1)
 
-When a user successfully adds another user as a friend, the system automatically creates a bidirectional conversation record between the two users, enabling them to immediately start messaging each other without any additional setup.
+当用户成功添加另一个用户为好友时，系统自动为两个用户创建双向的会话记录，使他们能够立即开始消息对话，无需任何额外的设置步骤。
 
-**Why this priority**: This is the core functionality - without automatic conversation creation, users would have to manually initiate conversations after adding friends, creating friction and poor UX. This is a fundamental IM system requirement.
+**优先级理由**: 这是核心功能 - 如果没有自动创建会话，用户在添加好友后还需要手动发起会话，造成操作摩擦和糟糕的用户体验。这是即时通讯系统的基本要求。
 
-**Independent Test**: Can be fully tested by calling the POST /api/v1/friends/{friendId} endpoint and verifying that conversation records are created in the database for both users.
+**独立测试**: 可以通过调用 POST /api/v1/friends/{friendId} 端点并验证数据库中为两个用户都创建了会话记录来完整测试。
 
-**Acceptance Scenarios**:
+**验收场景**:
 
-1. **Given** User A (ID=100) and User B (ID=200) are not friends and have no existing conversation, **When** User A adds User B as a friend via POST /api/v1/friends/200, **Then** the system creates:
-   - A friendship record (100 → 200 and 200 → 100)
-   - A conversation record for User A (user_id=100, peer_id=200)
-   - A conversation record for User B (user_id=200, peer_id=100)
-   - Both conversations have unread_count=0, is_deleted=0, and no last_message_id
+1. **假设** 用户 A (ID=100) 和用户 B (ID=200) 不是好友且没有会话记录，**当** 用户 A 通过 POST /api/v1/friends/200 添加用户 B 为好友，**那么** 系统创建：
+   - 好友关系记录（100 → 200 和 200 → 100）
+   - 用户 A 的会话记录（user_id=100, peer_id=200）
+   - 用户 B 的会话记录（user_id=200, peer_id=100）
+   - 两条会话记录的 unread_count=0, is_deleted=0，且没有 last_message_id
 
-2. **Given** User C (ID=300) and User D (ID=400) are not friends, **When** User D adds User C as a friend, **Then** both users can see each other in their friend list AND conversation list immediately (conversation appears even without messages)
-
----
-
-### User Story 2 - Prevent Duplicate Conversation on Existing Friendship (Priority: P2)
-
-When users who already have a conversation record (possibly soft-deleted) become friends, the system reuses or restores the existing conversation rather than creating duplicates.
-
-**Why this priority**: Prevents data inconsistency and preserves conversation history. Important for users who previously removed friends and later re-added them.
-
-**Independent Test**: Add a friend, remove the friend (soft-delete conversation), then re-add the same friend - verify conversation is restored, not duplicated.
-
-**Acceptance Scenarios**:
-
-1. **Given** User E and User F were previously friends and have a soft-deleted conversation (is_deleted=1), **When** User E adds User F as a friend again, **Then** the existing conversation records are restored (is_deleted=0) instead of creating new records
-
-2. **Given** User G and User H attempt concurrent friend additions (both clicking "add friend" simultaneously), **When** both POST requests are processed, **Then** only one pair of friendship records and one pair of conversation records are created (no duplicates due to UNIQUE constraint)
+2. **假设** 用户 C (ID=300) 和用户 D (ID=400) 不是好友，**当** 用户 D 添加用户 C 为好友，**那么** 两个用户可以立即在好友列表和会话列表中看到对方（即使没有发送消息，会话也会显示）
 
 ---
 
-### User Story 3 - Transaction Consistency (Priority: P1)
+### 用户故事 2 - 防止重复创建已有会话 (优先级: P2)
 
-Friend addition and conversation creation must succeed or fail together as an atomic operation to prevent data inconsistency.
+当已经有会话记录（可能已被软删除）的用户成为好友时，系统应该复用或恢复现有会话，而不是创建重复记录。
 
-**Why this priority**: Critical data integrity requirement - cannot have friends without conversations or conversations without friendships.
+**优先级理由**: 防止数据不一致并保留会话历史。对于之前删除好友后又重新添加的用户很重要。
 
-**Independent Test**: Simulate conversation creation failure (e.g., database constraint violation) and verify friendship creation is rolled back.
+**独立测试**: 添加好友，删除好友（软删除会话），再次添加同一个好友 - 验证会话被恢复而不是重复创建。
 
-**Acceptance Scenarios**:
+**验收场景**:
 
-1. **Given** the conversation table has a temporary constraint issue, **When** User J attempts to add User K as a friend, **Then** if conversation creation fails, the friendship records are also rolled back (transaction atomicity preserved)
+1. **假设** 用户 E 和用户 F 之前是好友关系且有软删除的会话记录（is_deleted=1），**当** 用户 E 再次添加用户 F 为好友，**那么** 现有的会话记录被恢复（is_deleted=0）而不是创建新记录
 
-2. **Given** User L attempts to add User M who does not exist, **When** the addFriend method validates user existence, **Then** neither friendship nor conversation records are created
+2. **假设** 用户 G 和用户 H 同时尝试添加对方为好友（两人同时点击"添加好友"），**当** 两个 POST 请求被处理，**那么** 只创建一对好友关系记录和一对会话记录（由于 UNIQUE 约束不会产生重复）
 
 ---
 
-### Edge Cases
+### 用户故事 3 - 事务一致性 (优先级: P1)
 
-- What happens when a user tries to add someone as a friend while a previous soft-deleted conversation exists?
-  - **Expected**: Restore the soft-deleted conversation (set is_deleted=0)
+好友添加和会话创建必须作为原子操作一起成功或失败，以防止数据不一致。
+
+**优先级理由**: 关键的数据完整性要求 - 不能有没有会话的好友关系，也不能有没有好友关系的会话。
+
+**独立测试**: 模拟会话创建失败（例如数据库约束违反）并验证好友关系创建被回滚。
+
+**验收场景**:
+
+1. **假设** 会话表存在临时约束问题，**当** 用户 J 尝试添加用户 K 为好友，**那么** 如果会话创建失败，好友关系记录也会被回滚（事务原子性得到保障）
+
+2. **假设** 用户 L 尝试添加不存在的用户 M 为好友，**当** addFriend 方法验证用户存在性，**那么** 不会创建好友关系和会话记录
+
+---
+
+### 边界情况
+
+- 当用户尝试添加好友但之前存在软删除的会话记录时会发生什么？
+  - **预期**: 恢复软删除的会话（设置 is_deleted=0）
   
-- What happens if conversation creation fails mid-transaction (e.g., database connectivity issue)?
-  - **Expected**: Entire transaction rolls back, no friend or conversation records created
+- 如果会话创建在事务执行中失败（例如数据库连接问题）会发生什么？
+  - **预期**: 整个事务回滚，不创建好友和会话记录
   
-- What happens when two users simultaneously add each other as friends?
-  - **Expected**: Both operations should succeed idempotently, resulting in one friendship pair and one conversation pair (handled by UNIQUE constraints and duplicate key handling)
+- 当两个用户同时互相添加对方为好友时会发生什么？
+  - **预期**: 两个操作都应该幂等地成功，最终只产生一对好友关系和一对会话记录（由 UNIQUE 约束和重复键处理机制保证）
   
-- What happens if the conversation table's UNIQUE constraint (user_id, peer_id) is violated?
-  - **Expected**: System handles gracefully, possibly using INSERT ... ON DUPLICATE KEY UPDATE pattern
+- 如果违反会话表的 UNIQUE 约束 (user_id, peer_id) 会发生什么？
+  - **预期**: 系统优雅处理，可能使用 INSERT ... ON DUPLICATE KEY UPDATE 模式
 
-## Requirements *(mandatory)*
+## 功能需求 *(必填)*
 
-### Functional Requirements
+### 功能性需求
 
-- **FR-001**: System MUST create a conversation record for the initiating user (user_id=initiator, peer_id=friend) when a friendship is successfully established
-- **FR-002**: System MUST create a conversation record for the target user (user_id=friend, peer_id=initiator) when a friendship is successfully established
-- **FR-003**: Conversation creation MUST happen within the same transaction as friendship creation to ensure atomicity
-- **FR-004**: System MUST set initial conversation state: unread_count=0, is_deleted=0, last_message_id=NULL, last_message_time=NULL
-- **FR-005**: System MUST handle existing soft-deleted conversations by restoring them (is_deleted=0) rather than creating duplicates
-- **FR-006**: System MUST use the conversations table's UNIQUE constraint (user_id, peer_id) to prevent duplicate conversation records
-- **FR-007**: System MUST maintain existing FriendService.addFriend behavior (validation, duplicate checking, bidirectional friend records)
+- **FR-001**: 当好友关系成功建立时，系统必须为发起用户创建会话记录（user_id=发起者, peer_id=好友）
+- **FR-002**: 当好友关系成功建立时，系统必须为目标用户创建会话记录（user_id=好友, peer_id=发起者）
+- **FR-003**: 会话创建必须在与好友关系创建相同的事务中执行，以确保原子性
+- **FR-004**: 系统必须设置初始会话状态：unread_count=0, is_deleted=0, last_message_id=NULL, last_message_time=NULL
+- **FR-005**: 系统必须通过恢复（is_deleted=0）而不是创建重复记录来处理已存在的软删除会话
+- **FR-006**: 系统必须使用 conversations 表的 UNIQUE 约束 (user_id, peer_id) 防止重复会话记录
+- **FR-007**: 系统必须维护现有的 FriendService.addFriend 行为（验证、重复检查、双向好友记录）
 
-### Key Entities
+### 关键实体
 
-- **Conversation**: Represents a chat conversation between two users
-  - `user_id`: The user who owns this conversation view
-  - `peer_id`: The other user in the conversation
-  - `last_message_id`: Reference to the most recent message (NULL initially)
-  - `last_message_time`: Timestamp of last message (NULL initially)
-  - `unread_count`: Number of unread messages (0 initially)
-  - `is_deleted`: Soft delete flag (0 for active)
-  - `created_time`: When the conversation was first created
-  - `updated_time`: When the conversation was last updated
+- **Conversation (会话)**: 表示两个用户之间的聊天会话
+  - `user_id`: 拥有此会话视图的用户
+  - `peer_id`: 会话中的另一个用户
+  - `last_message_id`: 最近消息的引用（初始为 NULL）
+  - `last_message_time`: 最后消息时间戳（初始为 NULL）
+  - `unread_count`: 未读消息数量（初始为 0）
+  - `is_deleted`: 软删除标志（0 表示活跃）
+  - `created_time`: 会话首次创建时间
+  - `updated_time`: 会话最后更新时间
 
-- **Friend**: Represents a friendship relationship (existing entity)
-  - Bidirectional: userId → friendUserId and friendUserId → userId
+- **Friend (好友)**: 表示好友关系（现有实体）
+  - 双向关系：userId → friendUserId 和 friendUserId → userId
 
-## Success Criteria *(mandatory)*
+## 成功标准 *(必填)*
 
-### Measurable Outcomes
+### 可度量的结果
 
-- **SC-001**: When a user adds a friend, conversation records MUST be created for both users within the same database transaction (verifiable via transaction logs)
-- **SC-002**: Integration tests MUST verify that calling POST /api/v1/friends/{friendId} creates exactly 2 friendship records and 2 conversation records
-- **SC-003**: Re-adding a previously removed friend MUST restore the existing conversation record (is_deleted: 1→0) without creating duplicates
-- **SC-004**: Concurrent friend additions by both users MUST result in exactly one friendship pair and one conversation pair (no duplicates)
-- **SC-005**: If conversation creation fails, the entire friend addition transaction MUST roll back (0% partial state)
+- **SC-001**: 当用户添加好友时，必须在同一个数据库事务中为两个用户创建会话记录（可通过事务日志验证）
+- **SC-002**: 集成测试必须验证调用 POST /api/v1/friends/{friendId} 会创建恰好 2 条好友记录和 2 条会话记录
+- **SC-003**: 重新添加之前删除的好友必须恢复现有会话记录（is_deleted: 1→0）而不创建重复记录
+- **SC-004**: 两个用户同时添加对方为好友必须最终只产生一对好友关系和一对会话记录（无重复）
+- **SC-005**: 如果会话创建失败，整个添加好友事务必须回滚（0% 部分状态）
 
-## Implementation Notes
+## 实现说明
 
-### Current State Analysis
+### 当前状态分析
 
-**FriendService.addFriend()** currently:
-- Validates user IDs
-- Checks user existence
-- Validates not already friends
-- Creates bidirectional Friend records in a @Transactional method
-- Handles DuplicateKeyException for idempotency
+**FriendService.addFriend()** 当前实现：
+- 验证用户 ID
+- 检查用户存在性
+- 验证是否已经是好友
+- 在 @Transactional 方法中创建双向好友记录
+- 处理 DuplicateKeyException 实现幂等性
 
-**ConversationMapper** has:
-- `upsertSender()` - INSERT ... ON DUPLICATE KEY UPDATE for sender conversations
-- `upsertReceiver()` - INSERT ... ON DUPLICATE KEY UPDATE for receiver conversations (with unread_count increment)
-- Both methods handle the case where conversation already exists
+**ConversationMapper** 已有方法：
+- `upsertSender()` - 使用 INSERT ... ON DUPLICATE KEY UPDATE 处理发送者会话
+- `upsertReceiver()` - 使用 INSERT ... ON DUPLICATE KEY UPDATE 处理接收者会话（带 unread_count 递增）
+- 两个方法都能处理会话已存在的情况
 
-### Proposed Approach
+### 建议方案
 
-Inject `ConversationMapper` into `FriendService` and add conversation creation logic within the existing `addFriend()` transaction:
+将 `ConversationMapper` 注入到 `FriendService` 并在现有的 `addFriend()` 事务中添加会话创建逻辑：
 
 ```java
 @Transactional
 public void addFriend(Long userId, Long friendId) {
-    // ... existing validation and friend creation logic ...
+    // ... 现有的验证和好友创建逻辑 ...
     
-    // After successful friend record insertion:
+    // 成功插入好友记录后：
     LocalDateTime now = LocalDateTime.now();
     
-    // Create conversation for initiating user
+    // 为发起用户创建会话
     conversationMapper.insert(new Conversation()
         .setUserId(userId)
         .setPeerId(friendId)
@@ -147,7 +147,7 @@ public void addFriend(Long userId, Long friendId) {
         .setCreatedTime(now)
         .setUpdatedTime(now));
     
-    // Create conversation for target user
+    // 为目标用户创建会话
     conversationMapper.insert(new Conversation()
         .setUserId(friendId)
         .setPeerId(userId)
@@ -158,13 +158,13 @@ public void addFriend(Long userId, Long friendId) {
 }
 ```
 
-**Alternative**: Use upsert pattern to handle soft-deleted conversations:
+**替代方案**: 使用 upsert 模式处理软删除的会话：
 ```java
 conversationMapper.insertOrRestore(userId, friendId, now);
 conversationMapper.insertOrRestore(friendId, userId, now);
 ```
 
-This would require adding a new mapper method:
+这需要添加新的 mapper 方法：
 ```java
 @Insert("INSERT INTO conversations (user_id, peer_id, unread_count, is_deleted, created_time, updated_time) " +
         "VALUES (#{userId}, #{peerId}, 0, 0, #{now}, #{now}) " +
@@ -174,21 +174,22 @@ int insertOrRestore(@Param("userId") Long userId,
                     @Param("now") LocalDateTime now);
 ```
 
-### Files to Modify
+### 需要修改的文件
 
-1. **FriendService.java** - Add conversation creation logic in `addFriend()` method
-2. **ConversationMapper.java** - Optionally add `insertOrRestore()` method
-3. **FriendServiceTest.java** - Add test cases for conversation creation
-4. **FriendControllerTest.java** - Add integration tests verifying end-to-end behavior
+1. **FriendService.java** - 在 `addFriend()` 方法中添加会话创建逻辑
+2. **ConversationMapper.java** - 可选添加 `insertOrRestore()` 方法
+3. **FriendServiceTest.java** - 添加会话创建的测试用例
+4. **FriendControllerTest.java** - 添加端到端行为验证的集成测试
 
-### Testing Strategy
+### 测试策略
 
-**Unit Tests** (FriendServiceTest):
-- Test conversation records are created when adding friends
-- Test conversation restoration when re-adding deleted friends
-- Test transaction rollback when conversation creation fails
+**单元测试** (FriendServiceTest)：
+- 测试添加好友时创建会话记录
+- 测试重新添加已删除好友时恢复会话
+- 测试会话创建失败时事务回滚
 
-**Integration Tests** (FriendControllerTest):
-- Test POST /api/v1/friends/{friendId} creates conversations in database
-- Test GET /api/v1/conversations shows the new friend conversation
-- Test concurrent friend additions don't create duplicates
+**集成测试** (FriendControllerTest)：
+- 测试 POST /api/v1/friends/{friendId} 在数据库中创建会话
+- 测试 GET /api/v1/conversations 显示新添加好友的会话
+- 测试并发添加好友不会创建重复记录
+
