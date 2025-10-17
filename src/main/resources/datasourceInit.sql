@@ -616,3 +616,56 @@ CREATE TABLE IF NOT EXISTS `voice_assets` (
   KEY `idx_message` (`message_id`),
   UNIQUE KEY `uk_file_key` (`file_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='语音资源表';
+
+-- ============================================
+-- 机器人延迟调度系统数据表
+-- 版本: V1
+-- 日期: 2025-10-17
+-- ============================================
+
+-- 1. 创建任务表
+CREATE TABLE IF NOT EXISTS robot_task (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '任务ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    robot_id BIGINT NULL COMMENT '机器人ID（可为空）',
+    task_type VARCHAR(50) NOT NULL COMMENT '任务类型：IMMEDIATE, SHORT_DELAY, LONG_DELAY',
+    action_type VARCHAR(50) NOT NULL COMMENT '行为类型：SEND_MESSAGE, SEND_VOICE, SEND_NOTIFICATION',
+    action_payload TEXT NOT NULL COMMENT '任务载荷（JSON格式）',
+    scheduled_at DATETIME NOT NULL COMMENT '计划执行时间（UTC）',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING, RUNNING, DONE, FAILED, TIMEOUT',
+    version INT NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
+    retry_count INT NOT NULL DEFAULT 0 COMMENT '当前重试次数',
+    max_retry_count INT NOT NULL DEFAULT 3 COMMENT '最大重试次数',
+    started_at DATETIME NULL COMMENT '开始执行时间',
+    completed_at DATETIME NULL COMMENT '完成时间',
+    heartbeat_at DATETIME NULL COMMENT '最后心跳时间',
+    error_message TEXT NULL COMMENT '错误信息',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    INDEX idx_status_scheduled (status, scheduled_at),
+    INDEX idx_user_id (user_id),
+    INDEX idx_robot_id (robot_id),
+    INDEX idx_timeout_check (status, heartbeat_at),
+    INDEX idx_cleanup (status, completed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='机器人调度任务表';
+
+-- 2. 创建执行日志表
+CREATE TABLE IF NOT EXISTS robot_task_execution_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '日志ID',
+    task_id BIGINT NOT NULL COMMENT '任务ID',
+    execution_attempt INT NOT NULL COMMENT '执行尝试次数',
+    status VARCHAR(20) NOT NULL COMMENT '执行结果：SUCCESS, FAILED, TIMEOUT',
+    started_at DATETIME NOT NULL COMMENT '开始时间',
+    completed_at DATETIME NOT NULL COMMENT '完成时间',
+    execution_duration_ms BIGINT NOT NULL COMMENT '执行耗时（毫秒）',
+    delay_from_scheduled_ms BIGINT NOT NULL COMMENT '延迟时间（毫秒）',
+    error_message TEXT NULL COMMENT '错误信息',
+    instance_id VARCHAR(100) NOT NULL COMMENT '实例标识',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    
+    INDEX idx_task_id (task_id),
+    INDEX idx_started_at (started_at),
+    INDEX idx_instance_id (instance_id),
+    FOREIGN KEY (task_id) REFERENCES robot_task(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务执行日志表';
