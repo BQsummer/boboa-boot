@@ -13,11 +13,6 @@ import org.springframework.context.annotation.Configuration;
 public class RobotTaskConfiguration {
     
     /**
-     * 定时加载器间隔（秒），默认30秒
-     */
-    private Integer loaderIntervalSeconds = 30;
-    
-    /**
      * 加载未来多少分钟内的任务到内存队列，默认10分钟
      */
     private Integer loadWindowMinutes = 10;
@@ -66,4 +61,28 @@ public class RobotTaskConfiguration {
      * 任务执行线程池队列容量，默认1000
      */
     private Integer executorQueueCapacity = 1000;
+    
+    /**
+     * 内存队列容量上限，默认5000
+     * 防止内存队列无限增长导致OOM
+     */
+    private Integer maxQueueSize = 5000;
+    
+    /**
+     * SEND_MESSAGE 任务并发执行上限，默认10
+     * 消息任务较轻量，可以高并发执行
+     */
+    private Integer concurrencySendMessage = 10;
+    
+    /**
+     * SEND_VOICE 任务并发执行上限，默认5
+     * 语音任务消耗CPU和带宽，需要限制并发数
+     */
+    private Integer concurrencySendVoice = 5;
+    
+    /**
+     * SEND_NOTIFICATION 任务并发执行上限，默认10
+     * 通知任务较轻量，可以高并发执行
+     */
+    private Integer concurrencySendNotification = 10;
 }
