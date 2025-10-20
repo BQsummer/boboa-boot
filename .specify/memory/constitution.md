@@ -1,16 +1,3 @@
-<!--
-Sync Impact Report: Constitution v1.0.0
-Created: 2025-10-17
-Changes: Initial constitution establishment for Boboa-Boot project
-
-Affected Templates/Artifacts:
-- spec-template.md: No changes required (already supports Chinese documentation)
-- plan-template.md: No changes required (language-agnostic structure)
-- tasks-template.md: No changes required (supports bilingual content)
-- checklist-template.md: No changes required (flexible format)
-
-Impact: This constitution codifies existing project practices and adds language preference.
--->
 
 # Boboa-Boot 项目宪章 (Project Constitution)
 
@@ -128,7 +115,6 @@ Impact: This constitution codifies existing project practices and adds language 
 - Service 层使用 `@Service` + `@Transactional`（需要时）
 - Mapper 层继承 `BaseMapper<T>` 并使用 `@Mapper` 注解
 - 异常处理使用 `SnorlaxClientException` 抛出业务异常
-- 日期时间统一使用 `LocalDateTime`
 
 ## 开发工作流 (Development Workflow)
 
