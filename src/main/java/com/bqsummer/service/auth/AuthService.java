@@ -7,6 +7,7 @@ import com.bqsummer.common.dto.auth.User;
 import com.bqsummer.common.vo.req.auth.LoginRequest;
 import com.bqsummer.common.vo.req.auth.RegisterRequest;
 import com.bqsummer.common.vo.resp.auth.AuthResponse;
+import com.bqsummer.constant.UserType;
 import com.bqsummer.framework.security.TokenBlacklistService;
 import com.bqsummer.mapper.RefreshTokenMapper;
 import com.bqsummer.mapper.UserMapper;
@@ -36,6 +37,10 @@ public class AuthService {
 
     /**
      * 用户注册
+     * <p>
+     * 注意：通过注册接口创建的用户默认为真实用户（REAL类型）
+     * AI用户只能通过创建AI角色自动生成，不能通过注册接口创建
+     * </p>
      */
     @Transactional(rollbackFor = Exception.class)
     public AuthResponse register(RegisterRequest request) {
@@ -49,12 +54,13 @@ public class AuthService {
             throw new RuntimeException("邮箱已存在");
         }
 
-        // 创建用户
+        // 创建用户（明确设置为真实用户类型）
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .password(BCrypt.hashpw(request.getPassword(), BCrypt.gensalt()))
+                .userType(UserType.REAL.getCode())
                 .status(1)
                 .build();
 
@@ -73,6 +79,10 @@ public class AuthService {
 
     /**
      * 用户登录
+     * <p>
+     * 安全限制：AI用户不允许登录
+     * AI用户类型为系统内部使用，禁止通过登录接口访问
+     * </p>
      */
     @Transactional(rollbackFor = Exception.class)
     public AuthResponse login(LoginRequest request) {
@@ -81,6 +91,12 @@ public class AuthService {
         if (user == null) {
             log.warn("登录失败，用户不存在: {}", request.getUsernameOrEmail());
             throw new RuntimeException("用户名或密码错误");
+        }
+
+        // 安全检查：AI用户不允许登录
+        if (UserType.AI.getCode().equals(user.getUserType())) {
+            log.warn("登录失败，AI用户不允许登录: {}", request.getUsernameOrEmail());
+            throw new RuntimeException("AI用户不允许登录");
         }
 
         // 检查账户状态

@@ -18,7 +18,8 @@ public interface FriendMapper extends BaseMapper<Friend> {
             @Result(property = "nickName", column = "nick_name"),
             @Result(property = "lastLoginTime", column = "last_login_time"),
             @Result(property = "createdTime", column = "created_time"),
-            @Result(property = "updatedTime", column = "updated_time")
+            @Result(property = "updatedTime", column = "updated_time"),
+            @Result(property = "userType", column = "user_type")
     })
     List<User> findFriendUsers(Long userId);
 }

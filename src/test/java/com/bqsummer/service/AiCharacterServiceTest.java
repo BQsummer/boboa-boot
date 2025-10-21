@@ -38,6 +38,108 @@ class AiCharacterServiceTest extends BaseTest {
 
 
     /**
+     * T008 - 测试创建AI角色时应自动创建用户账户
+     */
+    @Test
+    @Transactional
+    @Rollback
+    @DisplayName("创建AI角色时应自动创建用户账户")
+    void testCreateAiCharacterShouldAutoCreateUser() {
+        // Given: 准备创建AI角色的请求数据
+        CreateAiCharacterReq req = new CreateAiCharacterReq();
+        req.setName("测试AI助手");
+        req.setImageUrl("https://example.com/ai-assistant.png");
+        req.setAuthor("测试作者");
+        req.setVisibility("PUBLIC");
+
+        // 创建测试用户作为创建者
+        User creator = User.builder()
+                .username("test_creator_" + System.currentTimeMillis())
+                .email("creator_" + System.currentTimeMillis() + "@test.com")
+                .password("test123")
+                .nickName("测试创建者")
+                .status(1)
+                .build();
+        userMapper.insert(creator);
+
+        // When: 创建AI角色
+        ResponseEntity<?> response = aiCharacterService.createCharacter(req, creator.getId());
+
+        // Then: 验证响应成功
+        assertEquals(200, response.getStatusCode().value(), "应该返回200状态码");
+
+        // 获取创建的AI角色ID
+        @SuppressWarnings("unchecked")
+        Long characterId = ((java.util.Map<String, Object>) response.getBody()).get("id") != null 
+            ? ((Number) ((java.util.Map<String, Object>) response.getBody()).get("id")).longValue() 
+            : null;
+        assertNotNull(characterId, "应该返回AI角色ID");
+
+        // 验证AI角色已创建
+        AiCharacter character = aiCharacterMapper.findById(characterId);
+        assertNotNull(character, "AI角色应该已创建");
+        assertNotNull(character.getAssociatedUserId(), "AI角色应该有关联的用户ID");
+
+        // 验证关联的用户账户已创建
+        User aiUser = userMapper.findById(character.getAssociatedUserId());
+        assertNotNull(aiUser, "关联的用户账户应该已创建");
+        assertEquals(UserType.AI.getCode(), aiUser.getUserType(), "用户类型应该是AI");
+        assertEquals(1, aiUser.getStatus(), "用户状态应该是启用");
+    }
+
+    /**
+     * T010 - 测试AI用户应生成正确格式的用户名和邮箱
+     */
+    @Test
+    @Transactional
+    @Rollback
+    @DisplayName("AI用户应生成正确格式的用户名和邮箱")
+    void testAiUserGeneratesCorrectUsernameAndEmail() {
+        // Given: 准备创建AI角色的请求数据
+        CreateAiCharacterReq req = new CreateAiCharacterReq();
+        req.setName("格式测试AI");
+        req.setImageUrl("https://example.com/format-test.png");
+        req.setVisibility("PRIVATE");
+
+        // 创建测试用户作为创建者
+        User creator = User.builder()
+                .username("test_creator_" + System.currentTimeMillis())
+                .email("creator_" + System.currentTimeMillis() + "@test.com")
+                .password("test123")
+                .nickName("测试创建者")
+                .status(1)
+                .build();
+        userMapper.insert(creator);
+
+        // When: 创建AI角色
+        ResponseEntity<?> response = aiCharacterService.createCharacter(req, creator.getId());
+
+        // Then: 验证响应成功
+        assertEquals(200, response.getStatusCode().value());
+
+        @SuppressWarnings("unchecked")
+        Long characterId = ((java.util.Map<String, Object>) response.getBody()).get("id") != null 
+            ? ((Number) ((java.util.Map<String, Object>) response.getBody()).get("id")).longValue() 
+            : null;
+
+        AiCharacter character = aiCharacterMapper.findById(characterId);
+        User aiUser = userMapper.findById(character.getAssociatedUserId());
+
+        // 验证用户名格式：ai_character_{id}
+        String expectedUsername = "ai_character_" + character.getId();
+        assertEquals(expectedUsername, aiUser.getUsername(), "用户名格式应该是 ai_character_{id}");
+
+        // 验证邮箱格式：ai_character_{id}@system.internal
+        String expectedEmail = "ai_character_" + character.getId() + "@system.internal";
+        assertEquals(expectedEmail, aiUser.getEmail(), "邮箱格式应该是 ai_character_{id}@system.internal");
+
+        // 验证密码已加密（BCrypt加密后的密码以$2a$开头）
+        assertNotNull(aiUser.getPassword(), "密码不应该为空");
+        assertTrue(aiUser.getPassword().startsWith("$2a$") || aiUser.getPassword().startsWith("$2b$"), 
+                "密码应该是BCrypt加密格式");
+    }
+
+    /**
      * T009 - 测试创建AI角色时验证创建者存在
      */
     @Test

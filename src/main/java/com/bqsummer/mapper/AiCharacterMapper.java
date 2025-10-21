@@ -17,7 +17,8 @@ public interface AiCharacterMapper {
             @Result(property = "imageUrl", column = "image_url"),
             @Result(property = "isDeleted", column = "is_deleted"),
             @Result(property = "createdTime", column = "created_time"),
-            @Result(property = "updatedTime", column = "updated_time")
+            @Result(property = "updatedTime", column = "updated_time"),
+            @Result(property = "associatedUserId", column = "associated_user_id")
     })
     AiCharacter findById(@Param("id") Long id);
 
@@ -27,7 +28,8 @@ public interface AiCharacterMapper {
             @Result(property = "imageUrl", column = "image_url"),
             @Result(property = "isDeleted", column = "is_deleted"),
             @Result(property = "createdTime", column = "created_time"),
-            @Result(property = "updatedTime", column = "updated_time")
+            @Result(property = "updatedTime", column = "updated_time"),
+            @Result(property = "associatedUserId", column = "associated_user_id")
     })
     List<AiCharacter> listVisibleForUser(@Param("userId") Long userId);
 
@@ -53,5 +55,11 @@ public interface AiCharacterMapper {
 
     @Update("UPDATE ai_characters SET is_deleted = 1, status = 0, updated_time = NOW() WHERE id = #{id} AND is_deleted = 0")
     int softDelete(@Param("id") Long id);
+
+    /**
+     * 更新AI角色的关联用户ID
+     */
+    @Update("UPDATE ai_characters SET associated_user_id = #{associatedUserId}, updated_time = NOW() WHERE id = #{id}")
+    int updateAssociatedUserId(@Param("id") Long id, @Param("associatedUserId") Long associatedUserId);
 }
 
