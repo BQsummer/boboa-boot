@@ -33,4 +33,6 @@ public class User {
 
     // 用户角色列表
     private List<Role> roles;
+
+    private String userType;
 }

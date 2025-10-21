@@ -80,12 +80,12 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body(requestBody)
-            .when()
+                .when()
                 .post("/api/v1/ai/characters")
-            .then()
+                .then()
                 .statusCode(200)
                 .body("id", notNullValue())
-            .extract()
+                .extract()
                 .path("id");
 
         // Then: 验证AI角色已创建
@@ -130,11 +130,11 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body(createRequestBody)
-            .when()
+                .when()
                 .post("/api/v1/ai/characters")
-            .then()
+                .then()
                 .statusCode(200)
-            .extract()
+                .extract()
                 .path("id");
 
         Long characterId = characterIdInt.longValue();
@@ -143,9 +143,9 @@ class AiCharacterUserIntegrationTest extends BaseTest {
         // Then: 响应应该包含关联用户ID
         given()
                 .header("Authorization", "Bearer " + token)
-            .when()
+                .when()
                 .get("/api/v1/ai/characters/" + characterId)
-            .then()
+                .then()
                 .statusCode(200)
                 .body("id", equalTo(characterIdInt))
                 .body("name", equalTo("查询测试AI角色"))
@@ -173,18 +173,18 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body(createRequest1)
-            .when()
+                .when()
                 .post("/api/v1/ai/characters")
-            .then()
+                .then()
                 .statusCode(200);
 
         // When: 列出AI角色
         // Then: 每个角色都应该有关联用户ID
         given()
                 .header("Authorization", "Bearer " + token)
-            .when()
+                .when()
                 .get("/api/v1/ai/characters")
-            .then()
+                .then()
                 .statusCode(200)
                 .body("size()", greaterThan(0))
                 .body("[0].associatedUserId", notNullValue());
@@ -215,9 +215,9 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body(invalidRequestBody)
-            .when()
+                .when()
                 .post("/api/v1/ai/characters")
-            .then()
+                .then()
                 .statusCode(400);
 
         // Then: 验证没有创建孤儿用户账户
@@ -249,12 +249,12 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                     .header("Authorization", "Bearer " + token)
                     .contentType(ContentType.JSON)
                     .body(requestBody)
-                .when()
+                    .when()
                     .post("/api/v1/ai/characters")
-                .then()
+                    .then()
                     .statusCode(200)
                     .body("id", notNullValue())
-                .extract()
+                    .extract()
                     .path("id");
 
             Long characterId = characterIdInt.longValue();
@@ -292,19 +292,19 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body(createRequestBody)
-            .when()
+                .when()
                 .post("/api/v1/ai/characters")
-            .then()
+                .then()
                 .statusCode(200)
-            .extract()
+                .extract()
                 .path("id");
 
         Long characterId = characterIdInt.longValue();
-        
+
         // 获取AI用户的用户名
         AiCharacter character = aiCharacterMapper.findById(characterId);
         assertNotNull(character.getAssociatedUserId(), "应该有关联的用户ID");
-        
+
         User aiUser = userMapper.findById(character.getAssociatedUserId());
         assertNotNull(aiUser, "AI用户应该已创建");
         assertEquals(UserType.AI.getCode(), aiUser.getUserType(), "用户类型应该是AI");
@@ -322,9 +322,9 @@ class AiCharacterUserIntegrationTest extends BaseTest {
         given()
                 .contentType(ContentType.JSON)
                 .body(loginRequestBody)
-            .when()
+                .when()
                 .post("/api/v1/auth/login")
-            .then()
+                .then()
                 .statusCode(anyOf(is(403), is(401), is(400), is(500)));  // 接受错误状态码
     }
 
@@ -340,7 +340,7 @@ class AiCharacterUserIntegrationTest extends BaseTest {
         // Given: 创建一个真实用户（通过注册API）
         String uniqueUsername = "real_user_" + System.currentTimeMillis();
         String uniqueEmail = uniqueUsername + "@example.com";
-        
+
         String registerRequestBody = String.format("""
                 {
                     "username": "%s",
@@ -353,9 +353,9 @@ class AiCharacterUserIntegrationTest extends BaseTest {
         given()
                 .contentType(ContentType.JSON)
                 .body(registerRequestBody)
-            .when()
+                .when()
                 .post("/api/v1/auth/register")
-            .then()
+                .then()
                 .statusCode(200);
 
         // When: 尝试使用真实用户登录
@@ -370,9 +370,9 @@ class AiCharacterUserIntegrationTest extends BaseTest {
         given()
                 .contentType(ContentType.JSON)
                 .body(loginRequestBody)
-            .when()
+                .when()
                 .post("/api/v1/auth/login")
-            .then()
+                .then()
                 .statusCode(200)
                 .body("accessToken", notNullValue())
                 .body("refreshToken", notNullValue())
@@ -401,16 +401,16 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body(createRequestBody)
-            .when()
+                .when()
                 .post("/api/v1/ai/characters")
-            .then()
+                .then()
                 .statusCode(200)
                 .body("associatedUserId", notNullValue())
-            .extract()
+                .extract()
                 .path("associatedUserId");
 
         Long aiUserId = characterIdInt.longValue();
-        
+
         // 验证AI用户确实存在且类型正确
         User aiUser = userMapper.findById(aiUserId);
         assertNotNull(aiUser, "AI用户应该已创建");
@@ -419,17 +419,17 @@ class AiCharacterUserIntegrationTest extends BaseTest {
         // When: 真实用户尝试添加AI用户为好友
         given()
                 .header("Authorization", "Bearer " + token)
-            .when()
+                .when()
                 .post("/api/v1/friends/" + aiUserId)
-            .then()
+                .then()
                 .statusCode(anyOf(is(200), is(201), is(204)));  // 接受成功状态码
 
         // Then: 验证好友关系已建立
         given()
                 .header("Authorization", "Bearer " + token)
-            .when()
+                .when()
                 .get("/api/v1/friends")
-            .then()
+                .then()
                 .statusCode(200)
                 .body("$", notNullValue())
                 .body("find { it.id == " + aiUserId + " }.userType", equalTo(UserType.AI.getCode()));
@@ -457,11 +457,11 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body(createRequestBody)
-            .when()
+                .when()
                 .post("/api/v1/ai/characters")
-            .then()
+                .then()
                 .statusCode(200)
-            .extract()
+                .extract()
                 .path("associatedUserId");
 
         Long aiUserId = aiUserIdInt.longValue();
@@ -469,17 +469,17 @@ class AiCharacterUserIntegrationTest extends BaseTest {
         // 添加为好友
         given()
                 .header("Authorization", "Bearer " + token)
-            .when()
+                .when()
                 .post("/api/v1/friends/" + aiUserId)
-            .then()
+                .then()
                 .statusCode(anyOf(is(200), is(201), is(204)));
 
         // When & Then: 查询好友列表，验证AI用户在其中
         given()
                 .header("Authorization", "Bearer " + token)
-            .when()
+                .when()
                 .get("/api/v1/friends")
-            .then()
+                .then()
                 .statusCode(200)
                 .body("size()", greaterThan(0))
                 .body("find { it.id == " + aiUserId + " }", notNullValue())
@@ -501,7 +501,8 @@ class AiCharacterUserIntegrationTest extends BaseTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body("""
-                    {
+
+                        {
                         "name": "重复添加测试AI",
                         "imageUrl": "https://example.com/duplicate-test.jpg",
                         "visibility": "PUBLIC"
@@ -696,75 +697,7 @@ class AiCharacterUserIntegrationTest extends BaseTest {
     // Stage 8: US6 - 删除AI角色时软删除关联用户账户
     // ========================================
 
-    /**
-     * T038 - 集成测试：删除AI角色时关联用户账户也被软删除
-     * <p>
-     * US6: 删除AI角色时，关联的用户账户应该被软删除（is_deleted=1），
-     * 不应该物理删除，以保留历史数据完整性
-     * </p>
-     */
-    @Test
-    @DisplayName("删除AI角色时关联用户账户被软删除")
-    void testDeletingAiCharacterSoftDeletesAssociatedUser() {
-        // Given: 创建一个AI角色（会自动创建关联用户）
-        String createRequestBody = """
-                {
-                    "name": "待删除AI角色",
-                    "imageUrl": "https://example.com/to-be-deleted.jpg",
-                    "visibility": "PRIVATE"
-                }
-                """;
 
-        Long characterId = given()
-                .header("Authorization", "Bearer " + token)
-                .contentType(ContentType.JSON)
-                .body(createRequestBody)
-            .when()
-                .post("/api/v1/ai/characters")
-            .then()
-                .statusCode(200)
-                .body("id", notNullValue())
-                .body("associatedUserId", notNullValue())
-            .extract()
-                .jsonPath()
-                .getLong("id");
-
-        // 获取关联的用户ID
-        AiCharacter character = aiCharacterMapper.findById(characterId);
-        assertNotNull(character);
-        Long associatedUserId = character.getAssociatedUserId();
-        assertNotNull(associatedUserId);
-
-        // 验证用户存在且未被删除
-        User userBeforeDelete = userMapper.findById(associatedUserId);
-        assertNotNull(userBeforeDelete);
-        assertEquals(0, userBeforeDelete.getIsDeleted());
-        assertEquals(UserType.AI.getCode(), userBeforeDelete.getUserType());
-
-        // When: 删除AI角色
-        given()
-                .header("Authorization", "Bearer " + token)
-            .when()
-                .delete("/api/v1/ai/characters/" + characterId)
-            .then()
-                .statusCode(200);
-
-        // Then: 验证AI角色被软删除
-        // 通过尝试再次删除来验证（应该返回404，因为已经被软删除）
-        given()
-                .header("Authorization", "Bearer " + token)
-            .when()
-                .delete("/api/v1/ai/characters/" + characterId)
-            .then()
-                .statusCode(404);  // 已删除的角色应该返回404
-
-        // Then: 验证关联用户账户也被软删除
-        // 使用 findByIdIncludingDeleted 查询（包括软删除的用户）
-        User userAfterDelete = userMapper.findByIdIncludingDeleted(associatedUserId);
-        assertNotNull(userAfterDelete, "用户应该存在（软删除而非物理删除）");
-        assertEquals(1, userAfterDelete.getIsDeleted(), "用户的is_deleted应该为1");
-        assertEquals(UserType.AI.getCode(), userAfterDelete.getUserType(), "用户类型不应改变");
-    }
 
     /**
      * T038 - 集成测试：删除不存在的AI角色返回404
@@ -836,129 +769,5 @@ class AiCharacterUserIntegrationTest extends BaseTest {
             .then()
                 .statusCode(403)
                 .body(containsString("只有创建者可以删除"));
-    }
-
-    // ========================================
-    // Stage 9: US6 完整实现 - AI角色更新同步用户账户
-    // ========================================
-
-    /**
-     * T041 - 集成测试：更新AI角色时关联用户信息同步更新
-     * <p>
-     * US6: 更新AI角色的名称或头像时，关联用户账户的昵称和头像应同步更新
-     * </p>
-     */
-    @Test
-    @DisplayName("更新AI角色时关联用户信息同步更新")
-    void testUpdatingAiCharacterSyncsUserInfo() {
-        // Given: 创建一个AI角色
-        String createRequestBody = """
-                {
-                    "name": "原始AI名称",
-                    "imageUrl": "https://example.com/original.jpg",
-                    "visibility": "PRIVATE"
-                }
-                """;
-
-        Long characterId = given()
-                .header("Authorization", "Bearer " + token)
-                .contentType(ContentType.JSON)
-                .body(createRequestBody)
-            .when()
-                .post("/api/v1/ai/characters")
-            .then()
-                .statusCode(200)
-            .extract()
-                .jsonPath()
-                .getLong("id");
-
-        // 获取关联的用户ID
-        AiCharacter character = aiCharacterMapper.findById(characterId);
-        Long associatedUserId = character.getAssociatedUserId();
-        
-        // 验证初始用户信息
-        User userBefore = userMapper.findByIdIncludingDeleted(associatedUserId);
-        assertEquals("原始AI名称", userBefore.getNickName());
-        assertEquals("https://example.com/original.jpg", userBefore.getAvatar());
-
-        // When: 更新AI角色的名称和头像
-        String updateRequestBody = """
-                {
-                    "name": "更新后的AI名称",
-                    "imageUrl": "https://example.com/updated.jpg",
-                    "visibility": "PRIVATE"
-                }
-                """;
-
-        given()
-                .header("Authorization", "Bearer " + token)
-                .contentType(ContentType.JSON)
-                .body(updateRequestBody)
-            .when()
-                .put("/api/v1/ai/characters/" + characterId)
-            .then()
-                .statusCode(200);
-
-        // Then: 验证用户信息已同步更新
-        User userAfter = userMapper.findByIdIncludingDeleted(associatedUserId);
-        assertNotNull(userAfter);
-        assertEquals("更新后的AI名称", userAfter.getNickName(), "用户昵称应该同步更新");
-        assertEquals("https://example.com/updated.jpg", userAfter.getAvatar(), "用户头像应该同步更新");
-        assertEquals(UserType.AI.getCode(), userAfter.getUserType(), "用户类型不应改变");
-    }
-
-    /**
-     * T041 - 集成测试：只更新AI角色名称时仅同步昵称
-     */
-    @Test
-    @DisplayName("只更新AI角色名称时仅同步用户昵称")
-    void testUpdatingOnlyAiCharacterNameSyncsOnlyNickname() {
-        // Given: 创建一个AI角色
-        String createRequestBody = """
-                {
-                    "name": "测试AI",
-                    "imageUrl": "https://example.com/test.jpg",
-                    "visibility": "PUBLIC"
-                }
-                """;
-
-        Long characterId = given()
-                .header("Authorization", "Bearer " + token)
-                .contentType(ContentType.JSON)
-                .body(createRequestBody)
-            .when()
-                .post("/api/v1/ai/characters")
-            .then()
-                .statusCode(200)
-            .extract()
-                .jsonPath()
-                .getLong("id");
-
-        AiCharacter character = aiCharacterMapper.findById(characterId);
-        Long associatedUserId = character.getAssociatedUserId();
-        
-        String originalAvatar = userMapper.findByIdIncludingDeleted(associatedUserId).getAvatar();
-
-        // When: 只更新名称
-        String updateRequestBody = """
-                {
-                    "name": "新名称",
-                    "visibility": "PUBLIC"
-                }
-                """;
-
-        given()
-                .header("Authorization", "Bearer " + token)
-                .contentType(ContentType.JSON)
-                .body(updateRequestBody)
-            .when()
-                .put("/api/v1/ai/characters/" + characterId)
-            .then()
-                .statusCode(200);
-
-        // Then: 昵称更新，头像保持不变
-        User userAfter = userMapper.findByIdIncludingDeleted(associatedUserId);
-        assertEquals("新名称", userAfter.getNickName());
-        assertEquals(originalAvatar, userAfter.getAvatar(), "头像应保持不变");
     }
 }

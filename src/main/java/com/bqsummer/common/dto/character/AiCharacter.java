@@ -62,4 +62,6 @@ public class AiCharacter {
      * 更新时间
      */
     private LocalDateTime updatedTime;
+
+    private Long associatedUserId;
 }
