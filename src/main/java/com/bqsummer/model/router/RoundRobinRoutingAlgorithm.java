@@ -1,0 +1,49 @@
+package com.bqsummer.model.router;
+
+import com.bqsummer.model.dto.InferenceRequest;
+import com.bqsummer.model.entity.AiModel;
+import com.bqsummer.model.entity.RoutingStrategy;
+import com.bqsummer.model.entity.StrategyType;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * 轮询路由算法
+ * 
+ * @author Boboa Boot Team
+ * @date 2025-10-21
+ */
+@Slf4j
+@Component
+public class RoundRobinRoutingAlgorithm implements RoutingAlgorithm {
+    
+    private final AtomicInteger counter = new AtomicInteger(0);
+    
+    @Override
+    public boolean supports(RoutingStrategy strategy) {
+        return StrategyType.ROUND_ROBIN.equals(strategy.getStrategyType());
+    }
+    
+    @Override
+    public AiModel select(RoutingStrategy strategy, List<AiModel> models, InferenceRequest request) {
+        if (models.isEmpty()) {
+            return null;
+        }
+        
+        int index = Math.abs(counter.getAndIncrement() % models.size());
+        AiModel selected = models.get(index);
+        
+        log.debug("轮询路由选择: strategyId={}, selectedModelId={}, index={}/{}", 
+                strategy.getId(), selected.getId(), index, models.size());
+        
+        return selected;
+    }
+    
+    @Override
+    public String getName() {
+        return "Round Robin";
+    }
+}

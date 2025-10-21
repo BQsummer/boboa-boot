@@ -10,4 +10,7 @@ public class Configs {
 
     @ConfigEle(name = "ipWhiteList")
     public String ipWhiteList;
+
+
+
 }
