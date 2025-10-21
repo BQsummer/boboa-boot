@@ -52,7 +52,8 @@ public interface UserMapper {
         @Result(property = "isDeleted", column = "is_deleted"),
         @Result(property = "lastLoginTime", column = "last_login_time"),
         @Result(property = "createdTime", column = "created_time"),
-        @Result(property = "updatedTime", column = "updated_time")
+        @Result(property = "updatedTime", column = "updated_time"),
+        @Result(property = "userType", column = "user_type")
     })
     User findById(@Param("id") Long id);
 
@@ -62,8 +63,8 @@ public interface UserMapper {
     @Select("SELECT COUNT(*) FROM users WHERE email = #{email}")
     boolean existsByEmail(@Param("email") String email);
 
-    @Insert("INSERT INTO users (username, email, phone, password, nick_name, status) " +
-            "VALUES (#{username}, #{email}, #{phone}, #{password}, #{nickName}, #{status})")
+    @Insert("INSERT INTO users (username, email, phone, password, nick_name, status, user_type) " +
+            "VALUES (#{username}, #{email}, #{phone}, #{password}, #{nickName}, #{status}, #{userType})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(User user);
 
@@ -80,6 +81,26 @@ public interface UserMapper {
     int softDelete(@Param("userId") Long userId);
 
     /**
+     * 更新用户昵称
+     */
+    @Update("UPDATE users SET nick_name = #{nickName}, updated_time = NOW() WHERE id = #{userId}")
+    int updateNickName(@Param("userId") Long userId, @Param("nickName") String nickName);
+
+    /**
+     * 更新用户头像
+     */
+    @Update("UPDATE users SET avatar = #{avatar}, updated_time = NOW() WHERE id = #{userId}")
+    int updateAvatar(@Param("userId") Long userId, @Param("avatar") String avatar);
+
+    /**
+     * 插入用户（支持userType字段）
+     */
+    @Insert("INSERT INTO users (username, email, phone, password, nick_name, avatar, status, user_type) " +
+            "VALUES (#{username}, #{email}, #{phone}, #{password}, #{nickName}, #{avatar}, #{status}, #{userType})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insertWithType(User user);
+
+    /**
      * 搜索用户（按用户名或昵称模糊搜索，排除当前用户）
      */
     @Select("SELECT * FROM users WHERE (username LIKE CONCAT('%', #{keyword}, '%') OR nick_name LIKE CONCAT('%', #{keyword}, '%')) " +
@@ -89,7 +110,8 @@ public interface UserMapper {
         @Result(property = "isDeleted", column = "is_deleted"),
         @Result(property = "lastLoginTime", column = "last_login_time"),
         @Result(property = "createdTime", column = "created_time"),
-        @Result(property = "updatedTime", column = "updated_time")
+        @Result(property = "updatedTime", column = "updated_time"),
+        @Result(property = "userType", column = "user_type")
     })
     List<User> searchUsers(@Param("keyword") String keyword, @Param("currentUserId") Long currentUserId);
 }

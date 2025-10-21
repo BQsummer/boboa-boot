@@ -7,9 +7,7 @@ import com.bqsummer.model.entity.ModelType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.ai.chat.client.ChatClient;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,9 +19,6 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @SpringBootTest
 class OpenAiAdapterTest {
-
-    @Autowired(required = false)
-    private ChatClient.Builder chatClientBuilder;
 
     private OpenAiAdapter adapter;
     private AiModel testModel;
@@ -41,21 +36,14 @@ class OpenAiAdapterTest {
         testModel.setApiKey("sk-test-key-12345");
         testModel.setEnabled(true);
 
-        // 创建适配器（如果 ChatClient.Builder 可用）
-        if (chatClientBuilder != null) {
-            adapter = new OpenAiAdapter(chatClientBuilder);
-        }
+        // 创建适配器（使用无参构造函数）
+        adapter = new OpenAiAdapter();
     }
 
     @Test
     @DisplayName("测试 OpenAI 适配器初始化")
     void testAdapterInitialization() {
-        if (adapter != null) {
-            assertNotNull(adapter);
-        } else {
-            // 如果 Spring AI 未配置，跳过测试
-            assertTrue(true, "Spring AI not configured, skipping test");
-        }
+        assertNotNull(adapter);
     }
 
     @Test

@@ -63,5 +63,8 @@ public class AiCharacter {
      */
     private LocalDateTime updatedTime;
 
+    /**
+     * 关联的用户账户ID（AI角色自动创建的User记录）
+     */
     private Long associatedUserId;
 }

@@ -5,12 +5,15 @@ import com.bqsummer.common.dto.character.AiCharacter;
 import com.bqsummer.common.dto.character.AiCharacterSetting;
 import com.bqsummer.common.vo.req.chararcter.CreateAiCharacterReq;
 import com.bqsummer.common.vo.req.chararcter.UpsertCharacterSettingReq;
+import com.bqsummer.constant.UserType;
 import com.bqsummer.mapper.AiCharacterMapper;
 import com.bqsummer.mapper.AiCharacterSettingMapper;
 import com.bqsummer.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
@@ -18,6 +21,7 @@ import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,10 +30,21 @@ public class AiCharacterService {
     private final AiCharacterMapper aiCharacterMapper;
     private final AiCharacterSettingMapper settingMapper;
     private final UserMapper userMapper;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
      * 创建 AI 人物
+     * <p>
+     * 功能：创建AI角色的同时自动创建关联的用户账户
+     * 事务性：使用@Transactional确保AI角色和用户账户原子性创建
+     * 失败时回滚，不留下孤儿数据
+     * </p>
+     *
+     * @param req    创建AI角色的请求参数
+     * @param userId 创建者的用户ID
+     * @return 包含AI角色ID和关联用户ID的响应
      */
+    @Transactional
     public ResponseEntity<?> createCharacter(CreateAiCharacterReq req, Long userId) {
         // 校验用户存在
         User user = userMapper.findById(userId);
@@ -42,6 +57,7 @@ public class AiCharacterService {
             return ResponseEntity.badRequest().body("visibility 仅支持 PUBLIC/PRIVATE");
         }
 
+        // 1. 创建AI角色
         AiCharacter c = AiCharacter.builder()
                 .name(req.getName())
                 .imageUrl(req.getImageUrl())
@@ -53,8 +69,32 @@ public class AiCharacterService {
                 .build();
         aiCharacterMapper.insert(c);
 
+        // 2. 生成随机密码并BCrypt加密
+        String randomPassword = UUID.randomUUID().toString();
+        String encodedPassword = passwordEncoder.encode(randomPassword);
+
+        // 3. 创建关联的用户账户
+        String username = "ai_character_" + c.getId();
+        String email = "ai_character_" + c.getId() + "@system.internal";
+
+        User aiUser = User.builder()
+                .username(username)
+                .email(email)
+                .nickName(req.getName())
+                .avatar(req.getImageUrl())
+                .password(encodedPassword)
+                .userType(UserType.AI.getCode())
+                .status(1)
+                .build();
+        userMapper.insertWithType(aiUser);
+
+        // 4. 更新AI角色的associatedUserId
+        aiCharacterMapper.updateAssociatedUserId(c.getId(), aiUser.getId());
+
+        // 5. 返回响应（包含AI角色ID和关联用户ID）
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", c.getId());
+        resp.put("associatedUserId", aiUser.getId());
         return ResponseEntity.ok(resp);
     }
 
@@ -84,7 +124,18 @@ public class AiCharacterService {
 
     /**
      * 更新人物信息
+     * <p>
+     * 功能：更新AI角色信息的同时自动同步到关联的用户账户
+     * 事务性：使用@Transactional确保AI角色和用户信息同步更新
+     * name变化时同步更新User.nickName，imageUrl变化时同步更新User.avatar
+     * </p>
+     *
+     * @param id     AI角色ID
+     * @param req    更新请求参数
+     * @param userId 当前用户ID
+     * @return 更新结果
      */
+    @Transactional
     public ResponseEntity<?> updateCharacter(Long id, CreateAiCharacterReq req, Long userId) {
         AiCharacter exist = aiCharacterMapper.findById(id);
         if (exist == null || (exist.getIsDeleted() != null && exist.getIsDeleted() == 1)) {
@@ -104,6 +155,7 @@ public class AiCharacterService {
             }
         }
 
+        // 更新AI角色
         AiCharacter toUpdate = AiCharacter.builder()
                 .id(id)
                 .name(req.getName())
@@ -113,12 +165,36 @@ public class AiCharacterService {
                 .status(req.getStatus())
                 .build();
         aiCharacterMapper.update(toUpdate);
+
+        // 同步更新关联的用户账户
+        if (exist.getAssociatedUserId() != null) {
+            // 检测name字段是否变化，如果变化则更新User.nickName
+            if (req.getName() != null && !req.getName().equals(exist.getName())) {
+                userMapper.updateNickName(exist.getAssociatedUserId(), req.getName());
+            }
+
+            // 检测imageUrl字段是否变化，如果变化则更新User.avatar
+            if (req.getImageUrl() != null && !req.getImageUrl().equals(exist.getImageUrl())) {
+                userMapper.updateAvatar(exist.getAssociatedUserId(), req.getImageUrl());
+            }
+        }
+
         return ResponseEntity.ok("更新成功");
     }
 
     /**
      * 软删除人物
+     * <p>
+     * 功能：删除AI角色时同时软删除关联的用户账户
+     * 事务性：使用@Transactional确保AI角色和用户同步删除
+     * 保留历史数据，只标记is_deleted=1
+     * </p>
+     *
+     * @param id     AI角色ID
+     * @param userId 当前用户ID
+     * @return 删除结果
      */
+    @Transactional
     public ResponseEntity<?> deleteCharacter(Long id, Long userId) {
         AiCharacter exist = aiCharacterMapper.findById(id);
         if (exist == null || (exist.getIsDeleted() != null && exist.getIsDeleted() == 1)) {
@@ -130,7 +206,14 @@ public class AiCharacterService {
             return ResponseEntity.status(403).body("只有创建者可以删除");
         }
 
+        // 软删除AI角色
         aiCharacterMapper.softDelete(id);
+
+        // 同步软删除关联的用户账户
+        if (exist.getAssociatedUserId() != null) {
+            userMapper.softDelete(exist.getAssociatedUserId());
+        }
+
         return ResponseEntity.ok().build();
     }
 
