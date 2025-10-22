@@ -1,4 +1,5 @@
 
+
 # Boboa-Boot 项目宪章 (Project Constitution)
 
 ## 核心原则 (Core Principles)
@@ -88,6 +89,39 @@
 **判断标准**：
 - 如果删除某段修改后功能依然正常，则该修改是多余的
 - 如果修改影响了其他测试，需要重新评估修改范围
+
+### VI. 数据库管理规范 (Database Management Standards)
+
+**所有 SQL 脚本必须写在 `src/main/resources/datasourceInit.sql` 中**，不允许使用数据库迁移工具或在 migration 目录下创建 SQL 文件。
+
+要求：
+- **禁止**在 `src/main/resources/db/migration/` 目录下创建任何 SQL 文件
+- **禁止**使用 Flyway、Liquibase 等数据库版本管理工具
+- 所有表结构定义、ALTER 语句、索引创建等**必须**直接写入 `datasourceInit.sql`
+- 数据库初始化由应用启动时自动执行 `datasourceInit.sql`
+- 新增表或修改表结构时，直接在 `datasourceInit.sql` 中追加或修改相应 SQL
+
+**理由**：
+- 项目采用集中式数据库脚本管理，避免版本迁移工具的复杂性
+- 所有数据库变更集中在单一文件，便于审查和维护
+- 应用启动时统一初始化，确保环境一致性
+
+**示例**：
+```sql
+-- datasourceInit.sql 中添加新表
+CREATE TABLE IF NOT EXISTS ai_character (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    associated_user_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+**违规示例**（禁止）：
+```
+❌ src/main/resources/db/migration/V001__create_tables.sql
+❌ src/main/resources/db/migration/V002__add_user_type.sql
+```
 
 ## 技术栈约束 (Technology Stack Constraints)
 
@@ -192,11 +226,12 @@
 - 所有测试必须通过（单元测试 + 集成测试）
 - 代码必须编译成功（`mvn clean install`）
 - 不允许提交编译警告（严重警告）
-- 必须验证数据库迁移脚本正确性
+- 必须验证数据库脚本在 `datasourceInit.sql` 中的正确性
+- **禁止**在 `src/main/resources/db/migration/` 目录下创建文件
 
 ---
 
-**版本**: v1.0.0 | **生效日期**: 2025-10-17 | **最后修订**: 2025-10-17
+**版本**: v1.1.0 | **生效日期**: 2025-10-17 | **最后修订**: 2025-10-22
 
 **治理负责人**: 项目维护者团队  
 **技术参考**: `CLAUDE.md` (开发指导), `README.md` (项目概述)
