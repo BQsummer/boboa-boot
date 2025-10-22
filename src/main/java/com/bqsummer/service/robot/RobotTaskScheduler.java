@@ -1,6 +1,7 @@
 package com.bqsummer.service.robot;
 
 import com.bqsummer.common.dto.robot.RobotTask;
+import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,6 +32,7 @@ public class RobotTaskScheduler {
     
     private final RobotTaskExecutor taskExecutor;
     private final RobotTaskConfiguration config;
+    private final Configs configs;
     
     /**
      * 内存延迟队列，存储未来10分钟内的任务
@@ -40,13 +43,7 @@ public class RobotTaskScheduler {
      * 已加载任务的ID集合，防止重复加载
      */
     private final Set<Long> loadedTaskIds = ConcurrentHashMap.newKeySet();
-    
-    /**
-     * 队列容量上限（从配置注入）
-     * 默认值 5000，防止内存溢出
-     */
-    private int maxQueueSize;
-    
+
     /**
      * 因队列满而拒绝加载的任务数统计
      */
@@ -84,9 +81,6 @@ public class RobotTaskScheduler {
      */
     @PostConstruct
     public void startConsumer() {
-        // 初始化队列容量配置
-        this.maxQueueSize = config.getMaxQueueSize();
-        log.info("RobotTaskScheduler 初始化完成 - 队列容量上限: {}", maxQueueSize);
         
         // 初始化并发控制信号量
         initConcurrencySemaphores();
@@ -255,21 +249,21 @@ public class RobotTaskScheduler {
      * @param tasks 待加载的任务列表
      * @return 实际加载的任务数
      */
-    public int loadTasks(java.util.List<RobotTask> tasks) {
+    public int loadTasks(List<RobotTask> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return 0;
         }
         
         // 检查队列容量：当前大小 + 待加载数量是否超过上限
         int currentSize = taskQueue.size();
-        int availableCapacity = maxQueueSize - currentSize;
+        int availableCapacity = configs.getQueueSize() - currentSize;
         
         // 如果队列已满，拒绝所有任务
         if (availableCapacity <= 0) {
             int rejected = tasks.size();
             rejectedTaskCount.addAndGet(rejected);
             log.warn("队列已满，拒绝加载 {} 个任务 - 当前队列大小: {}, 队列容量上限: {}", 
-                     rejected, currentSize, maxQueueSize);
+                     rejected, currentSize, configs.getQueueSize());
             return 0;
         }
         
@@ -281,7 +275,7 @@ public class RobotTaskScheduler {
         if (tasksToReject > 0) {
             rejectedTaskCount.addAndGet(tasksToReject);
             log.warn("队列容量不足，拒绝加载 {} 个任务 - 待加载: {}, 可用容量: {}, 当前队列: {}/{}", 
-                     tasksToReject, tasks.size(), availableCapacity, currentSize, maxQueueSize);
+                     tasksToReject, tasks.size(), availableCapacity, currentSize, configs.getQueueSize());
         }
         
         // 加载任务到队列
@@ -305,10 +299,10 @@ public class RobotTaskScheduler {
             log.info("加载 {} 个任务到内存队列，当前队列大小: {}", loaded, taskQueue.size());
             
             // 队列使用率检查：超过 80% 时记录警告
-            double usageRate = (double) taskQueue.size() / maxQueueSize;
+            double usageRate = (double) taskQueue.size() / configs.getQueueSize();
             if (usageRate > 0.80) {
-                log.warn("队列使用率较高: {}/{} ({:.1f}%)，建议检查任务执行速度或调整队列容量", 
-                         taskQueue.size(), maxQueueSize, usageRate * 100);
+                log.warn("队列使用率较高: {}/{} {}%，建议检查任务执行速度或调整队列容量",
+                         taskQueue.size(), configs.getQueueSize(), usageRate * 100);
             }
         }
         
@@ -330,7 +324,7 @@ public class RobotTaskScheduler {
      * @return 队列使用率（当前大小 / 容量上限）
      */
     public double getQueueUsageRate() {
-        return (double) taskQueue.size() / maxQueueSize;
+        return (double) taskQueue.size() / configs.getQueueSize();
     }
     
     /**
@@ -453,7 +447,7 @@ public class RobotTaskScheduler {
      * @return 队列容量上限
      */
     public int getMaxQueueSize() {
-        return maxQueueSize;
+        return configs.getQueueSize();
     }
     
     /**

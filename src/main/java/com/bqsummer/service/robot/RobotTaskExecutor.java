@@ -17,6 +17,7 @@ import com.bqsummer.repository.MessageRepository;
 import com.bqsummer.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,10 @@ import java.util.concurrent.CompletableFuture;
  * 3. 更新任务状态（RUNNING → DONE / FAILED）
  * 4. 记录执行日志到 robot_task_execution_log
  * 5. 处理失败重试逻辑
+ * 
+ * 注意事项:
+ * - 使用自我注入(self)来调用事务方法，确保@Transactional注解生效
+ * - 直接调用类内部的@Transactional方法会绕过Spring代理，导致事务失效
  */
 @Slf4j
 @Service
@@ -48,8 +53,21 @@ public class RobotTaskExecutor {
     private final MessageRepository messageRepository;
     private final ConversationMapper conversationMapper;
     
+    // 自我注入：用于调用事务方法，确保通过代理调用
+    private RobotTaskExecutor self;
+    
+    /**
+     * 注入自身代理对象
+     * 用于在类内部调用事务方法时，确保通过Spring代理调用
+     */
+    @Autowired
+    public void setSelf(RobotTaskExecutor self) {
+        this.self = self;
+    }
+    
     /**
      * 异步执行任务
+     * 注意：@Async方法不能使用@Transactional，事务在内部的同步方法中处理
      */
     @Async
     public CompletableFuture<Void> executeAsync(RobotTask task) {
@@ -59,10 +77,11 @@ public class RobotTaskExecutor {
     
     /**
      * 执行任务的核心逻辑
+     * 注意：此方法由@Async方法调用，@Transactional在此处不生效
+     * 事务处理已拆分到各个子方法中
      * 
      * @param task 待执行的任务
      */
-    @Transactional(rollbackFor = Exception.class)
     public void execute(RobotTask task) {
         LocalDateTime startTime = LocalDateTime.now();
         Long taskId = task.getId();
@@ -70,8 +89,8 @@ public class RobotTaskExecutor {
         log.info("开始执行任务: taskId={}, actionType={}, scheduledAt={}", 
                 taskId, task.getActionType(), task.getScheduledAt());
         
-        // Step 1: 使用乐观锁尝试抢占任务
-        boolean acquired = tryAcquireTask(task);
+        // Step 1: 使用乐观锁尝试抢占任务（通过self调用确保事务生效）
+        boolean acquired = self.tryAcquireTask(task);
         if (!acquired) {
             log.debug("任务已被其他实例抢占，跳过: taskId={}", taskId);
             return;
@@ -87,14 +106,8 @@ public class RobotTaskExecutor {
             success = true;
             completedTime = LocalDateTime.now();
             
-            // 更新任务状态为 DONE
-            UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
-            updateWrapper.eq("id", taskId)
-                        .eq("version", task.getVersion())
-                        .set("status", TaskStatus.DONE.name())
-                        .set("completed_at", completedTime)
-                        .set("version", task.getVersion() + 1);
-            robotTaskMapper.update(null, updateWrapper);
+            // 更新任务状态为 DONE（通过self调用确保事务生效）
+            self.updateTaskStatusToDone(task, completedTime);
             
             log.info("任务执行成功: taskId={}", taskId);
             
@@ -103,8 +116,8 @@ public class RobotTaskExecutor {
             errorMessage = e.getMessage();
             completedTime = LocalDateTime.now();
             
-            // 处理失败重试逻辑
-            handleTaskFailure(task, errorMessage);
+            // 处理失败重试逻辑（通过self调用确保事务生效）
+            self.handleTaskFailure(task, errorMessage);
         }
         
         // Step 3: 记录执行日志
@@ -112,11 +125,28 @@ public class RobotTaskExecutor {
     }
     
     /**
+     * 更新任务状态为 DONE
+     * 独立事务方法，确保事务生效
+     */
+    @Transactional(rollbackFor = Exception.class)
+    protected void updateTaskStatusToDone(RobotTask task, LocalDateTime completedTime) {
+        UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", task.getId())
+                    .eq("version", task.getVersion())
+                    .set("status", TaskStatus.DONE.name())
+                    .set("completed_at", completedTime)
+                    .set("version", task.getVersion() + 1);
+        robotTaskMapper.update(null, updateWrapper);
+    }
+    
+    /**
      * 使用乐观锁尝试抢占任务
+     * 独立事务方法，确保事务生效
      * 
      * @return true 如果抢占成功，false 如果被其他实例抢占
      */
-    private boolean tryAcquireTask(RobotTask task) {
+    @Transactional(rollbackFor = Exception.class)
+    protected boolean tryAcquireTask(RobotTask task) {
         LocalDateTime now = LocalDateTime.now();
         
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
@@ -174,8 +204,19 @@ public class RobotTaskExecutor {
      * 4. 更新会话表
      * 
      * T028-T032: 添加完善的异常处理和重试逻辑
+     * 
+     * 注意：此方法需要保证事务性，通过self调用确保事务生效
      */
     private void executeSendMessage(RobotTask task) {
+        self.executeSendMessageWithTransaction(task);
+    }
+    
+    /**
+     * 在事务中执行发送消息行为
+     * 拆分为独立的事务方法，确保数据一致性
+     */
+    @Transactional(rollbackFor = Exception.class)
+    protected void executeSendMessageWithTransaction(RobotTask task) {
         log.info("开始执行SEND_MESSAGE任务: taskId={}, retryCount={}/{}, payload={}", 
                 task.getId(), task.getRetryCount(), task.getMaxRetryCount(), 
                 task.getActionPayload());
@@ -285,8 +326,10 @@ public class RobotTaskExecutor {
     
     /**
      * 处理任务失败后的重试逻辑
+     * 独立事务方法，确保事务生效
      */
-    private void handleTaskFailure(RobotTask task, String errorMessage) {
+    @Transactional(rollbackFor = Exception.class)
+    protected void handleTaskFailure(RobotTask task, String errorMessage) {
         int retryCount = task.getRetryCount() + 1;
         int maxRetryCount = task.getMaxRetryCount();
         
