@@ -1,12 +1,20 @@
 package com.bqsummer.service.robot;
 
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.bqsummer.common.dto.im.Message;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.RobotTaskExecutionLog;
+import com.bqsummer.common.dto.robot.SendMessagePayload;
 import com.bqsummer.common.dto.robot.TaskStatus;
 import com.bqsummer.configuration.RobotTaskConfiguration;
+import com.bqsummer.mapper.ConversationMapper;
 import com.bqsummer.mapper.robot.RobotTaskExecutionLogMapper;
 import com.bqsummer.mapper.robot.RobotTaskMapper;
+import com.bqsummer.model.dto.InferenceRequest;
+import com.bqsummer.model.dto.InferenceResponse;
+import com.bqsummer.model.service.UnifiedInferenceService;
+import com.bqsummer.repository.MessageRepository;
+import com.bqsummer.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -36,6 +44,9 @@ public class RobotTaskExecutor {
     private final RobotTaskMapper robotTaskMapper;
     private final RobotTaskExecutionLogMapper executionLogMapper;
     private final RobotTaskConfiguration config;
+    private final UnifiedInferenceService inferenceService;
+    private final MessageRepository messageRepository;
+    private final ConversationMapper conversationMapper;
     
     /**
      * 异步执行任务
@@ -157,20 +168,102 @@ public class RobotTaskExecutor {
     
     /**
      * 执行发送消息行为
+     * 1. 解析 action_payload JSON
+     * 2. 调用LLM推理服务
+     * 3. 创建AI回复消息
+     * 4. 更新会话表
+     * 
+     * T028-T032: 添加完善的异常处理和重试逻辑
      */
     private void executeSendMessage(RobotTask task) {
-        // TODO: 实现发送消息逻辑
-        // 1. 解析 action_payload JSON
-        // 2. 调用消息服务发送消息
-        // 3. 验证发送结果
+        log.info("开始执行SEND_MESSAGE任务: taskId={}, retryCount={}/{}, payload={}", 
+                task.getId(), task.getRetryCount(), task.getMaxRetryCount(), 
+                task.getActionPayload());
         
-        log.info("发送消息: taskId={}, payload={}", task.getId(), task.getActionPayload());
-        
-        // 模拟耗时操作
         try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            // 1. 解析 action_payload JSON (T028: try-catch捕获异常)
+            SendMessagePayload payload = JsonUtil.fromJson(
+                    task.getActionPayload(), SendMessagePayload.class);
+            
+            if (payload == null) {
+                throw new IllegalArgumentException("action_payload解析失败");
+            }
+            
+            log.info("解析payload成功: messageId={}, senderId={}, receiverId={}, modelId={}", 
+                    payload.getMessageId(), payload.getSenderId(), 
+                    payload.getReceiverId(), payload.getModelId());
+            
+            // 2. 调用LLM推理服务 (T028: 捕获LLM调用异常)
+            InferenceRequest inferenceRequest = new InferenceRequest();
+            inferenceRequest.setModelId(payload.getModelId());
+            inferenceRequest.setPrompt(payload.getContent());
+            inferenceRequest.setTemperature(0.7);
+            inferenceRequest.setMaxTokens(2000);
+            
+            log.info("调用LLM推理服务: modelId={}, promptLength={}", 
+                    payload.getModelId(), payload.getContent().length());
+            
+            InferenceResponse inferenceResponse = inferenceService.chat(inferenceRequest);
+            
+            // 验证LLM响应
+            if (inferenceResponse == null || !Boolean.TRUE.equals(inferenceResponse.getSuccess())) {
+                String errorMsg = inferenceResponse != null ? inferenceResponse.getErrorMessage() : "LLM响应为空";
+                log.warn("LLM推理失败: taskId={}, retryCount={}, error={}", 
+                        task.getId(), task.getRetryCount(), errorMsg);
+                // T032: WARN级别日志记录失败信息
+                throw new RuntimeException("LLM推理失败: " + errorMsg);
+            }
+            
+            log.info("LLM推理成功: taskId={}, tokens={}, responseTime={}ms", 
+                    task.getId(), inferenceResponse.getTotalTokens(), 
+                    inferenceResponse.getResponseTimeMs());
+            
+            // 3. 创建AI回复消息
+            Message aiReply = new Message();
+            aiReply.setSenderId(payload.getReceiverId()); // AI用户ID
+            aiReply.setReceiverId(payload.getSenderId()); // 原始发送者ID
+            aiReply.setType("text");
+            aiReply.setContent(inferenceResponse.getContent());
+            aiReply.setStatus("sent");
+            aiReply.setIsDeleted(0);
+            aiReply.setCreatedAt(LocalDateTime.now());
+            aiReply.setUpdatedAt(LocalDateTime.now());
+            
+            messageRepository.save(aiReply);
+            
+            log.info("AI回复消息创建成功: messageId={}, content={}字符", 
+                    aiReply.getId(), inferenceResponse.getContent().length());
+            
+            // 4. 更新会话表
+            try {
+                conversationMapper.upsertSender(
+                        payload.getReceiverId(), // AI作为发送方
+                        payload.getSenderId(), // 用户作为接收方
+                        aiReply.getId(), 
+                        aiReply.getCreatedAt());
+                conversationMapper.upsertReceiver(
+                        payload.getSenderId(), // 用户作为接收方
+                        payload.getReceiverId(), // AI作为发送方
+                        aiReply.getId(), 
+                        aiReply.getCreatedAt());
+            } catch (Exception e) {
+                // 会话表更新失败不应阻断主流程
+                log.warn("更新会话表失败: {}", e.getMessage());
+            }
+            
+            log.info("SEND_MESSAGE任务执行完成: taskId={}, aiReplyId={}", 
+                    task.getId(), aiReply.getId());
+                    
+        } catch (Exception e) {
+            // T028: 捕获所有LLM调用异常
+            // T029: 捕获异常后，状态更新和error_message记录在handleTaskFailure中完成
+            // T030: 重试次数判断在handleTaskFailure中完成
+            // T031: 重新调度逻辑在handleTaskFailure中完成
+            // T032: 记录WARN级别日志
+            log.warn("SEND_MESSAGE任务执行失败: taskId={}, retryCount={}, error={}", 
+                    task.getId(), task.getRetryCount(), e.getMessage());
+            // 重新抛出异常，由execute方法的异常处理逻辑处理
+            throw e;
         }
     }
     
@@ -234,15 +327,35 @@ public class RobotTaskExecutor {
     
     /**
      * 记录执行日志
+     * T044: 添加性能日志（LLM响应时间、任务等待时间）
      */
     private void recordExecutionLog(RobotTask task, LocalDateTime startTime, 
                                     LocalDateTime completedTime, boolean success, 
                                     String errorMessage) {
         try {
-            // 计算执行延迟
+            // 计算执行延迟（任务等待时间）
             long delayMs = Duration.between(task.getScheduledAt(), startTime).toMillis();
             long durationMs = completedTime != null ? 
                              Duration.between(startTime, completedTime).toMillis() : 0;
+            
+            // T044: 添加性能日志
+            if (success) {
+                log.info("任务执行性能指标: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}", 
+                        task.getId(), durationMs, delayMs, task.getRetryCount() + 1);
+                
+                // 性能告警：执行时间过长
+                if (durationMs > 5000) {
+                    log.warn("任务执行时间过长: taskId={}, duration={}ms (>5s)", task.getId(), durationMs);
+                }
+                
+                // 性能告警：调度延迟过大
+                if (delayMs > 60000) {
+                    log.warn("任务调度延迟过大: taskId={}, delay={}ms (>60s)", task.getId(), delayMs);
+                }
+            } else {
+                log.warn("任务执行失败性能指标: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}, error={}", 
+                        task.getId(), durationMs, delayMs, task.getRetryCount() + 1, errorMessage);
+            }
             
             // 获取实例ID
             String instanceId = getInstanceId();

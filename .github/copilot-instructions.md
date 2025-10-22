@@ -60,7 +60,6 @@ tests/
 - 2025-10-22: 更新项目宪章至 v1.1.0
   - 新增原则VI：数据库管理规范 (禁止使用migration目录)
   - 更新模板文件以反映数据库管理要求
-- 002-bind-aichar-user-creation: Added (2025-10-21)
   - AiCharacter.associatedUserId字段
   - User.userType字段(REAL/AI)
   - AiCharacterService事务性创建/更新/删除用户账户
