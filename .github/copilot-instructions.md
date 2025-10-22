@@ -4,7 +4,8 @@ Auto-generated from all feature plans. Last updated: 2025-10-22
 
 ## Active Technologies
 - (002-bind-aichar-user-creation) - AI角色与用户账户自动绑定
-- (002-robot-task-queue-metrics)
+- (002-robot-task-queue-metrics) - 机器人任务队列监控指标
+- (003-dynamic-concurrency-control) - 动态并发控制管理
 
 ## Project Structure
 ```
@@ -35,6 +36,13 @@ tests/
 - 删除AI角色会同步软删除关联用户账户
 - AI用户禁止登录（在AuthService.login中检查）
 
+# 机器人任务并发控制相关
+- GET /api/v1/admin/robot-task/concurrency/config - 查询所有动作类型的并发配置（ADMIN）
+- PUT /api/v1/admin/robot-task/concurrency/config/{actionType} - 动态修改并发限制（ADMIN）
+- 支持的动作类型：SEND_MESSAGE, SEND_VOICE, SEND_NOTIFICATION
+- 修改立即生效，无需重启；重启后恢复配置文件默认值
+- 所有修改操作自动记录日志：操作人、动作类型、修改前后值
+
 ## Code Style
 - 中文注释优先
 - 遵循TDD原则
@@ -43,6 +51,12 @@ tests/
 - **数据库管理**：所有SQL必须写在 `src/main/resources/datasourceInit.sql`，禁止在 `db/migration/` 下创建文件
 
 ## Recent Changes
+- 003-dynamic-concurrency-control: Added (2025-10-22)
+  - RobotTaskManagementController (新增管理接口)
+  - ConcurrencyConfigDto, ConcurrencyUpdateRequest (并发配置DTO)
+  - RobotTaskScheduler.updateConcurrencyLimit() (动态调整Semaphore)
+  - RobotTaskScheduler.actionConcurrencyConfig (内存配置存储)
+  - 操作日志记录（INFO级别，包含操作人、动作类型、修改前后值）
 - 2025-10-22: 更新项目宪章至 v1.1.0
   - 新增原则VI：数据库管理规范 (禁止使用migration目录)
   - 更新模板文件以反映数据库管理要求
@@ -52,7 +66,6 @@ tests/
   - AiCharacterService事务性创建/更新/删除用户账户
   - AuthService AI用户登录限制
   - UserMapper/AiCharacterMapper/FriendMapper userType映射
-- 002-robot-task-queue-metrics: Added
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
