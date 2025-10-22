@@ -18,10 +18,11 @@
   此处的结构仅为指导迭代过程的建议。
 -->
 
-**语言/版本**：[例如，Python 3.11, Swift 5.9, Rust 1.75 或 待明确]  
-**主要依赖**：[例如，FastAPI, UIKit, LLVM 或 待明确]  
-**存储**：[如适用，例如，PostgreSQL, CoreData, 文件 或 不适用]  
-**测试**：[例如，pytest, XCTest, cargo test 或 待明确]  
+**语言/版本**：[例如，Java 17, Python 3.11, Swift 5.9 或 待明确]  
+**主要依赖**：[例如，Spring Boot 3.5.5, MyBatis Plus 3.5.14, FastAPI 或 待明确]  
+**存储**：[如适用，例如，MySQL (datasourceInit.sql), PostgreSQL, 文件 或 不适用]  
+**数据库管理**：[如使用数据库，必须说明：所有 SQL 写入 src/main/resources/datasourceInit.sql，禁止使用 migration 目录]  
+**测试**：[例如，JUnit 5 + RestAssured, pytest, XCTest 或 待明确]  
 **目标平台**：[例如，Linux 服务器, iOS 15+, WASM 或 待明确]
 **项目类型**：[单一项目/Web/移动端 - 决定了源码结构]  
 **性能目标**：[领域相关，例如，1000 请求/秒, 1万行/秒, 60 fps 或 待明确]  
