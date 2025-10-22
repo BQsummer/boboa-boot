@@ -59,6 +59,12 @@ public class RobotTaskScheduler {
     private final Map<String, Semaphore> concurrencySemaphores = new ConcurrentHashMap<>();
     
     /**
+     * 动作类型 -> 并发限制配置值
+     * 用于存储当前的并发限制，支持动态修改和查询
+     */
+    private final Map<String, Integer> actionConcurrencyConfig = new ConcurrentHashMap<>();
+    
+    /**
      * 动作类型 -> 因并发满而延迟重试的任务数统计
      */
     private final Map<String, AtomicLong> delayedRetryCount = new ConcurrentHashMap<>();
@@ -99,30 +105,42 @@ public class RobotTaskScheduler {
     }
     
     /**
+     * 获取动作类型与并发配置的映射
+     * 
+     * @return 动作类型 -> 并发上限的映射
+     */
+    private Map<String, Integer> getActionConcurrencyConfig() {
+        return Map.of(
+            "SEND_MESSAGE", config.getConcurrencySendMessage(),
+            "SEND_VOICE", config.getConcurrencySendVoice(),
+            "SEND_NOTIFICATION", config.getConcurrencySendNotification()
+        );
+    }
+    
+    /**
      * 初始化并发控制信号量
      * 为每种动作类型创建对应的信号量，用于限制并发执行数
      */
     private void initConcurrencySemaphores() {
-        // SEND_MESSAGE 任务并发上限
-        int messageConcurrency = config.getConcurrencySendMessage();
-        concurrencySemaphores.put("SEND_MESSAGE", new Semaphore(messageConcurrency));
-        delayedRetryCount.put("SEND_MESSAGE", new AtomicLong(0));
+        Map<String, Integer> initialConfig = getActionConcurrencyConfig();
         
-        // SEND_VOICE 任务并发上限
-        int voiceConcurrency = config.getConcurrencySendVoice();
-        concurrencySemaphores.put("SEND_VOICE", new Semaphore(voiceConcurrency));
-        delayedRetryCount.put("SEND_VOICE", new AtomicLong(0));
+        // 遍历配置，初始化信号量和配置映射
+        int totalConcurrency = 0;
+        for (Map.Entry<String, Integer> entry : initialConfig.entrySet()) {
+            String actionType = entry.getKey();
+            Integer concurrency = entry.getValue();
+            
+            concurrencySemaphores.put(actionType, new Semaphore(concurrency));
+            actionConcurrencyConfig.put(actionType, concurrency);  // 存储配置值
+            delayedRetryCount.put(actionType, new AtomicLong(0));
+            totalConcurrency += concurrency;
+            
+            log.info("初始化并发控制信号量 - {}: {}", actionType, concurrency);
+        }
         
-        // SEND_NOTIFICATION 任务并发上限
-        int notificationConcurrency = config.getConcurrencySendNotification();
-        concurrencySemaphores.put("SEND_NOTIFICATION", new Semaphore(notificationConcurrency));
-        delayedRetryCount.put("SEND_NOTIFICATION", new AtomicLong(0));
-        
-        log.info("并发控制信号量初始化完成 - SEND_MESSAGE: {}, SEND_VOICE: {}, SEND_NOTIFICATION: {}",
-                 messageConcurrency, voiceConcurrency, notificationConcurrency);
+        log.info("并发控制信号量初始化完成 - 总并发上限: {}", totalConcurrency);
         
         // 验证并发配置合理性
-        int totalConcurrency = messageConcurrency + voiceConcurrency + notificationConcurrency;
         int maxPoolSize = config.getExecutorMaxPoolSize();
         if (totalConcurrency > maxPoolSize) {
             log.warn("并发上限总和 ({}) 超过线程池容量 ({})，可能导致部分槽位无法使用",
@@ -362,19 +380,71 @@ public class RobotTaskScheduler {
      * 获取指定动作类型的并发上限
      * 
      * @param actionType 动作类型
-     * @return 并发上限
+     * @return 并发上限，如果未配置返回 0
      */
     public int getConcurrencyLimit(String actionType) {
-        switch (actionType) {
-            case "SEND_MESSAGE":
-                return config.getConcurrencySendMessage();
-            case "SEND_VOICE":
-                return config.getConcurrencySendVoice();
-            case "SEND_NOTIFICATION":
-                return config.getConcurrencySendNotification();
-            default:
-                return 0;
+        return actionConcurrencyConfig.getOrDefault(actionType, 0);
+    }
+    
+    /**
+     * 动态修改指定动作类型的并发限制
+     * 
+     * 通过调整 Semaphore 的许可数实现动态修改：
+     * - 增加限制：直接释放差值数量的许可 (release)
+     * - 减少限制：尝试获取差值数量的许可 (tryAcquire)，不会中断正在执行的任务
+     * 
+     * @param actionType 动作类型（SEND_MESSAGE, SEND_VOICE, SEND_NOTIFICATION）
+     * @param newLimit 新的并发限制值（必须大于 0）
+     * @throws IllegalArgumentException 如果动作类型未配置或新限制非法
+     */
+    public synchronized void updateConcurrencyLimit(String actionType, int newLimit) {
+        if (newLimit <= 0) {
+            throw new IllegalArgumentException("并发限制必须大于 0，实际值: " + newLimit);
         }
+        
+        Semaphore semaphore = concurrencySemaphores.get(actionType);
+        if (semaphore == null) {
+            throw new IllegalArgumentException("不支持的动作类型: " + actionType);
+        }
+        
+        int oldLimit = getConcurrencyLimit(actionType);
+        int diff = newLimit - oldLimit;
+        
+        if (diff == 0) {
+            // 无需修改
+            log.debug("并发限制未变化，无需修改: actionType={}, limit={}", actionType, newLimit);
+            return;
+        }
+        
+        // 调整 Semaphore 许可数
+        if (diff > 0) {
+            // 增加许可：直接释放差值数量的许可
+            semaphore.release(diff);
+            log.debug("增加并发限制: actionType={}, oldLimit={}, newLimit={}, diff=+{}", 
+                     actionType, oldLimit, newLimit, diff);
+        } else {
+            // 减少许可：尝试获取差值数量的许可（非阻塞）
+            // 注意：如果当前可用许可不足，只会获取实际可用的数量
+            // 这确保了正在执行的任务不会被中断
+            int acquired = semaphore.tryAcquire(-diff) ? -diff : semaphore.drainPermits();
+            log.debug("减少并发限制: actionType={}, oldLimit={}, newLimit={}, diff={}, acquired={}", 
+                     actionType, oldLimit, newLimit, diff, acquired);
+        }
+        
+        // 更新配置映射
+        actionConcurrencyConfig.put(actionType, newLimit);
+        
+        log.info("并发限制修改成功: actionType={}, oldLimit={}, newLimit={}, availablePermits={}", 
+                actionType, oldLimit, newLimit, semaphore.availablePermits());
+    }
+    
+    /**
+     * 获取线程池最大容量
+     * 
+     * @return 线程池最大线程数
+     */
+    public int getMaxPoolSize() {
+        return config.getExecutorMaxPoolSize();
     }
     
     /**

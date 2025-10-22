@@ -96,7 +96,6 @@
 
 要求：
 - **禁止**在 `src/main/resources/db/migration/` 目录下创建任何 SQL 文件
-- **禁止**使用 Flyway、Liquibase 等数据库版本管理工具
 - 所有表结构定义、ALTER 语句、索引创建等**必须**直接写入 `datasourceInit.sql`
 - 数据库初始化由应用启动时自动执行 `datasourceInit.sql`
 - 新增表或修改表结构时，直接在 `datasourceInit.sql` 中追加或修改相应 SQL
