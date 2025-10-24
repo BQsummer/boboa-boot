@@ -89,7 +89,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         
@@ -121,7 +120,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         
@@ -158,7 +156,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         
@@ -203,7 +200,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         
@@ -240,7 +236,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         
@@ -274,7 +269,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(3); // 已达到最大重试次数
         task.setMaxRetryCount(3);
         
@@ -309,7 +303,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(1); // 当前是第2次尝试（第1次重试）
         task.setMaxRetryCount(3);
         
@@ -343,7 +336,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now().minusSeconds(5)); // 延迟5秒
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         
@@ -389,7 +381,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now().minusSeconds(3));
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         
@@ -429,7 +420,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         
@@ -470,7 +460,6 @@ class RobotTaskExecutorTest extends BaseTest {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(scheduledAt);
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         

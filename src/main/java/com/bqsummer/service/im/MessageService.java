@@ -164,7 +164,6 @@ public class MessageService {
         task.setActionPayload(JsonUtil.toJson(payload));
         task.setScheduledAt(LocalDateTime.now().plusSeconds(config.getMessageDelaySeconds()));
         task.setStatus("PENDING");
-        task.setVersion(0);
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
         

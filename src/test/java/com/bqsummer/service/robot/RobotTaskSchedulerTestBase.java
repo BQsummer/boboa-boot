@@ -31,7 +31,6 @@ public abstract class RobotTaskSchedulerTestBase {
         task.setActionPayload("{\"message\":\"test\"}");
         task.setScheduledAt(scheduledAt);
         task.setStatus("PENDING");
-        task.setVersion(0);
         return task;
     }
     
