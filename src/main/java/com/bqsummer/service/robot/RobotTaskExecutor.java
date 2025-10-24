@@ -6,6 +6,7 @@ import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.RobotTaskExecutionLog;
 import com.bqsummer.common.dto.robot.SendMessagePayload;
 import com.bqsummer.common.dto.robot.TaskStatus;
+import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import com.bqsummer.mapper.ConversationMapper;
 import com.bqsummer.mapper.robot.RobotTaskExecutionLogMapper;
@@ -33,7 +34,7 @@ import java.util.concurrent.CompletableFuture;
  * 
  * 职责:
  * 1. 使用声明式领取机制抢占任务（PENDING → RUNNING）
- *    - 基于 locked_by 字段标记所有权（替代乐观锁 version 字段）
+ *    - 基于 locked_by 字段标记所有权
  *    - 原子UPDATE操作保证互斥性，不受长时操作期间并发写影响
  * 2. 执行任务的具体行为（SEND_MESSAGE, SEND_VOICE, SEND_NOTIFICATION）
  * 3. 更新任务状态（RUNNING → DONE / FAILED）
@@ -57,6 +58,7 @@ public class RobotTaskExecutor {
     private final UnifiedInferenceService inferenceService;
     private final MessageRepository messageRepository;
     private final ConversationMapper conversationMapper;
+    private final Configs configs;
     
     // 自我注入：用于调用事务方法，确保通过代理调用
     private RobotTaskExecutor self;
@@ -94,7 +96,7 @@ public class RobotTaskExecutor {
         log.info("开始执行任务: taskId={}, actionType={}, scheduledAt={}", 
                 taskId, task.getActionType(), task.getScheduledAt());
         
-        // Step 1: 使用乐观锁尝试抢占任务（通过self调用确保事务生效）
+        // Step 1: 尝试抢占任务（通过self调用确保事务生效）
         boolean acquired = self.tryAcquireTask(task);
         if (!acquired) {
             log.debug("任务已被其他实例抢占，跳过: taskId={}", taskId);
@@ -134,7 +136,7 @@ public class RobotTaskExecutor {
      * 独立事务方法，确保事务生效
      * 
      * 所有权验证：
-     * - 基于 locked_by 验证当前实例是否拥有该任务（替代乐观锁version验证）
+     * - 基于 locked_by 验证当前实例是否拥有该任务
      * - WHERE locked_by=当前实例ID 确保只有任务所有者能更新状态
      * - 防止跨实例误操作
      */
@@ -163,9 +165,8 @@ public class RobotTaskExecutor {
     /**
      * 使用声明式领取机制尝试抢占任务
      * 独立事务方法，确保事务生效
-     * 
      * 机制说明：
-     * - 使用 locked_by 字段标记任务所有权（替代乐观锁version字段）
+     * - 使用 locked_by 字段标记任务所有权
      * - 原子UPDATE操作：WHERE status='PENDING' SET locked_by=实例ID, status='RUNNING'
      * - 只有一个实例能成功领取（互斥性由WHERE条件保证）
      * 
@@ -179,6 +180,7 @@ public class RobotTaskExecutor {
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", task.getId())
                     .eq("status", TaskStatus.PENDING.name())  // 只有PENDING任务可以被领取
+                    .eq("locked_by", null)  // 确保任务未被其他实例领取
                     .set("status", TaskStatus.RUNNING.name())
                     .set("locked_by", instanceId)  // 设置所有权
                     .set("started_at", now)
@@ -385,9 +387,12 @@ public class RobotTaskExecutor {
             log.warn("任务失败且超过最大重试次数: taskId={}, retryCount={}, previousLockedBy={}", 
                     task.getId(), retryCount, previousLockedBy);
         } else {
-            // 计算下次执行时间（指数退避）
-            long delayMinutes = (long) Math.pow(retryCount, 2); // 1分钟, 4分钟, 9分钟...
-            LocalDateTime nextExecuteAt = LocalDateTime.now().plusMinutes(delayMinutes);
+            // 计算下次执行时间
+            String[] retryDelay = configs.getRetryDelay().split(",");
+            int delaySeconds = retryCount > retryDelay.length ?
+                               Integer.parseInt(retryDelay[retryDelay.length - 1]) :
+                               Integer.parseInt(retryDelay[retryCount - 1]);
+            LocalDateTime nextExecuteAt = LocalDateTime.now().plusSeconds(delaySeconds);
             
             // 重置状态为 PENDING，增加重试计数，释放所有权
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();

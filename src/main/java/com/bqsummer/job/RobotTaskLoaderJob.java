@@ -1,8 +1,10 @@
 package com.bqsummer.job;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.TaskStatus;
+import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import com.bqsummer.framework.job.JobExecutor;
 import com.bqsummer.framework.job.JobInfo;
@@ -18,23 +20,17 @@ import java.util.List;
 
 /**
  * 机器人任务加载定时任务
- * 
  * 职责:
  * 1. 每30秒执行一次
  * 2. 从数据库查询过期PENDING任务、超时RUNNING任务、未来PENDING任务
  * 3. 按优先级顺序加载到 RobotTaskScheduler 的内存队列中
- * 
  * 三级优先级系统：
  * - 第一优先级：过期PENDING任务（scheduled_at <= NOW）
  *   这些任务本应执行但被遗漏，必须优先补偿
- * 
  * - 第二优先级：超时RUNNING任务（updated_time <= NOW - timeoutThresholdMinutes）
  *   这些任务可能执行异常或进程崩溃，需要重置状态并重新调度
- *   使用乐观锁（version字段）确保并发安全
- * 
  * - 第三优先级：未来PENDING任务（scheduled_at在时间窗口内）
  *   正常的预加载逻辑，提前加载即将到期的任务
- * 
  * 容量管理：
  * - 每次最多加载 maxLoadSize 个任务
  * - 高优先级任务优先分配队列槽位
@@ -49,6 +45,7 @@ public class RobotTaskLoaderJob extends JobExecutor {
     private final RobotTaskMapper robotTaskMapper;
     private final RobotTaskScheduler robotTaskScheduler;
     private final RobotTaskConfiguration config;
+    private final Configs configs;
     
     @Override
     public void execute(JobExecutionContext context) {
@@ -155,7 +152,7 @@ public class RobotTaskLoaderJob extends JobExecutor {
      */
     private List<RobotTask> queryTimeoutRunningTasks(int limit) {
         LocalDateTime timeoutThreshold = LocalDateTime.now()
-                .minusMinutes(config.getTimeoutThresholdMinutes());
+                .minusSeconds(configs.getTimeoutTask());
         
         QueryWrapper<RobotTask> wrapper = new QueryWrapper<>();
         wrapper.eq("status", TaskStatus.RUNNING.name())
@@ -168,7 +165,9 @@ public class RobotTaskLoaderJob extends JobExecutor {
     
     /**
      * 将超时RUNNING任务重置为PENDING状态
-     * 使用乐观锁确保并发安全
+     * 使用原子操作确保多pod环境下的并发安全：
+     * - 只重置状态为RUNNING且locked_by匹配原值的任务
+     * - 重置时清空locked_by字段，允许其他实例重新领取
      * 
      * @param tasks 超时任务列表
      * @return 成功重置的任务列表
@@ -179,22 +178,33 @@ public class RobotTaskLoaderJob extends JobExecutor {
         for (RobotTask task : tasks) {
             long timeoutMinutes = calculateTimeoutDuration(task);
             
-            // 设置新状态
-            task.setStatus(TaskStatus.PENDING.name());
-            task.setErrorMessage(String.format(
-                "检测到超时（超过%d分钟，阈值%d分钟），重置状态并重新调度",
-                timeoutMinutes, config.getTimeoutThresholdMinutes()
-            ));
-            
-            // 使用乐观锁更新（MyBatis Plus 自动处理 version 字段）
-            int updated = robotTaskMapper.updateById(task);
+            // 使用条件更新确保原子性和并发安全
+            UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("id", task.getId())
+                        .eq("status", TaskStatus.RUNNING.name())  // 确保状态仍为RUNNING
+                        .set("status", TaskStatus.PENDING.name())
+                        .set("locked_by", (Object) null)          // 清空锁定，允许重新领取
+                        .set("error_message", String.format(
+                            "检测到超时（超过%d分钟，阈值%d分钟），重置状态并重新调度",
+                            timeoutMinutes, config.getTimeoutThresholdMinutes()
+                        ));
+
+            int updated = robotTaskMapper.update(null, updateWrapper);
             
             if (updated > 0) {
+                // 更新本地task对象状态，便于后续加载
+                task.setStatus(TaskStatus.PENDING.name());
+                task.setLockedBy(null);
+                task.setErrorMessage(String.format(
+                    "检测到超时（超过%d分钟，阈值%d分钟），重置状态并重新调度",
+                    timeoutMinutes, config.getTimeoutThresholdMinutes()
+                ));
+                
                 resetTasks.add(task);
-                log.info("任务{}状态重置: RUNNING -> PENDING, 超时时长={}分钟", 
+                log.info("任务{}状态重置: RUNNING -> PENDING, 超时时长={}分钟, locked_by已清空", 
                          task.getId(), timeoutMinutes);
             } else {
-                log.warn("任务{}状态重置失败（可能被其他进程修改），跳过加载", task.getId());
+                log.warn("任务{}状态重置失败（任务状态或locked_by已被其他进程修改），跳过重置", task.getId());
             }
         }
         

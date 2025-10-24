@@ -1,5 +1,6 @@
 package com.bqsummer.service.robot;
 
+import com.bqsummer.common.dto.robot.ActionType;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
@@ -99,37 +100,38 @@ public class RobotTaskScheduler {
     }
     
     /**
-     * 获取动作类型与并发配置的映射
-     * 
-     * @return 动作类型 -> 并发上限的映射
+     * 根据动作类型获取对应的并发配置值
+     *
+     * @param actionType 动作类型枚举
+     * @return 该动作类型的并发上限
      */
-    private Map<String, Integer> getActionConcurrencyConfig() {
-        return Map.of(
-            "SEND_MESSAGE", config.getConcurrencySendMessage(),
-            "SEND_VOICE", config.getConcurrencySendVoice(),
-            "SEND_NOTIFICATION", config.getConcurrencySendNotification()
-        );
+    private int getConcurrencyConfigValue(ActionType actionType) {
+        return switch (actionType) {
+            case SEND_MESSAGE -> config.getConcurrencySendMessage();
+            case SEND_VOICE -> config.getConcurrencySendVoice();
+            case SEND_NOTIFICATION -> config.getConcurrencySendNotification();
+        };
     }
     
     /**
      * 初始化并发控制信号量
      * 为每种动作类型创建对应的信号量，用于限制并发执行数
+     * 动态遍历 ActionType 枚举，自动适配新增的动作类型
      */
     private void initConcurrencySemaphores() {
-        Map<String, Integer> initialConfig = getActionConcurrencyConfig();
-        
-        // 遍历配置，初始化信号量和配置映射
+        // 遍历 ActionType 枚举，初始化信号量和配置映射
         int totalConcurrency = 0;
-        for (Map.Entry<String, Integer> entry : initialConfig.entrySet()) {
-            String actionType = entry.getKey();
-            Integer concurrency = entry.getValue();
-            
-            concurrencySemaphores.put(actionType, new Semaphore(concurrency));
-            actionConcurrencyConfig.put(actionType, concurrency);  // 存储配置值
-            delayedRetryCount.put(actionType, new AtomicLong(0));
+
+        for (ActionType actionType : ActionType.values()) {
+            String actionTypeName = actionType.name();
+            int concurrency = getConcurrencyConfigValue(actionType);
+
+            concurrencySemaphores.put(actionTypeName, new Semaphore(concurrency));
+            actionConcurrencyConfig.put(actionTypeName, concurrency);  // 存储配置值
+            delayedRetryCount.put(actionTypeName, new AtomicLong(0));
             totalConcurrency += concurrency;
             
-            log.info("初始化并发控制信号量 - {}: {}", actionType, concurrency);
+            log.info("初始化并发控制信号量 - {}: {}", actionTypeName, concurrency);
         }
         
         log.info("并发控制信号量初始化完成 - 总并发上限: {}", totalConcurrency);
@@ -187,8 +189,19 @@ public class RobotTaskScheduler {
                     if (semaphore == null) {
                         // 未配置的动作类型，直接执行（不限制并发）
                         log.warn("未配置动作类型 {} 的并发控制，直接执行", actionType);
-                        taskExecutor.executeAsync(task);
-                        loadedTaskIds.remove(task.getId());
+
+                        // 异步执行，并在完成后从已加载集合中移除
+                        taskExecutor.executeAsync(task).whenComplete((result, ex) -> {
+                            if (ex != null) {
+                                log.error("任务执行异常: taskId={}, actionType={}",
+                                         task.getId(), actionType, ex);
+                            } else {
+                                log.debug("任务执行完成: taskId={}, actionType={}",
+                                         task.getId(), actionType);
+                            }
+                            // 任务执行完成后才从已加载集合中移除，防止重复加载
+                            loadedTaskIds.remove(task.getId());
+                        });
                     } else {
                         // 尝试获取并发槽位（非阻塞）
                         boolean acquired = semaphore.tryAcquire();
@@ -215,10 +228,10 @@ public class RobotTaskScheduler {
                             loadedTaskIds.remove(task.getId());
                         } else {
                             // 并发已满，延迟1秒后重试
-                            log.debug("并发槽位已满，延迟重试: taskId={}, actionType={}", task.getId(), actionType);
+                            log.info("并发槽位已满，延迟重试: taskId={}, actionType={}", task.getId(), actionType);
                             
                             // 更新任务的计划执行时间（延迟1秒）
-                            task.setScheduledAt(task.getScheduledAt().plusSeconds(1));
+                            task.setScheduledAt(task.getScheduledAt().plusSeconds(configs.getConcurrentDelay()));
                             
                             // 重新包装并放回队列
                             RobotTaskWrapper retryWrapper = new RobotTaskWrapper(task);
@@ -246,10 +259,12 @@ public class RobotTaskScheduler {
     /**
      * 加载任务到内存队列（带队列容量检查）
      * 
+     * 使用 synchronized 保证线程安全，防止多线程并发导致队列超限
+     * 
      * @param tasks 待加载的任务列表
      * @return 实际加载的任务数
      */
-    public int loadTasks(List<RobotTask> tasks) {
+    public synchronized int loadTasks(List<RobotTask> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return 0;
         }
@@ -398,7 +413,13 @@ public class RobotTaskScheduler {
         
         Semaphore semaphore = concurrencySemaphores.get(actionType);
         if (semaphore == null) {
-            throw new IllegalArgumentException("不支持的动作类型: " + actionType);
+            // 如果动作类型不存在，创建新的信号量和配置
+            semaphore = new Semaphore(newLimit);
+            concurrencySemaphores.put(actionType, semaphore);
+            actionConcurrencyConfig.put(actionType, newLimit);
+            delayedRetryCount.put(actionType, new AtomicLong(0));
+            log.info("创建新的并发控制信号量: actionType={}, limit={}", actionType, newLimit);
+            return;
         }
         
         int oldLimit = getConcurrencyLimit(actionType);
@@ -409,8 +430,11 @@ public class RobotTaskScheduler {
             log.debug("并发限制未变化，无需修改: actionType={}, limit={}", actionType, newLimit);
             return;
         }
-        
-        // 调整 Semaphore 许可数
+
+        // 必须立即调整 Semaphore 许可数，因为：
+        // 1. consumeTasks() 方法实时使用 semaphore.tryAcquire() 判断是否可执行
+        // 2. 只更新 actionConcurrencyConfig 不会影响已创建的 Semaphore 对象
+        // 3. 需要确保并发限制即时生效，而不是等到下次重启或重新初始化
         if (diff > 0) {
             // 增加许可：直接释放差值数量的许可
             semaphore.release(diff);
