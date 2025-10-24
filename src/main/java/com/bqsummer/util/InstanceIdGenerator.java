@@ -6,7 +6,6 @@ import java.util.UUID;
 
 /**
  * 实例ID生成器
- * 
  * 用于生成全局唯一的实例标识符，格式为 hostname:pid
  * 主要用于任务抢占场景中标识任务所有权
  * 
@@ -19,11 +18,9 @@ public class InstanceIdGenerator {
     
     /**
      * 获取当前实例的唯一标识符
-     * 
      * 生成规则：
      * 1. 优先使用 hostname:pid 格式（例如：server-01:12345）
      * 2. 如果获取失败，降级使用 UUID（例如：uuid:a1b2c3d4...）
-     * 
      * 实例ID会被缓存，多次调用返回相同值
      * 
      * @return 实例ID字符串，格式为 hostname:pid 或 uuid:xxx

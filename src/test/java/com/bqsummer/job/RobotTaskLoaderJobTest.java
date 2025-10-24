@@ -1,8 +1,10 @@
 package com.bqsummer.job;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.TaskStatus;
+import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import com.bqsummer.mapper.robot.RobotTaskMapper;
 import com.bqsummer.service.robot.RobotTaskScheduler;
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -18,8 +21,11 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 /**
@@ -42,6 +48,9 @@ class RobotTaskLoaderJobTest {
     
     @Mock
     private RobotTaskConfiguration config;
+    
+    @Mock
+    private Configs configs;
     
     @InjectMocks
     private RobotTaskLoaderJob loaderJob;
@@ -390,10 +399,82 @@ class RobotTaskLoaderJobTest {
             .actionPayload("{}")
             .scheduledAt(scheduledAt)
             .status(status.name())
+            .lockedBy("pod-1:12345")  // 添加lockedBy字段
             .retryCount(0)
             .maxRetryCount(3)
             .createdTime(LocalDateTime.now())
             .updatedTime(updatedTime)
             .build();
+    }
+    
+    // ========== 并发安全重置逻辑测试 ==========
+    
+    @Test
+    @DisplayName("超时任务重置应该使用原子条件更新确保并发安全")
+    void shouldUseAtomicUpdateForTimeoutTaskReset() {
+        // Given: 超时RUNNING任务
+        LocalDateTime timeoutUpdatedTime = LocalDateTime.now().minusMinutes(35);
+        RobotTask timeoutTask = RobotTask.builder()
+                .id(1L)
+                .status(TaskStatus.RUNNING.name())
+                .lockedBy("pod-1:12345")
+                .updatedTime(timeoutUpdatedTime)
+                .build();
+        
+        // Mock: 配置超时阈值
+        when(configs.getTimeoutTask()).thenReturn(1800); // 30分钟
+        
+        // Mock: 查询超时任务
+        when(robotTaskMapper.selectList(any()))
+            .thenReturn(Collections.emptyList())      // 无过期PENDING任务
+            .thenReturn(List.of(timeoutTask))         // 有超时RUNNING任务
+            .thenReturn(Collections.emptyList());     // 无未来PENDING任务
+        
+        // Mock: 原子更新成功
+        when(robotTaskMapper.update(any(), any())).thenReturn(1);
+        when(robotTaskScheduler.loadTasks(anyList())).thenReturn(1);
+        
+        // When: 执行任务加载
+        loaderJob.execute(null);
+        
+        // Then: 应该使用原子更新操作
+        verify(robotTaskMapper).update(isNull(), any());
+        
+        // 验证调度器被调用加载重置后的任务
+        verify(robotTaskScheduler).loadTasks(anyList());
+    }
+    
+    @Test
+    @DisplayName("当任务已被其他进程修改时重置应该失败")
+    void shouldFailResetWhenTaskModifiedByConcurrentProcess() {
+        // Given: 超时RUNNING任务
+        LocalDateTime timeoutUpdatedTime = LocalDateTime.now().minusMinutes(35);
+        RobotTask timeoutTask = RobotTask.builder()
+                .id(1L)
+                .status(TaskStatus.RUNNING.name())
+                .lockedBy("pod-1:12345")
+                .updatedTime(timeoutUpdatedTime)
+                .build();
+        
+        // Mock: 配置超时阈值
+        when(configs.getTimeoutTask()).thenReturn(1800); // 30分钟
+        
+        // Mock: 查询超时任务
+        when(robotTaskMapper.selectList(any()))
+            .thenReturn(Collections.emptyList())      // 无过期PENDING任务
+            .thenReturn(List.of(timeoutTask))         // 有超时RUNNING任务
+            .thenReturn(Collections.emptyList());     // 无未来PENDING任务
+        
+        // Mock: 原子更新失败（任务已被其他进程修改）
+        when(robotTaskMapper.update(any(), any())).thenReturn(0);
+        
+        // When: 执行任务加载
+        loaderJob.execute(null);
+        
+        // Then: 应该正常执行不抛异常
+        verify(robotTaskMapper).update(any(), any());
+        
+        // 验证失败的任务不会被加载到调度器
+        verify(robotTaskScheduler, never()).loadTasks(argThat(tasks -> !tasks.isEmpty()));
     }
 }

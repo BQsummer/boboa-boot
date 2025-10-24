@@ -1,6 +1,7 @@
 package com.bqsummer.service.robot;
 
 import com.bqsummer.common.dto.robot.RobotTask;
+import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,8 @@ class RobotTaskSchedulerConcurrencyTest extends RobotTaskSchedulerTestBase {
     private RobotTaskScheduler scheduler;
     
     private RobotTaskConfiguration config;
+
+    private Configs concfigs = new Configs();
     
     @BeforeEach
     void setUp() {
@@ -51,7 +54,7 @@ class RobotTaskSchedulerConcurrencyTest extends RobotTaskSchedulerTestBase {
         config.setConcurrencySendNotification(3); // 通知任务并发上限为3
         
         // 创建调度器实例
-        scheduler = new RobotTaskScheduler(taskExecutor, config);
+        scheduler = new RobotTaskScheduler(taskExecutor, config, concfigs);
         
         // 初始化（模拟 @PostConstruct）
         scheduler.startConsumer();

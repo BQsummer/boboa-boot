@@ -119,11 +119,14 @@ public class MessageService {
             
             // 尝试加载到内存队列
             int loaded = robotTaskScheduler.loadTasks(Collections.singletonList(task));
+            // TODO 加监控
             if (loaded == 0) {
                 log.warn("任务加载失败，队列已满: taskId={}", task.getId());
             } else {
                 log.info("任务创建并加载成功: taskId={}, receiverId={}", task.getId(), request.getReceiverId());
             }
+        } else {
+            log.error("非法的AI用户消息发送请求，receiverId={}", request.getReceiverId());
         }
     }
     
@@ -152,17 +155,17 @@ public class MessageService {
                 .senderId(msg.getSenderId())
                 .receiverId(msg.getReceiverId())
                 .content(msg.getContent())
-                .modelId(config.getDefaultModelId())
                 .build();
         
         // 创建RobotTask
         RobotTask task = new RobotTask();
+        // TODO 加个xxx_id字段做索引
         task.setUserId(msg.getSenderId());
         task.setRobotId(robotId);
         task.setTaskType("SHORT_DELAY");
         task.setActionType("SEND_MESSAGE");
         task.setActionPayload(JsonUtil.toJson(payload));
-        task.setScheduledAt(LocalDateTime.now().plusSeconds(config.getMessageDelaySeconds()));
+        task.setScheduledAt(LocalDateTime.now());
         task.setStatus("PENDING");
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
