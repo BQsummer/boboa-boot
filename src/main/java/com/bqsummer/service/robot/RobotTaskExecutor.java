@@ -54,7 +54,6 @@ public class RobotTaskExecutor {
     
     private final RobotTaskMapper robotTaskMapper;
     private final RobotTaskExecutionLogMapper executionLogMapper;
-    private final RobotTaskConfiguration config;
     private final UnifiedInferenceService inferenceService;
     private final MessageRepository messageRepository;
     private final ConversationMapper conversationMapper;
@@ -236,9 +235,7 @@ public class RobotTaskExecutor {
      * 2. 调用LLM推理服务
      * 3. 创建AI回复消息
      * 4. 更新会话表
-     * 
      * T028-T032: 添加完善的异常处理和重试逻辑
-     * 
      * 注意：此方法需要保证事务性，通过self调用确保事务生效
      */
     private void executeSendMessage(RobotTask task) {

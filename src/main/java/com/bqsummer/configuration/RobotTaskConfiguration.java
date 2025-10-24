@@ -86,15 +86,4 @@ public class RobotTaskConfiguration {
      */
     private Integer concurrencySendNotification = 10;
     
-    /**
-     * 默认LLM模型ID，默认1
-     * 用于AI角色发送消息时调用LLM推理服务
-     */
-    private Long defaultModelId = 1L;
-    
-    /**
-     * 消息延迟执行时间（秒），默认3秒
-     * SEND_MESSAGE任务延迟执行，避免瞬时高并发
-     */
-    private Integer messageDelaySeconds = 3;
 }
