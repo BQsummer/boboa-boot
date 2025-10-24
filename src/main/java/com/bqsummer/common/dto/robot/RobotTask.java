@@ -35,8 +35,12 @@ public class RobotTask {
     
     private String status;  // PENDING, RUNNING, DONE, FAILED, TIMEOUT
     
-    @Version  // MyBatis Plus 乐观锁注解
-    private Integer version;
+    /**
+     * 领取任务的实例ID（格式：hostname:pid）
+     * 用于验证任务所有权，防止跨实例误操作
+     * NULL表示任务未被领取（PENDING状态）
+     */
+    private String lockedBy;
     
     private Integer retryCount;
     

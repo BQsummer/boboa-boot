@@ -635,7 +635,7 @@ CREATE TABLE IF NOT EXISTS robot_task (
     action_payload TEXT NOT NULL COMMENT '任务载荷（JSON格式）',
     scheduled_at DATETIME NOT NULL COMMENT '计划执行时间（UTC）',
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING, RUNNING, DONE, FAILED, TIMEOUT',
-    version INT NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
+    locked_by VARCHAR(255) DEFAULT NULL COMMENT '领取任务的实例ID（hostname:pid格式），用于验证所有权',
     retry_count INT NOT NULL DEFAULT 0 COMMENT '当前重试次数',
     max_retry_count INT NOT NULL DEFAULT 3 COMMENT '最大重试次数',
     started_at DATETIME NULL COMMENT '开始执行时间',
@@ -807,3 +807,5 @@ PARTITION BY RANGE (TO_DAYS(created_at)) (
 -- 插入默认路由策略
 INSERT INTO routing_strategy (name, description, strategy_type, config, is_default, enabled)
 VALUES ('默认轮询策略', '按顺序依次选择可用模型', 'ROUND_ROBIN', '{}', 1, 1);
+
+

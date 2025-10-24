@@ -1,7 +1,7 @@
-# 需求文档质量检查清单：动态并发控制管理
+**需求文档质量检查清单：任务抢占机制从乐观锁改为声明式领取**
 
-**目的**：在进入规划阶段前，验证需求文档的完整性和质量。  
-**创建日期**：2025-10-22  
+**目的**：在进入规划阶段前，验证需求文档的完整性和质量。
+**创建日期**：2025-10-24
 **功能**：[spec.md](../spec.md)
 
 ## 内容质量
@@ -31,6 +31,10 @@
 
 ## Notes
 
-- ✅ All validation checks passed on 2025-10-22
-- Specification is ready for `/speckit.plan` phase
-- No clarifications needed - all requirements are clear and measurable
+所有检查项已通过。规范已准备好进入规划阶段。可以使用 `/speckit.plan` 命令继续。
+
+**关键假设**：
+1. 实例ID的唯一性由部署环境保证（如使用IP+进程ID或容器ID）
+2. locked_by字段长度255字符足够存储实例ID
+3. 超时任务的清理机制已在其他功能中实现（如005-fix-task-loading-issues中的超时RUNNING任务检测）
+4. 数据库支持原子UPDATE操作，保证并发安全

@@ -14,6 +14,7 @@ import com.bqsummer.model.dto.InferenceRequest;
 import com.bqsummer.model.dto.InferenceResponse;
 import com.bqsummer.model.service.UnifiedInferenceService;
 import com.bqsummer.repository.MessageRepository;
+import com.bqsummer.util.InstanceIdGenerator;
 import com.bqsummer.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,11 +32,15 @@ import java.util.concurrent.CompletableFuture;
  * 机器人任务执行器
  * 
  * 职责:
- * 1. 使用乐观锁抢占任务（PENDING → RUNNING）
+ * 1. 使用声明式领取机制抢占任务（PENDING → RUNNING）
+ *    - 基于 locked_by 字段标记所有权（替代乐观锁 version 字段）
+ *    - 原子UPDATE操作保证互斥性，不受长时操作期间并发写影响
  * 2. 执行任务的具体行为（SEND_MESSAGE, SEND_VOICE, SEND_NOTIFICATION）
  * 3. 更新任务状态（RUNNING → DONE / FAILED）
+ *    - 验证 locked_by 所有权，防止跨实例误操作
  * 4. 记录执行日志到 robot_task_execution_log
  * 5. 处理失败重试逻辑
+ *    - 失败重试时清空 locked_by，允许其他实例领取
  * 
  * 注意事项:
  * - 使用自我注入(self)来调用事务方法，确保@Transactional注解生效
@@ -127,47 +132,74 @@ public class RobotTaskExecutor {
     /**
      * 更新任务状态为 DONE
      * 独立事务方法，确保事务生效
-     */
-    @Transactional(rollbackFor = Exception.class)
-    protected void updateTaskStatusToDone(RobotTask task, LocalDateTime completedTime) {
-        UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.eq("id", task.getId())
-                    .eq("version", task.getVersion())
-                    .set("status", TaskStatus.DONE.name())
-                    .set("completed_at", completedTime)
-                    .set("version", task.getVersion() + 1);
-        robotTaskMapper.update(null, updateWrapper);
-    }
-    
-    /**
-     * 使用乐观锁尝试抢占任务
-     * 独立事务方法，确保事务生效
      * 
-     * @return true 如果抢占成功，false 如果被其他实例抢占
+     * 所有权验证：
+     * - 基于 locked_by 验证当前实例是否拥有该任务（替代乐观锁version验证）
+     * - WHERE locked_by=当前实例ID 确保只有任务所有者能更新状态
+     * - 防止跨实例误操作
      */
     @Transactional(rollbackFor = Exception.class)
-    protected boolean tryAcquireTask(RobotTask task) {
-        LocalDateTime now = LocalDateTime.now();
+    public void updateTaskStatusToDone(RobotTask task, LocalDateTime completedTime) {
+        String instanceId = InstanceIdGenerator.getInstanceId();
         
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", task.getId())
-                    .eq("status", TaskStatus.PENDING.name())
-                    .eq("version", task.getVersion())
-                    .set("status", TaskStatus.RUNNING.name())
-                    .set("started_at", now)
-                    .set("heartbeat_at", now)
-                    .set("version", task.getVersion() + 1);
+                    .eq("locked_by", instanceId)  // 验证所有权
+                    .set("status", TaskStatus.DONE.name())
+                    .set("completed_at", completedTime);
         
         int updated = robotTaskMapper.update(null, updateWrapper);
         
         if (updated == 1) {
-            task.setVersion(task.getVersion() + 1);
+            log.info("任务状态更新为DONE: taskId={}, instanceId={}, executionTime={}ms", 
+                    task.getId(), instanceId, 
+                    Duration.between(task.getStartedAt(), completedTime).toMillis());
+        } else {
+            log.error("任务状态更新失败，所有权验证失败: taskId={}, currentInstanceId={}", 
+                    task.getId(), instanceId);
+        }
+    }
+    
+    /**
+     * 使用声明式领取机制尝试抢占任务
+     * 独立事务方法，确保事务生效
+     * 
+     * 机制说明：
+     * - 使用 locked_by 字段标记任务所有权（替代乐观锁version字段）
+     * - 原子UPDATE操作：WHERE status='PENDING' SET locked_by=实例ID, status='RUNNING'
+     * - 只有一个实例能成功领取（互斥性由WHERE条件保证）
+     * 
+     * @return true 如果抢占成功，false 如果被其他实例抢占或状态已变更
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean tryAcquireTask(RobotTask task) {
+        LocalDateTime now = LocalDateTime.now();
+        String instanceId = InstanceIdGenerator.getInstanceId();
+        
+        UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", task.getId())
+                    .eq("status", TaskStatus.PENDING.name())  // 只有PENDING任务可以被领取
+                    .set("status", TaskStatus.RUNNING.name())
+                    .set("locked_by", instanceId)  // 设置所有权
+                    .set("started_at", now)
+                    .set("heartbeat_at", now);
+        
+        int updated = robotTaskMapper.update(null, updateWrapper);
+        
+        if (updated == 1) {
+            // 更新本地task对象状态
+            task.setLockedBy(instanceId);
             task.setStatus(TaskStatus.RUNNING.name());
             task.setStartedAt(now);
             task.setHeartbeatAt(now);
+            
+            log.info("任务领取成功: taskId={}, instanceId={}, status=RUNNING", 
+                    task.getId(), instanceId);
             return true;
         }
         
+        log.warn("任务领取失败: taskId={}, expectedStatus=PENDING, reason=已被其他实例领取或状态已变更", 
+                task.getId());
         return false;
     }
     
@@ -327,44 +359,48 @@ public class RobotTaskExecutor {
     /**
      * 处理任务失败后的重试逻辑
      * 独立事务方法，确保事务生效
+     * 
+     * 所有权释放：
+     * - 失败重试时清空 locked_by（SET locked_by=NULL），释放任务所有权
+     * - 状态变更为 PENDING，允许任意实例重新领取
+     * - 达到最大重试次数时，标记为 FAILED 并清空 locked_by
      */
     @Transactional(rollbackFor = Exception.class)
-    protected void handleTaskFailure(RobotTask task, String errorMessage) {
+    public void handleTaskFailure(RobotTask task, String errorMessage) {
         int retryCount = task.getRetryCount() + 1;
         int maxRetryCount = task.getMaxRetryCount();
+        String previousLockedBy = task.getLockedBy();
         
         if (retryCount >= maxRetryCount) {
             // 超过最大重试次数，标记为 FAILED
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", task.getId())
-                        .eq("version", task.getVersion())
                         .set("status", TaskStatus.FAILED.name())
                         .set("retry_count", retryCount)
                         .set("completed_at", LocalDateTime.now())
                         .set("error_message", errorMessage)
-                        .set("version", task.getVersion() + 1);
+                        .set("locked_by", null);  // 清空所有权
             robotTaskMapper.update(null, updateWrapper);
             
-            log.warn("任务失败且超过最大重试次数: taskId={}, retryCount={}", 
-                    task.getId(), retryCount);
+            log.warn("任务失败且超过最大重试次数: taskId={}, retryCount={}, previousLockedBy={}", 
+                    task.getId(), retryCount, previousLockedBy);
         } else {
             // 计算下次执行时间（指数退避）
             long delayMinutes = (long) Math.pow(retryCount, 2); // 1分钟, 4分钟, 9分钟...
             LocalDateTime nextExecuteAt = LocalDateTime.now().plusMinutes(delayMinutes);
             
-            // 重置状态为 PENDING，增加重试计数
+            // 重置状态为 PENDING，增加重试计数，释放所有权
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", task.getId())
-                        .eq("version", task.getVersion())
                         .set("status", TaskStatus.PENDING.name())
                         .set("retry_count", retryCount)
                         .set("scheduled_at", nextExecuteAt)
                         .set("error_message", errorMessage)
-                        .set("version", task.getVersion() + 1);
+                        .set("locked_by", null);  // 清空所有权，允许其他实例重试
             robotTaskMapper.update(null, updateWrapper);
             
-            log.info("任务失败，将在 {} 分钟后重试: taskId={}, retryCount={}, nextExecuteAt={}", 
-                    delayMinutes, task.getId(), retryCount, nextExecuteAt);
+            log.warn("任务失败重试，释放所有权: taskId={}, previousLockedBy={}, retryCount={}, nextScheduledAt={}", 
+                    task.getId(), previousLockedBy, retryCount, nextExecuteAt);
         }
     }
     
