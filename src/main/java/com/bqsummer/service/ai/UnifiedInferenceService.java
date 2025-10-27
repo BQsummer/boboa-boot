@@ -5,21 +5,13 @@ import com.bqsummer.service.ai.adapter.ModelAdapter;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
 import com.bqsummer.common.dto.ai.AiModel;
-import com.bqsummer.common.dto.ai.ModelRequestLog;
-import com.bqsummer.common.dto.ai.RequestType;
-import com.bqsummer.common.dto.ai.ResponseStatus;
 import com.bqsummer.exception.ModelNotFoundException;
 import com.bqsummer.exception.RoutingException;
 import com.bqsummer.mapper.AiModelMapper;
-import com.bqsummer.mapper.ModelRequestLogMapper;
-import com.bqsummer.model.service.ModelRoutingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -32,9 +24,9 @@ import java.util.List;
 public class UnifiedInferenceService {
     
     private final AiModelMapper aiModelMapper;
-    private final ModelRequestLogMapper modelRequestLogMapper;
     private final List<ModelAdapter> adapters;
     private final ModelRoutingService routingService;
+    private final ModelRequestLogService requestLogService;
     
     public InferenceResponse chat(InferenceRequest request) {
         return executeInference(request, null);
@@ -63,7 +55,7 @@ public class UnifiedInferenceService {
             response = executeWithRetry(adapter, model, request);
             
             // 4. 记录日志（独立事务）
-            logRequest(model, request, response, System.currentTimeMillis() - startTime);
+            requestLogService.logRequest(model, request, response, System.currentTimeMillis() - startTime);
             
             return response;
             
@@ -77,7 +69,7 @@ public class UnifiedInferenceService {
                 errorResponse.setErrorMessage(e.getMessage());
                 errorResponse.setResponseTimeMs((int) (System.currentTimeMillis() - startTime));
                 
-                logRequest(model, request, errorResponse, System.currentTimeMillis() - startTime);
+                requestLogService.logRequest(model, request, errorResponse, System.currentTimeMillis() - startTime);
             }
             
             // 返回错误响应
@@ -198,33 +190,5 @@ public class UnifiedInferenceService {
         }
         
         throw new RoutingException("推理失败，没有有效响应");
-    }
-    
-    /**
-     * 记录请求日志（独立事务）
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public void logRequest(AiModel model, InferenceRequest request, InferenceResponse response, long duration) {
-        try {
-            ModelRequestLog log = new ModelRequestLog();
-            log.setModelId(model.getId());
-            log.setModelName(model.getName());
-            log.setRequestType(RequestType.CHAT);
-            log.setPromptTokens(response.getPromptTokens());
-            log.setCompletionTokens(response.getCompletionTokens());
-            log.setTotalTokens(response.getTotalTokens());
-            log.setResponseTimeMs(response.getResponseTimeMs());
-            log.setResponseStatus(response.getSuccess() ? ResponseStatus.SUCCESS : ResponseStatus.FAILED);
-            log.setErrorMessage(response.getErrorMessage());
-            log.setUserId(request.getUserId());
-            log.setSource(request.getSource());
-            log.setCreatedAt(LocalDateTime.now());
-            
-            modelRequestLogMapper.insert(log);
-            
-        } catch (Exception e) {
-            // 日志记录失败不影响推理结果
-            log.error("记录请求日志失败: modelId={}, error={}", model.getId(), e.getMessage(), e);
-        }
     }
 }

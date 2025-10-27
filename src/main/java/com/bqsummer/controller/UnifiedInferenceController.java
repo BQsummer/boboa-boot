@@ -2,7 +2,7 @@ package com.bqsummer.controller;
 
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
-import com.bqsummer.model.service.UnifiedInferenceService;
+import com.bqsummer.service.ai.UnifiedInferenceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,9 +15,7 @@ import java.util.Map;
 
 /**
  * 统一推理控制器
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @Slf4j
 @RestController

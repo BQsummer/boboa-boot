@@ -3,7 +3,7 @@ package com.bqsummer.controller;
 import com.bqsummer.common.vo.req.ai.ModelQueryRequest;
 import com.bqsummer.common.vo.req.ai.ModelRegisterRequest;
 import com.bqsummer.common.vo.resp.ai.ModelResponse;
-import com.bqsummer.model.service.AiModelService;
+import com.bqsummer.service.ai.AiModelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -17,9 +17,7 @@ import java.util.Map;
 
 /**
  * AI 模型管理控制器
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @Slf4j
 @RestController

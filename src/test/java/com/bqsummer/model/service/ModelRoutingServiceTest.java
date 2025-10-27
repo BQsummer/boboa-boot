@@ -9,6 +9,7 @@ import com.bqsummer.common.dto.ai.StrategyType;
 import com.bqsummer.mapper.AiModelMapper;
 import com.bqsummer.mapper.RoutingStrategyMapper;
 import com.bqsummer.mapper.StrategyModelRelationMapper;
+import com.bqsummer.service.ai.ModelRoutingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,9 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 路由服务测试
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @SpringBootTest
 @Transactional

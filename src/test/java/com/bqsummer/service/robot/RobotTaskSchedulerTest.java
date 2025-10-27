@@ -1,6 +1,7 @@
 package com.bqsummer.service.robot;
 
 import com.bqsummer.common.dto.robot.RobotTask;
+import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +35,8 @@ class RobotTaskSchedulerTest extends RobotTaskSchedulerTestBase {
     private RobotTaskScheduler scheduler;
     
     private RobotTaskConfiguration config;
+
+    private Configs configs;
     
     @BeforeEach
     void setUp() {
@@ -42,7 +45,7 @@ class RobotTaskSchedulerTest extends RobotTaskSchedulerTestBase {
         config.setMaxQueueSize(100); // 测试环境使用较小的队列容量
         
         // 创建调度器实例
-        scheduler = new RobotTaskScheduler(taskExecutor, config);
+        scheduler = new RobotTaskScheduler(taskExecutor, config, configs);
         
         // 初始化（模拟 @PostConstruct）
         scheduler.startConsumer();
@@ -202,7 +205,7 @@ class RobotTaskSchedulerTest extends RobotTaskSchedulerTestBase {
         customConfig.setExecutorMaxPoolSize(50);
         
         // When: 使用自定义配置创建调度器
-        RobotTaskScheduler customScheduler = new RobotTaskScheduler(taskExecutor, customConfig);
+        RobotTaskScheduler customScheduler = new RobotTaskScheduler(taskExecutor, customConfig, configs);
         customScheduler.startConsumer();
         
         try {
@@ -236,7 +239,7 @@ class RobotTaskSchedulerTest extends RobotTaskSchedulerTestBase {
         RobotTaskConfiguration defaultConfig = new RobotTaskConfiguration();
         
         // When: 创建调度器
-        RobotTaskScheduler defaultScheduler = new RobotTaskScheduler(taskExecutor, defaultConfig);
+        RobotTaskScheduler defaultScheduler = new RobotTaskScheduler(taskExecutor, defaultConfig, configs);
         defaultScheduler.startConsumer();
         
         try {
@@ -275,7 +278,7 @@ class RobotTaskSchedulerTest extends RobotTaskSchedulerTestBase {
         invalidConfig.setExecutorMaxPoolSize(20);       // 总和40 > 20
         
         // When: 创建调度器（应记录警告但不抛异常）
-        RobotTaskScheduler warningScheduler = new RobotTaskScheduler(taskExecutor, invalidConfig);
+        RobotTaskScheduler warningScheduler = new RobotTaskScheduler(taskExecutor, invalidConfig, configs);
         
         // Then: 验证调度器正常创建（不抛异常）
         assertDoesNotThrow(() -> {
@@ -304,7 +307,7 @@ class RobotTaskSchedulerTest extends RobotTaskSchedulerTestBase {
         boundaryConfig.setConcurrencySendNotification(5);
         
         // When: 创建调度器并加载混合任务
-        RobotTaskScheduler boundaryScheduler = new RobotTaskScheduler(taskExecutor, boundaryConfig);
+        RobotTaskScheduler boundaryScheduler = new RobotTaskScheduler(taskExecutor, boundaryConfig, configs);
         boundaryScheduler.startConsumer();
         
         try {

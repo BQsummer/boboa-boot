@@ -7,6 +7,7 @@ import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.exception.ModelNotFoundException;
 import com.bqsummer.exception.RoutingException;
 import com.bqsummer.mapper.AiModelMapper;
+import com.bqsummer.service.ai.UnifiedInferenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

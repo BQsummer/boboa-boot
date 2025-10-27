@@ -3,7 +3,7 @@ package com.bqsummer.controller;
 import com.bqsummer.common.vo.req.ai.StrategyCreateRequest;
 import com.bqsummer.common.vo.req.ai.StrategyModelBindRequest;
 import com.bqsummer.common.vo.resp.ai.StrategyResponse;
-import com.bqsummer.model.service.RoutingStrategyService;
+import com.bqsummer.service.ai.RoutingStrategyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,9 +17,7 @@ import java.util.Map;
 
 /**
  * 路由策略控制器
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @Slf4j
 @RestController

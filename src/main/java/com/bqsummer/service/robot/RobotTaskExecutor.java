@@ -12,8 +12,8 @@ import com.bqsummer.mapper.RobotTaskExecutionLogMapper;
 import com.bqsummer.mapper.RobotTaskMapper;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
-import com.bqsummer.model.service.UnifiedInferenceService;
 import com.bqsummer.repository.MessageRepository;
+import com.bqsummer.service.ai.UnifiedInferenceService;
 import com.bqsummer.util.InstanceIdGenerator;
 import com.bqsummer.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * 机器人任务执行器
- * 
  * 职责:
  * 1. 使用声明式领取机制抢占任务（PENDING → RUNNING）
  *    - 基于 locked_by 字段标记所有权
@@ -41,7 +40,6 @@ import java.util.concurrent.CompletableFuture;
  * 4. 记录执行日志到 robot_task_execution_log
  * 5. 处理失败重试逻辑
  *    - 失败重试时清空 locked_by，允许其他实例领取
- * 
  * 注意事项:
  * - 使用自我注入(self)来调用事务方法，确保@Transactional注解生效
  * - 直接调用类内部的@Transactional方法会绕过Spring代理，导致事务失效
@@ -132,7 +130,6 @@ public class RobotTaskExecutor {
     /**
      * 更新任务状态为 DONE
      * 独立事务方法，确保事务生效
-     * 
      * 所有权验证：
      * - 基于 locked_by 验证当前实例是否拥有该任务
      * - WHERE locked_by=当前实例ID 确保只有任务所有者能更新状态
@@ -357,7 +354,6 @@ public class RobotTaskExecutor {
     /**
      * 处理任务失败后的重试逻辑
      * 独立事务方法，确保事务生效
-     * 
      * 所有权释放：
      * - 失败重试时清空 locked_by（SET locked_by=NULL），释放任务所有权
      * - 状态变更为 PENDING，允许任意实例重新领取

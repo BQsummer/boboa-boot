@@ -7,6 +7,7 @@ import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.ModelType;
 import com.bqsummer.exception.ModelValidationException;
 import com.bqsummer.mapper.AiModelMapper;
+import com.bqsummer.service.ai.AiModelService;
 import com.bqsummer.util.EncryptionUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,9 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * AI 模型服务测试
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @SpringBootTest
 @Transactional
