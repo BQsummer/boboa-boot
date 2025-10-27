@@ -1,10 +1,11 @@
 package com.bqsummer.model.controller;
 
-import com.bqsummer.model.entity.AiModel;
-import com.bqsummer.model.entity.HealthStatus;
-import com.bqsummer.model.entity.ModelHealthStatus;
-import com.bqsummer.model.mapper.AiModelMapper;
-import com.bqsummer.model.mapper.ModelHealthStatusMapper;
+import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.common.dto.ai.HealthStatus;
+import com.bqsummer.common.dto.ai.ModelHealthStatus;
+import com.bqsummer.common.dto.ai.ModelType;
+import com.bqsummer.mapper.AiModelMapper;
+import com.bqsummer.mapper.ModelHealthStatusMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,7 @@ class ModelHealthControllerTest {
         testModel.setProvider("test");
         testModel.setApiEndpoint("http://test.example.com");
         testModel.setApiKey("test-key");
-        testModel.setModelType(com.bqsummer.model.entity.ModelType.CHAT);
+        testModel.setModelType(ModelType.CHAT);
         testModel.setEnabled(true);
         testModel.setWeight(1);
         testModel.setCreatedBy(1L);

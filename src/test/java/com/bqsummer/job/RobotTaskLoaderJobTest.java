@@ -1,18 +1,16 @@
 package com.bqsummer.job;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.TaskStatus;
 import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
-import com.bqsummer.mapper.robot.RobotTaskMapper;
+import com.bqsummer.mapper.RobotTaskMapper;
 import com.bqsummer.service.robot.RobotTaskScheduler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,7 +19,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;

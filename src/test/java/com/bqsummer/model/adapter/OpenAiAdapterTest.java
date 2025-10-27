@@ -1,9 +1,10 @@
 package com.bqsummer.model.adapter;
 
-import com.bqsummer.model.dto.InferenceRequest;
-import com.bqsummer.model.dto.InferenceResponse;
-import com.bqsummer.model.entity.AiModel;
-import com.bqsummer.model.entity.ModelType;
+import com.bqsummer.common.vo.req.ai.InferenceRequest;
+import com.bqsummer.common.vo.resp.ai.InferenceResponse;
+import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.common.dto.ai.ModelType;
+import com.bqsummer.service.ai.adapter.OpenAiAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

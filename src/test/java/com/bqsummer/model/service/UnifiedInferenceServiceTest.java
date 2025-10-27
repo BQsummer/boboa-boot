@@ -1,11 +1,12 @@
 package com.bqsummer.model.service;
 
-import com.bqsummer.model.dto.InferenceRequest;
-import com.bqsummer.model.dto.InferenceResponse;
-import com.bqsummer.model.entity.AiModel;
-import com.bqsummer.model.exception.ModelNotFoundException;
-import com.bqsummer.model.exception.RoutingException;
-import com.bqsummer.model.mapper.AiModelMapper;
+import com.bqsummer.common.dto.ai.ModelType;
+import com.bqsummer.common.vo.req.ai.InferenceRequest;
+import com.bqsummer.common.vo.resp.ai.InferenceResponse;
+import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.exception.ModelNotFoundException;
+import com.bqsummer.exception.RoutingException;
+import com.bqsummer.mapper.AiModelMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ class UnifiedInferenceServiceTest {
         testModel.setProvider("test_provider");
         testModel.setApiEndpoint("http://test.example.com");
         testModel.setApiKey("test-key");
-        testModel.setModelType(com.bqsummer.model.entity.ModelType.CHAT);
+        testModel.setModelType(ModelType.CHAT);
         testModel.setEnabled(true);
         testModel.setWeight(1);
         testModel.setCreatedBy(1L);

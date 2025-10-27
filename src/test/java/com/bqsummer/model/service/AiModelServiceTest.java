@@ -1,12 +1,12 @@
 package com.bqsummer.model.service;
 
-import com.bqsummer.model.dto.ModelRegisterRequest;
-import com.bqsummer.model.dto.ModelQueryRequest;
-import com.bqsummer.model.dto.ModelResponse;
-import com.bqsummer.model.entity.AiModel;
-import com.bqsummer.model.entity.ModelType;
-import com.bqsummer.model.exception.ModelValidationException;
-import com.bqsummer.model.mapper.AiModelMapper;
+import com.bqsummer.common.vo.req.ai.ModelRegisterRequest;
+import com.bqsummer.common.vo.req.ai.ModelQueryRequest;
+import com.bqsummer.common.vo.resp.ai.ModelResponse;
+import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.common.dto.ai.ModelType;
+import com.bqsummer.exception.ModelValidationException;
+import com.bqsummer.mapper.AiModelMapper;
 import com.bqsummer.util.EncryptionUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

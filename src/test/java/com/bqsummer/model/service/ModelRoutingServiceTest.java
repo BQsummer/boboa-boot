@@ -1,12 +1,14 @@
 package com.bqsummer.model.service;
 
-import com.bqsummer.model.dto.InferenceRequest;
-import com.bqsummer.model.entity.AiModel;
-import com.bqsummer.model.entity.RoutingStrategy;
-import com.bqsummer.model.entity.StrategyType;
-import com.bqsummer.model.mapper.AiModelMapper;
-import com.bqsummer.model.mapper.RoutingStrategyMapper;
-import com.bqsummer.model.mapper.StrategyModelRelationMapper;
+import com.bqsummer.common.dto.ai.ModelType;
+import com.bqsummer.common.dto.ai.StrategyModelRelation;
+import com.bqsummer.common.vo.req.ai.InferenceRequest;
+import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.common.dto.ai.RoutingStrategy;
+import com.bqsummer.common.dto.ai.StrategyType;
+import com.bqsummer.mapper.AiModelMapper;
+import com.bqsummer.mapper.RoutingStrategyMapper;
+import com.bqsummer.mapper.StrategyModelRelationMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -71,7 +73,7 @@ class ModelRoutingServiceTest {
         model.setProvider("test");
         model.setApiEndpoint("http://test.com");
         model.setApiKey("key");
-        model.setModelType(com.bqsummer.model.entity.ModelType.CHAT);
+        model.setModelType(ModelType.CHAT);
         model.setWeight(weight);
         model.setEnabled(true);
         model.setCreatedBy(1L);
@@ -242,8 +244,8 @@ class ModelRoutingServiceTest {
     }
     
     private void addModelToStrategy(Long strategyId, Long modelId, Integer priority) {
-        com.bqsummer.model.entity.StrategyModelRelation relation = 
-                new com.bqsummer.model.entity.StrategyModelRelation();
+        StrategyModelRelation relation =
+                new StrategyModelRelation();
         relation.setStrategyId(strategyId);
         relation.setModelId(modelId);
         relation.setPriority(priority);

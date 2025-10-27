@@ -1,14 +1,12 @@
 package com.bqsummer.integration;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.bqsummer.BaseTest;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.TaskStatus;
-import com.bqsummer.mapper.robot.RobotTaskMapper;
+import com.bqsummer.mapper.RobotTaskMapper;
 import com.bqsummer.service.robot.RobotTaskExecutor;
 import com.bqsummer.util.InstanceIdGenerator;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
