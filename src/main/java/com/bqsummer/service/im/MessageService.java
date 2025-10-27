@@ -7,7 +7,7 @@ import com.bqsummer.common.dto.robot.SendMessagePayload;
 import com.bqsummer.common.vo.req.im.SendMessageRequest;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import com.bqsummer.mapper.UserMapper;
-import com.bqsummer.mapper.robot.RobotTaskMapper;
+import com.bqsummer.mapper.RobotTaskMapper;
 import com.bqsummer.repository.MessageRepository;
 import com.bqsummer.service.robot.RobotTaskScheduler;
 import com.bqsummer.util.JsonUtil;

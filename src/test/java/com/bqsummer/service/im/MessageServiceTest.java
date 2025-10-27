@@ -2,14 +2,12 @@ package com.bqsummer.service.im;
 
 import com.bqsummer.BaseTest;
 import com.bqsummer.common.dto.auth.User;
-import com.bqsummer.common.dto.im.Message;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.SendMessagePayload;
 import com.bqsummer.common.vo.req.im.SendMessageRequest;
 import com.bqsummer.configuration.RobotTaskConfiguration;
-import com.bqsummer.mapper.ConversationMapper;
 import com.bqsummer.mapper.UserMapper;
-import com.bqsummer.mapper.robot.RobotTaskMapper;
+import com.bqsummer.mapper.RobotTaskMapper;
 import com.bqsummer.repository.MessageRepository;
 import com.bqsummer.service.robot.RobotTaskScheduler;
 import com.bqsummer.util.JsonUtil;
@@ -25,8 +23,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;

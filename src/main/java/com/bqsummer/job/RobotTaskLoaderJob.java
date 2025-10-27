@@ -8,7 +8,7 @@ import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import com.bqsummer.framework.job.JobExecutor;
 import com.bqsummer.framework.job.JobInfo;
-import com.bqsummer.mapper.robot.RobotTaskMapper;
+import com.bqsummer.mapper.RobotTaskMapper;
 import com.bqsummer.service.robot.RobotTaskScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

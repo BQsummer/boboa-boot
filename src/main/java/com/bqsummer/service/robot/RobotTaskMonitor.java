@@ -1,7 +1,7 @@
 package com.bqsummer.service.robot;
 
-import com.bqsummer.mapper.robot.RobotTaskExecutionLogMapper;
-import com.bqsummer.mapper.robot.RobotTaskMapper;
+import com.bqsummer.mapper.RobotTaskExecutionLogMapper;
+import com.bqsummer.mapper.RobotTaskMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;

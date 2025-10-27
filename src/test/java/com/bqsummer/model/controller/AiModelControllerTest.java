@@ -1,7 +1,7 @@
 package com.bqsummer.model.controller;
 
-import com.bqsummer.model.dto.ModelRegisterRequest;
-import com.bqsummer.model.entity.ModelType;
+import com.bqsummer.common.vo.req.ai.ModelRegisterRequest;
+import com.bqsummer.common.dto.ai.ModelType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

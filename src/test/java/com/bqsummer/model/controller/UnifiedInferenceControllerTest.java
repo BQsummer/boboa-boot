@@ -1,7 +1,8 @@
 package com.bqsummer.model.controller;
 
-import com.bqsummer.model.entity.AiModel;
-import com.bqsummer.model.mapper.AiModelMapper;
+import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.common.dto.ai.ModelType;
+import com.bqsummer.mapper.AiModelMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,7 @@ class UnifiedInferenceControllerTest {
         testModel.setProvider("test_provider");
         testModel.setApiEndpoint("http://test.example.com");
         testModel.setApiKey("test-key");
-        testModel.setModelType(com.bqsummer.model.entity.ModelType.CHAT);
+        testModel.setModelType(ModelType.CHAT);
         testModel.setEnabled(true);
         testModel.setWeight(1);
         testModel.setCreatedBy(1L);
