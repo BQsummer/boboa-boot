@@ -354,17 +354,11 @@
             <version>2.34.9</version>
         </dependency>
 
-        <!-- Spring AI for unified model abstraction -->
+        <!-- https://mvnrepository.com/artifact/org.springframework.ai/spring-ai-client-chat -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
-            <version>1.0.0-M6</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-azure-openai-spring-boot-starter</artifactId>
-            <version>1.0.0-M6</version>
+            <artifactId>spring-ai-client-chat</artifactId>
+            <version>1.1.0-M3</version>
         </dependency>
 
     </dependencies>

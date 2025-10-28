@@ -9,7 +9,6 @@ import org.quartz.JobExecutionContext;
 import org.springframework.stereotype.Component;
 
 @Slf4j
-@Component
 @JobInfo(jobName = "pointsExpireJob", cron = "0 0 1 * * ?")
 @RequiredArgsConstructor
 public class PointsExpireJob extends JobExecutor {

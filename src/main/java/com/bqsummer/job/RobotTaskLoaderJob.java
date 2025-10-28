@@ -37,7 +37,6 @@ import java.util.List;
  * - 剩余容量不足时，低优先级任务等待下一轮次
  */
 @Slf4j
-@Component
 @JobInfo(jobName = "robotTaskLoaderJob", cron = "0/30 * * * * ?")  // 每30秒执行
 @RequiredArgsConstructor
 public class RobotTaskLoaderJob extends JobExecutor {

@@ -32,6 +32,16 @@ public class ModelRequestLogService {
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void logRequest(AiModel model, InferenceRequest request, InferenceResponse response, long duration) {
         try {
+            // log prompt
+            log.info( "模型请求日志: modelId={}, modelName={}, userId={}, prompt={}, durationMs={}, success={}, errorMessage={}",
+                    model.getId(),
+                    model.getName(),
+                    request.getUserId(),
+                    request.getPrompt(),
+                    duration,
+                    response.getSuccess(),
+                    response.getErrorMessage()
+            );
             ModelRequestLog logEntry = new ModelRequestLog();
             logEntry.setModelId(model.getId());
             logEntry.setModelName(model.getName());

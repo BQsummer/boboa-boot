@@ -24,9 +24,7 @@ import java.util.stream.Collectors;
 
 /**
  * AI 模型服务实现类
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @Slf4j
 @Service

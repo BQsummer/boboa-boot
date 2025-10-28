@@ -7,9 +7,6 @@ import lombok.Data;
 
 /**
  * 路由策略创建请求
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
  */
 @Data
 public class StrategyCreateRequest {
