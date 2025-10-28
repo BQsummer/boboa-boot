@@ -1,6 +1,7 @@
 package com.bqsummer.service.ai;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.bqsummer.configuration.Configs;
 import com.bqsummer.service.ai.adapter.ModelAdapter;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
@@ -31,8 +32,8 @@ public class ModelHealthService {
     private final AiModelMapper aiModelMapper;
     private final ModelHealthStatusMapper healthStatusMapper;
     private final List<ModelAdapter> adapters;
-    
-    private static final int MAX_CONSECUTIVE_FAILURES = 3;
+    private final Configs configs;
+
     private static final String HEALTH_CHECK_PROMPT = "ping";
     
     public void performHealthCheck(Long modelId) {
@@ -151,7 +152,7 @@ public class ModelHealthService {
             status.setLastError(errorMessage);
             
             // 连续失败达到阈值，禁用模型
-            if (status.getConsecutiveFailures() >= MAX_CONSECUTIVE_FAILURES) {
+            if (status.getConsecutiveFailures() >= configs.getMaxConsecutiveFailures()) {
                 disableModel(modelId);
                 log.warn("模型连续失败 {} 次，已自动禁用: modelId={}", 
                         status.getConsecutiveFailures(), modelId);

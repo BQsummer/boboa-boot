@@ -7,9 +7,6 @@ import com.bqsummer.common.dto.ai.AiModel;
 /**
  * 模型适配器接口
  * 定义统一的模型调用规范
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
  */
 public interface ModelAdapter {
     

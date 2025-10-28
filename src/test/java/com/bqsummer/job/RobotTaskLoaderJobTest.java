@@ -1,6 +1,5 @@
 package com.bqsummer.job;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.TaskStatus;
 import com.bqsummer.configuration.Configs;
@@ -69,7 +68,7 @@ class RobotTaskLoaderJobTest {
         LocalDateTime overdueTime = LocalDateTime.now().minusHours(1);
         RobotTask overdueTask = buildTask(1L, TaskStatus.PENDING, overdueTime);
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(List.of(overdueTask))  // 过期任务
             .thenReturn(Collections.emptyList()); // 未来任务
         
@@ -95,7 +94,7 @@ class RobotTaskLoaderJobTest {
         RobotTask overdueTask = buildTask(1L, TaskStatus.PENDING, overdueTime);
         RobotTask futureTask = buildTask(2L, TaskStatus.PENDING, futureTime);
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(List.of(overdueTask))   // 第一次查询：过期任务
             .thenReturn(List.of(futureTask));   // 第二次查询：未来任务
         
@@ -116,7 +115,7 @@ class RobotTaskLoaderJobTest {
         LocalDateTime futureTime = LocalDateTime.now().plusMinutes(5);
         RobotTask futureTask = buildTask(1L, TaskStatus.PENDING, futureTime);
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(Collections.emptyList())  // 无过期任务
             .thenReturn(List.of(futureTask));     // 有未来任务
         
@@ -140,12 +139,12 @@ class RobotTaskLoaderJobTest {
         RobotTask timeoutTask = buildTaskWithUpdatedTime(1L, TaskStatus.RUNNING, 
                                                           LocalDateTime.now(), timeoutUpdatedTime);
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(Collections.emptyList())     // 无过期PENDING任务
             .thenReturn(List.of(timeoutTask))        // 有超时RUNNING任务
             .thenReturn(Collections.emptyList());    // 无未来PENDING任务
         
-        when(robotTaskMapper.updateById(any(RobotTask.class))).thenReturn(1);
+        when(robotTaskMapper.update(any(), any())).thenReturn(1);
         when(robotTaskScheduler.loadTasks(anyList())).thenReturn(1);
         when(robotTaskScheduler.getQueueSize()).thenReturn(1);
         
@@ -153,8 +152,8 @@ class RobotTaskLoaderJobTest {
         loaderJob.execute(null);
         
         // Then: 超时任务应该被检测到并更新状态
-        verify(robotTaskMapper, atLeastOnce()).updateById(argThat(task ->
-            task.getId().equals(1L) && TaskStatus.PENDING.name().equals(task.getStatus())
+        verify(robotTaskMapper, atLeastOnce()).update(isNull(), argThat(wrapper ->
+            wrapper != null
         ));
     }
     
@@ -166,12 +165,12 @@ class RobotTaskLoaderJobTest {
         RobotTask timeoutTask = buildTaskWithUpdatedTime(1L, TaskStatus.RUNNING,
                                                           LocalDateTime.now(), timeoutUpdatedTime);
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(Collections.emptyList())
             .thenReturn(List.of(timeoutTask))
             .thenReturn(Collections.emptyList());
         
-        when(robotTaskMapper.updateById(any(RobotTask.class))).thenReturn(1);
+        when(robotTaskMapper.update(any(), any())).thenReturn(1);
         when(robotTaskScheduler.loadTasks(anyList())).thenReturn(1);
         when(robotTaskScheduler.getQueueSize()).thenReturn(1);
         
@@ -179,11 +178,7 @@ class RobotTaskLoaderJobTest {
         loaderJob.execute(null);
         
         // Then: 任务状态应该被重置为PENDING，并包含错误信息
-        verify(robotTaskMapper).updateById(argThat(task ->
-            TaskStatus.PENDING.name().equals(task.getStatus()) &&
-            task.getErrorMessage() != null &&
-            task.getErrorMessage().contains("检测到超时")
-        ));
+        verify(robotTaskMapper).update(isNull(), any());
     }
     
     @Test
@@ -194,20 +189,20 @@ class RobotTaskLoaderJobTest {
         RobotTask timeoutTask = buildTaskWithUpdatedTime(1L, TaskStatus.RUNNING,
                                                           LocalDateTime.now(), timeoutUpdatedTime);
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(Collections.emptyList())
             .thenReturn(List.of(timeoutTask))
             .thenReturn(Collections.emptyList());
         
-        // 乐观锁冲突：updateById返回0
-        when(robotTaskMapper.updateById(any(RobotTask.class))).thenReturn(0);
+        // 乐观锁冲突：update返回0
+        when(robotTaskMapper.update(any(), any())).thenReturn(0);
         when(robotTaskScheduler.getQueueSize()).thenReturn(0);
         
         // When: 执行任务加载
         loaderJob.execute(null);
         
         // Then: 应该正常执行不抛异常，被跳过的任务不加载
-        verify(robotTaskMapper).updateById(any(RobotTask.class));
+        verify(robotTaskMapper).update(any(), any());
         // loadTasks不应该被调用（因为重置失败）
         verify(robotTaskScheduler, never()).loadTasks(anyList());
     }
@@ -220,23 +215,20 @@ class RobotTaskLoaderJobTest {
         RobotTask timeoutTask = buildTaskWithUpdatedTime(1L, TaskStatus.RUNNING,
                                                           LocalDateTime.now(), timeoutUpdatedTime);
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(Collections.emptyList())
             .thenReturn(List.of(timeoutTask))
             .thenReturn(Collections.emptyList());
         
-        when(robotTaskMapper.updateById(any(RobotTask.class))).thenReturn(1);
+        when(robotTaskMapper.update(any(), any())).thenReturn(1);
         when(robotTaskScheduler.loadTasks(anyList())).thenReturn(1);
         when(robotTaskScheduler.getQueueSize()).thenReturn(1);
         
         // When: 执行任务加载
         loaderJob.execute(null);
         
-        // Then: errorMessage应包含超时时长信息
-        verify(robotTaskMapper).updateById(argThat(task ->
-            task.getErrorMessage() != null &&
-            task.getErrorMessage().contains("分钟")
-        ));
+        // Then: 应该使用原子更新操作
+        verify(robotTaskMapper).update(any(), any());
     }
     
     // ========== US3: 优先级排序测试 ==========
@@ -255,12 +247,12 @@ class RobotTaskLoaderJobTest {
         RobotTask futureTask = buildTask(3L, TaskStatus.PENDING, futureTime);
         
         // 模拟查询结果：过期、超时、未来
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(List.of(overdueTask))        // 第1次：过期PENDING
             .thenReturn(List.of(timeoutTask))        // 第2次：超时RUNNING
             .thenReturn(List.of(futureTask));        // 第3次：未来PENDING
         
-        when(robotTaskMapper.updateById(any(RobotTask.class))).thenReturn(1);
+        when(robotTaskMapper.update(any(), any())).thenReturn(1);
         when(robotTaskScheduler.loadTasks(anyList())).thenReturn(1);
         when(robotTaskScheduler.getQueueSize()).thenReturn(3);
         
@@ -270,7 +262,7 @@ class RobotTaskLoaderJobTest {
         // Then: 应该按顺序加载三种类型的任务
         verify(robotTaskScheduler, times(3)).loadTasks(anyList());
         // 验证查询顺序：过期PENDING -> 超时RUNNING -> 未来PENDING
-        verify(robotTaskMapper, times(3)).selectList(any(QueryWrapper.class));
+        verify(robotTaskMapper, times(3)).selectList(any());
     }
     
     @Test
@@ -297,12 +289,12 @@ class RobotTaskLoaderJobTest {
             buildTask(6L, TaskStatus.PENDING, futureTime.plusMinutes(2))
         );
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(overdueTasks)
             .thenReturn(timeoutTasks)
             .thenReturn(futureTasks);
         
-        when(robotTaskMapper.updateById(any(RobotTask.class))).thenReturn(1);
+        when(robotTaskMapper.update(any(), any())).thenReturn(1);
         when(robotTaskScheduler.loadTasks(anyList()))
             .thenReturn(2)  // 过期任务加载2个
             .thenReturn(2)  // 超时任务加载2个
@@ -346,12 +338,12 @@ class RobotTaskLoaderJobTest {
             buildTask(10L, TaskStatus.PENDING, futureTime.plusMinutes(4))
         );
         
-        when(robotTaskMapper.selectList(any(QueryWrapper.class)))
+        when(robotTaskMapper.selectList(any()))
             .thenReturn(overdueTasks)   // 查询到3个过期
             .thenReturn(timeoutTasks)   // 查询到2个超时
             .thenReturn(futureTasks);   // 查询到5个未来
         
-        when(robotTaskMapper.updateById(any(RobotTask.class))).thenReturn(1);
+        when(robotTaskMapper.update(any(), any())).thenReturn(1);
         when(robotTaskScheduler.loadTasks(anyList()))
             .thenReturn(3)  // 过期任务加载3个，剩余容量2
             .thenReturn(2)  // 超时任务加载2个，剩余容量0

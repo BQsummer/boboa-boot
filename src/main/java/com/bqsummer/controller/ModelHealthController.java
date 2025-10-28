@@ -1,7 +1,7 @@
 package com.bqsummer.controller;
 
 import com.bqsummer.common.dto.ai.ModelHealthStatus;
-import com.bqsummer.model.service.ModelHealthService;
+import com.bqsummer.service.ai.ModelHealthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +14,7 @@ import java.util.Map;
 
 /**
  * 模型健康检查控制器
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @Slf4j
 @RestController

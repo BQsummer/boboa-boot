@@ -1,5 +1,6 @@
 package com.bqsummer.service.robot;
 
+import com.bqsummer.configuration.Configs;
 import com.bqsummer.configuration.RobotTaskConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +26,8 @@ class RobotTaskSchedulerDynamicConfigTest {
     private RobotTaskConfiguration config;
     
     private RobotTaskScheduler scheduler;
+
+    private Configs configs;
     
     @BeforeEach
     void setUp() {
@@ -38,7 +41,7 @@ class RobotTaskSchedulerDynamicConfigTest {
         when(config.getConcurrencySendNotification()).thenReturn(10);
         
         // 创建 scheduler 实例
-        scheduler = new RobotTaskScheduler(taskExecutor, config);
+        scheduler = new RobotTaskScheduler(taskExecutor, config, configs);
         scheduler.startConsumer();  // 初始化
     }
     

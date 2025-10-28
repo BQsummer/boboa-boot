@@ -38,4 +38,10 @@ public class Configs {
     @ConfigEle(name = "timeoutTask")
     public Integer timeoutTask = 180;
 
+    /**
+     * 最大连续失败次数
+     */
+    @ConfigEle(name = "maxConsecutiveFailures")
+    public Integer maxConsecutiveFailures = 3;
+
 }

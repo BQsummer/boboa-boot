@@ -1,6 +1,7 @@
 package com.bqsummer.job;
 
-import com.bqsummer.model.service.ModelHealthService;
+import com.bqsummer.framework.job.JobInfo;
+import com.bqsummer.service.ai.ModelHealthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,22 +10,15 @@ import org.springframework.stereotype.Component;
 /**
  * 模型健康检查定时任务
  * 每5分钟执行一次批量健康检查
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @Slf4j
-@Component
+@JobInfo(jobName = "robotTaskLoaderJob", cron = "5 0/1 * * * ?")
 @RequiredArgsConstructor
 public class ModelHealthCheckJob {
     
     private final ModelHealthService healthService;
-    
-    /**
-     * 定时执行批量健康检查
-     * 每5分钟执行一次
-     */
-    @Scheduled(fixedDelay = 300000, initialDelay = 60000)
+
     public void scheduledHealthCheck() {
         log.info("开始定时健康检查任务");
         

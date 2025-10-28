@@ -6,6 +6,7 @@ import com.bqsummer.common.dto.ai.ModelHealthStatus;
 import com.bqsummer.common.dto.ai.ModelType;
 import com.bqsummer.mapper.AiModelMapper;
 import com.bqsummer.mapper.ModelHealthStatusMapper;
+import com.bqsummer.service.ai.ModelHealthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

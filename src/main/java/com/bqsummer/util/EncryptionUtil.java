@@ -8,9 +8,6 @@ import org.springframework.stereotype.Component;
 /**
  * 加密工具类
  * 使用 Spring Security Crypto 实现 AES-256 加密
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
  */
 @Component
 public class EncryptionUtil {
