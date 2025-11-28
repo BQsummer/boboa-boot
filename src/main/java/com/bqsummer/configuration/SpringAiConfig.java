@@ -7,6 +7,7 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.model.SimpleApiKey;
 
 /**
  * Spring AI 配置类
@@ -43,7 +44,10 @@ public class SpringAiConfig {
     @Bean
     public ChatClient.Builder chatClientBuilder() {
         // 创建默认的 OpenAI ChatModel
-        OpenAiApi openAiApi = new OpenAiApi(defaultBaseUrl, defaultApiKey);
+        OpenAiApi openAiApi = OpenAiApi.builder()
+                .baseUrl(defaultBaseUrl)
+                .apiKey(new SimpleApiKey(defaultApiKey))
+                .build();
         
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model("gpt-3.5-turbo")
@@ -51,7 +55,10 @@ public class SpringAiConfig {
                 .maxTokens(2000)
                 .build();
         
-        OpenAiChatModel chatModel = new OpenAiChatModel(openAiApi, options);
+        OpenAiChatModel chatModel = OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(options)
+                .build();
         
         return ChatClient.builder(chatModel);
     }
