@@ -361,6 +361,13 @@
             <version>1.1.0-M3</version>
         </dependency>
 
+        <!-- Beetl 模板引擎 -->
+        <dependency>
+            <groupId>com.ibeetl</groupId>
+            <artifactId>beetl</artifactId>
+            <version>3.17.0.RELEASE</version>
+        </dependency>
+
     </dependencies>
 
     <build>

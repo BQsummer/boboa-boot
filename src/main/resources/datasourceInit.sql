@@ -809,3 +809,46 @@ INSERT INTO routing_strategy (name, description, strategy_type, config, is_defau
 VALUES ('默认轮询策略', '按顺序依次选择可用模型', 'ROUND_ROBIN', '{}', 1, 1);
 
 
+CREATE TABLE `prompt_template` (
+                                   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                   `char_id`  BIGINT UNSIGNED NOT NULL COMMENT '角色ID',
+                                   `description` VARCHAR(255) DEFAULT NULL COMMENT '模板描述',
+
+                                   `model_code` VARCHAR(64) DEFAULT NULL COMMENT '适用模型，如 gpt-4.1、qwen-max',
+                                   `lang` VARCHAR(16) DEFAULT 'zh-CN' COMMENT '模板语言，如 zh-CN',
+
+                                   `content` MEDIUMTEXT NOT NULL COMMENT '模板内容（Beetl 模板）',
+                                   `param_schema` JSON DEFAULT NULL COMMENT '模板参数结构说明（JSON）',
+
+                                   `version` INT UNSIGNED NOT NULL DEFAULT 1 COMMENT '版本号，从1递增',
+                                   `is_latest` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否最新版本：1=是，0=否',
+                                   `is_stable` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否稳定模板：1=是，0=否（生产默认走稳定版）',
+                                   `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态：0=草稿，1=启用，2=停用',
+
+
+                                   `gray_strategy` TINYINT NOT NULL DEFAULT 0 COMMENT '灰度策略：0=无灰度，1=按比例，2=按用户白名单',
+                                   `gray_ratio` INT DEFAULT NULL COMMENT '灰度比例：0~100，gray_strategy=1时有效',
+                                   `gray_user_list` JSON DEFAULT NULL COMMENT '灰度用户白名单（用户ID数组），gray_strategy=2时有效',
+                                   `priority` INT NOT NULL DEFAULT 0 COMMENT '模板优先级（值越大越优先匹配）',
+                                   `tags` JSON DEFAULT NULL COMMENT '扩展匹配条件，如地区/渠道/设备（可选）',
+
+                                   `post_process_config` JSON DEFAULT NULL COMMENT '后处理配置（JSON），支持过滤标签、正则替换等规则',
+
+                                   `created_by` VARCHAR(64) DEFAULT NULL COMMENT '创建人',
+                                   `updated_by` VARCHAR(64) DEFAULT NULL COMMENT '更新人',
+
+                                   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                   `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=否，1=是',
+
+                                   PRIMARY KEY (`id`),
+
+                                   UNIQUE KEY `uk_char_id_version` (`char_id`, `version`),
+
+                                   KEY `idx_char_id_latest` (`char_id`, `is_latest`, `status`),
+
+
+                                   KEY `idx_gray` (`gray_strategy`, `status`)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COMMENT='Prompt 模板表（含灰度发布、版本管理、Beetl 模板内容）';
