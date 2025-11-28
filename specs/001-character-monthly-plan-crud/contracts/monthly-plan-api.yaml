@@ -1,0 +1,342 @@
+openapi: 3.0.3
+info:
+  title: 虚拟人物月度计划 API
+  description: 虚拟人物月度计划的增删改查接口
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+security:
+  - bearerAuth: []
+
+paths:
+  /ai/characters/{characterId}/monthly-plans:
+    get:
+      summary: 获取虚拟人物的月度计划列表
+      description: 获取指定虚拟人物的所有未删除月度计划
+      operationId: listMonthlyPlans
+      tags:
+        - MonthlyPlan
+      parameters:
+        - name: characterId
+          in: path
+          required: true
+          description: 虚拟人物ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功返回计划列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MonthlyPlan'
+        '401':
+          description: 未授权
+        '403':
+          description: 无权限访问该虚拟人物
+        '404':
+          description: 虚拟人物不存在
+
+    post:
+      summary: 创建月度计划
+      description: 为指定虚拟人物创建一条月度计划
+      operationId: createMonthlyPlan
+      tags:
+        - MonthlyPlan
+      parameters:
+        - name: characterId
+          in: path
+          required: true
+          description: 虚拟人物ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMonthlyPlanRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyPlan'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未授权
+        '403':
+          description: 无权限操作该虚拟人物
+        '404':
+          description: 虚拟人物不存在
+
+  /ai/characters/{characterId}/monthly-plans/{planId}:
+    get:
+      summary: 获取月度计划详情
+      description: 获取指定月度计划的详细信息
+      operationId: getMonthlyPlan
+      tags:
+        - MonthlyPlan
+      parameters:
+        - name: characterId
+          in: path
+          required: true
+          description: 虚拟人物ID
+          schema:
+            type: integer
+            format: int64
+        - name: planId
+          in: path
+          required: true
+          description: 月度计划ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功返回计划详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyPlan'
+        '401':
+          description: 未授权
+        '403':
+          description: 无权限访问
+        '404':
+          description: 计划不存在
+
+    put:
+      summary: 更新月度计划
+      description: 更新指定月度计划的信息
+      operationId: updateMonthlyPlan
+      tags:
+        - MonthlyPlan
+      parameters:
+        - name: characterId
+          in: path
+          required: true
+          description: 虚拟人物ID
+          schema:
+            type: integer
+            format: int64
+        - name: planId
+          in: path
+          required: true
+          description: 月度计划ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMonthlyPlanRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyPlan'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未授权
+        '403':
+          description: 无权限操作
+        '404':
+          description: 计划不存在
+
+    delete:
+      summary: 删除月度计划
+      description: 软删除指定的月度计划
+      operationId: deleteMonthlyPlan
+      tags:
+        - MonthlyPlan
+      parameters:
+        - name: characterId
+          in: path
+          required: true
+          description: 虚拟人物ID
+          schema:
+            type: integer
+            format: int64
+        - name: planId
+          in: path
+          required: true
+          description: 月度计划ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 删除成功
+        '401':
+          description: 未授权
+        '403':
+          description: 无权限操作
+        '404':
+          description: 计划不存在
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    MonthlyPlan:
+      type: object
+      description: 月度计划实体
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 计划ID
+        characterId:
+          type: integer
+          format: int64
+          description: 关联的虚拟人物ID
+        dayRule:
+          type: string
+          description: '日期规则，如 day=5 或 weekday=1,week=2'
+          example: 'day=5'
+        startTime:
+          type: string
+          format: time
+          description: '活动开始时间，格式 HH:mm:ss'
+          example: '09:00:00'
+        durationMin:
+          type: integer
+          description: 持续时长（分钟）
+          example: 60
+        location:
+          type: string
+          description: 活动地点
+          example: '公园'
+        action:
+          type: string
+          description: 活动内容
+          example: '晨跑'
+        participants:
+          type: array
+          items:
+            type: string
+          description: 参与者列表
+          example: ['小明', '小红']
+        extra:
+          type: object
+          additionalProperties: true
+          description: 扩展信息
+          example: { 'weather': 'sunny' }
+        createdTime:
+          type: string
+          format: date-time
+          description: 创建时间
+        updatedTime:
+          type: string
+          format: date-time
+          description: 更新时间
+
+    CreateMonthlyPlanRequest:
+      type: object
+      required:
+        - dayRule
+        - startTime
+        - durationMin
+        - action
+      properties:
+        dayRule:
+          type: string
+          description: '日期规则，如 day=5 或 weekday=1,week=2'
+          example: 'day=5'
+        startTime:
+          type: string
+          description: '活动开始时间，格式 HH:mm'
+          example: '09:00'
+        durationMin:
+          type: integer
+          description: 持续时长（分钟），必须大于0
+          minimum: 1
+          example: 60
+        location:
+          type: string
+          description: 活动地点
+          example: '公园'
+        action:
+          type: string
+          description: 活动内容
+          maxLength: 512
+          example: '晨跑'
+        participants:
+          type: array
+          items:
+            type: string
+          description: 参与者列表
+          example: ['小明', '小红']
+        extra:
+          type: object
+          additionalProperties: true
+          description: 扩展信息
+          example: { 'weather': 'sunny' }
+
+    UpdateMonthlyPlanRequest:
+      type: object
+      description: 所有字段可选，仅更新提供的字段
+      properties:
+        dayRule:
+          type: string
+          description: '日期规则，如 day=5 或 weekday=1,week=2'
+        startTime:
+          type: string
+          description: '活动开始时间，格式 HH:mm'
+        durationMin:
+          type: integer
+          description: 持续时长（分钟），必须大于0
+          minimum: 1
+        location:
+          type: string
+          description: 活动地点
+        action:
+          type: string
+          description: 活动内容
+          maxLength: 512
+        participants:
+          type: array
+          items:
+            type: string
+          description: 参与者列表
+        extra:
+          type: object
+          additionalProperties: true
+          description: 扩展信息
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: 错误消息
+        code:
+          type: string
+          description: 错误码

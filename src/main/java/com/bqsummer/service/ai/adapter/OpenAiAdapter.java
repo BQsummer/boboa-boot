@@ -10,6 +10,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.ai.model.SimpleApiKey;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -51,7 +52,9 @@ public class OpenAiAdapter implements ModelAdapter {
             }
             
             // 创建 OpenAI API 实例
-            OpenAiApi openAiApi = new OpenAiApi(apiKey);
+            OpenAiApi openAiApi = OpenAiApi.builder()
+                    .apiKey(new SimpleApiKey(apiKey))
+                    .build();
             
             // 配置模型选项
             OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
@@ -76,7 +79,10 @@ public class OpenAiAdapter implements ModelAdapter {
             OpenAiChatOptions options = optionsBuilder.build();
             
             // 创建 ChatModel
-            OpenAiChatModel chatModel = new OpenAiChatModel(openAiApi, options);
+            OpenAiChatModel chatModel = OpenAiChatModel.builder()
+                    .openAiApi(openAiApi)
+                    .defaultOptions(options)
+                    .build();
             
             // 构建提示词
             Prompt prompt = new Prompt(request.getPrompt(), options);

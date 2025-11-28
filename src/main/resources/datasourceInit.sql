@@ -852,3 +852,24 @@ CREATE TABLE `prompt_template` (
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COMMENT='Prompt 模板表（含灰度发布、版本管理、Beetl 模板内容）';
+
+-- 月度计划表
+CREATE TABLE IF NOT EXISTS `monthly_plans` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `character_id` BIGINT NOT NULL COMMENT '关联的虚拟人物ID',
+  `day_rule` VARCHAR(64) NOT NULL COMMENT '日期规则，如 day=5 或 weekday=1,week=2',
+  `start_time` TIME NOT NULL COMMENT '活动开始时间',
+  `duration_min` INT NOT NULL COMMENT '持续时长（分钟）',
+  `location` VARCHAR(255) NULL COMMENT '活动地点',
+  `action` VARCHAR(512) NOT NULL COMMENT '活动内容',
+  `participants` JSON NULL COMMENT '参与者列表（JSON数组）',
+  `extra` JSON NULL COMMENT '扩展信息（JSON对象）',
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0=否，1=是',
+  `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_character_id` (`character_id`),
+  KEY `idx_character_deleted` (`character_id`, `is_deleted`),
+  CONSTRAINT `fk_monthly_plans_character` FOREIGN KEY (`character_id`) 
+    REFERENCES `ai_characters` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='虚拟人物月度计划表';
