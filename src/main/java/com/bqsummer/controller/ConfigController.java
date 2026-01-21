@@ -5,7 +5,7 @@ import com.bqsummer.common.vo.Response;
 import com.bqsummer.common.dto.config.Config;
 import com.bqsummer.common.vo.req.config.CreateConfigReq;
 import com.bqsummer.common.vo.req.config.UpdateConfigReq;
-import com.bqsummer.service.configplus.proxy.ConfigService;
+import com.bqsummer.framework.configplus.proxy.ConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;

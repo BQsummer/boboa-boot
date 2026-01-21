@@ -13,8 +13,6 @@ import java.util.Map;
 /**
  * Prompt 模板创建请求 VO
  *
- * @author Boboa Boot Team
- * @date 2025-11-27
  */
 @Data
 public class PromptTemplateCreateRequest {
@@ -92,7 +90,7 @@ public class PromptTemplateCreateRequest {
 
     /**
      * 后处理配置（JSON），支持过滤标签、正则替换等规则
-     * 
+     *
      * 示例：
      * {
      *     "removeTagPatterns": ["<thinking>.*?</thinking>", "<reflection>.*?</reflection>"],

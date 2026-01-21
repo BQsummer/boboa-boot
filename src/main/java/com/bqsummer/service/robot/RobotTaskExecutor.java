@@ -10,15 +10,26 @@ import com.bqsummer.configuration.Configs;
 import com.bqsummer.mapper.ConversationMapper;
 import com.bqsummer.mapper.RobotTaskExecutionLogMapper;
 import com.bqsummer.mapper.RobotTaskMapper;
+import com.bqsummer.mapper.UserMapper;
+import com.bqsummer.mapper.AiCharacterMapper;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
+import com.bqsummer.common.dto.auth.User;
+import com.bqsummer.common.dto.character.AiCharacter;
+import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.common.dto.prompt.PromptTemplate;
+import com.bqsummer.exception.RoutingException;
 import com.bqsummer.repository.MessageRepository;
 import com.bqsummer.service.ai.UnifiedInferenceService;
+import com.bqsummer.service.ai.ModelRoutingService;
+import com.bqsummer.service.prompt.PromptTemplateService;
+import com.bqsummer.service.prompt.BeetlTemplateService;
 import com.bqsummer.util.InstanceIdGenerator;
 import com.bqsummer.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -48,26 +61,31 @@ import java.util.concurrent.CompletableFuture;
 @Service
 @RequiredArgsConstructor
 public class RobotTaskExecutor {
-    
+
     private final RobotTaskMapper robotTaskMapper;
     private final RobotTaskExecutionLogMapper executionLogMapper;
     private final UnifiedInferenceService inferenceService;
+    private final ModelRoutingService modelRoutingService;
+    private final PromptTemplateService promptTemplateService;
+    private final BeetlTemplateService beetlTemplateService;
     private final MessageRepository messageRepository;
     private final ConversationMapper conversationMapper;
+    private final UserMapper userMapper;
+    private final AiCharacterMapper aiCharacterMapper;
     private final Configs configs;
-    
+
     // 自我注入：用于调用事务方法，确保通过代理调用
     private RobotTaskExecutor self;
-    
+
     /**
      * 注入自身代理对象
      * 用于在类内部调用事务方法时，确保通过Spring代理调用
      */
     @Autowired
-    public void setSelf(RobotTaskExecutor self) {
+    public void setSelf(@Lazy RobotTaskExecutor self) {
         this.self = self;
     }
-    
+
     /**
      * 异步执行任务
      * 注意：@Async方法不能使用@Transactional，事务在内部的同步方法中处理
@@ -77,56 +95,56 @@ public class RobotTaskExecutor {
         execute(task);
         return CompletableFuture.completedFuture(null);
     }
-    
+
     /**
      * 执行任务的核心逻辑
      * 注意：此方法由@Async方法调用，@Transactional在此处不生效
      * 事务处理已拆分到各个子方法中
-     * 
+     *
      * @param task 待执行的任务
      */
     public void execute(RobotTask task) {
         LocalDateTime startTime = LocalDateTime.now();
         Long taskId = task.getId();
-        
-        log.info("开始执行任务: taskId={}, actionType={}, scheduledAt={}", 
+
+        log.info("开始执行任务: taskId={}, actionType={}, scheduledAt={}",
                 taskId, task.getActionType(), task.getScheduledAt());
-        
+
         // Step 1: 尝试抢占任务（通过self调用确保事务生效）
         boolean acquired = self.tryAcquireTask(task);
         if (!acquired) {
             log.debug("任务已被其他实例抢占，跳过: taskId={}", taskId);
             return;
         }
-        
+
         // Step 2: 执行任务行为
         boolean success = false;
         String errorMessage = null;
         LocalDateTime completedTime = null;
-        
+
         try {
             executeAction(task);
             success = true;
             completedTime = LocalDateTime.now();
-            
+
             // 更新任务状态为 DONE（通过self调用确保事务生效）
             self.updateTaskStatusToDone(task, completedTime);
-            
+
             log.info("任务执行成功: taskId={}", taskId);
-            
+
         } catch (Exception e) {
             log.error("任务执行失败: taskId=" + taskId, e);
             errorMessage = e.getMessage();
             completedTime = LocalDateTime.now();
-            
+
             // 处理失败重试逻辑（通过self调用确保事务生效）
             self.handleTaskFailure(task, errorMessage);
         }
-        
+
         // Step 3: 记录执行日志
         recordExecutionLog(task, startTime, completedTime, success, errorMessage);
     }
-    
+
     /**
      * 更新任务状态为 DONE
      * 独立事务方法，确保事务生效
@@ -138,25 +156,25 @@ public class RobotTaskExecutor {
     @Transactional(rollbackFor = Exception.class)
     public void updateTaskStatusToDone(RobotTask task, LocalDateTime completedTime) {
         String instanceId = InstanceIdGenerator.getInstanceId();
-        
+
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", task.getId())
                     .eq("locked_by", instanceId)  // 验证所有权
                     .set("status", TaskStatus.DONE.name())
                     .set("completed_at", completedTime);
-        
+
         int updated = robotTaskMapper.update(null, updateWrapper);
-        
+
         if (updated == 1) {
-            log.info("任务状态更新为DONE: taskId={}, instanceId={}, executionTime={}ms", 
-                    task.getId(), instanceId, 
+            log.info("任务状态更新为DONE: taskId={}, instanceId={}, executionTime={}ms",
+                    task.getId(), instanceId,
                     Duration.between(task.getStartedAt(), completedTime).toMillis());
         } else {
-            log.error("任务状态更新失败，所有权验证失败: taskId={}, currentInstanceId={}", 
+            log.error("任务状态更新失败，所有权验证失败: taskId={}, currentInstanceId={}",
                     task.getId(), instanceId);
         }
     }
-    
+
     /**
      * 使用声明式领取机制尝试抢占任务
      * 独立事务方法，确保事务生效
@@ -164,14 +182,14 @@ public class RobotTaskExecutor {
      * - 使用 locked_by 字段标记任务所有权
      * - 原子UPDATE操作：WHERE status='PENDING' SET locked_by=实例ID, status='RUNNING'
      * - 只有一个实例能成功领取（互斥性由WHERE条件保证）
-     * 
+     *
      * @return true 如果抢占成功，false 如果被其他实例抢占或状态已变更
      */
     @Transactional(rollbackFor = Exception.class)
     public boolean tryAcquireTask(RobotTask task) {
         LocalDateTime now = LocalDateTime.now();
         String instanceId = InstanceIdGenerator.getInstanceId();
-        
+
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", task.getId())
                     .eq("status", TaskStatus.PENDING.name())  // 只有PENDING任务可以被领取
@@ -180,36 +198,36 @@ public class RobotTaskExecutor {
                     .set("locked_by", instanceId)  // 设置所有权
                     .set("started_at", now)
                     .set("heartbeat_at", now);
-        
+
         int updated = robotTaskMapper.update(null, updateWrapper);
-        
+
         if (updated == 1) {
             // 更新本地task对象状态
             task.setLockedBy(instanceId);
             task.setStatus(TaskStatus.RUNNING.name());
             task.setStartedAt(now);
             task.setHeartbeatAt(now);
-            
-            log.info("任务领取成功: taskId={}, instanceId={}, status=RUNNING", 
+
+            log.info("任务领取成功: taskId={}, instanceId={}, status=RUNNING",
                     task.getId(), instanceId);
             return true;
         }
-        
-        log.warn("任务领取失败: taskId={}, expectedStatus=PENDING, reason=已被其他实例领取或状态已变更", 
+
+        log.warn("任务领取失败: taskId={}, expectedStatus=PENDING, reason=已被其他实例领取或状态已变更",
                 task.getId());
         return false;
     }
-    
+
     /**
      * 执行任务的具体行为
      */
     private void executeAction(RobotTask task) {
         String actionType = task.getActionType();
         String payload = task.getActionPayload();
-        
-        log.debug("执行行为: taskId={}, actionType={}, payload={}", 
+
+        log.debug("执行行为: taskId={}, actionType={}, payload={}",
                  task.getId(), actionType, payload);
-        
+
         switch (actionType) {
             case "SEND_MESSAGE":
                 executeSendMessage(task);
@@ -224,7 +242,7 @@ public class RobotTaskExecutor {
                 throw new IllegalArgumentException("不支持的行为类型: " + actionType);
         }
     }
-    
+
     /**
      * 执行发送消息行为
      * 1. 解析 action_payload JSON
@@ -237,56 +255,106 @@ public class RobotTaskExecutor {
     private void executeSendMessage(RobotTask task) {
         self.executeSendMessageWithTransaction(task);
     }
-    
+
     /**
      * 在事务中执行发送消息行为
      * 拆分为独立的事务方法，确保数据一致性
+     *
+     * US1: 使用ModelRoutingService动态选择模型
+     * US2: 使用PromptTemplateService和BeetlTemplateService渲染提示词
      */
     @Transactional(rollbackFor = Exception.class)
     protected void executeSendMessageWithTransaction(RobotTask task) {
-        log.info("开始执行SEND_MESSAGE任务: taskId={}, retryCount={}/{}, payload={}", 
-                task.getId(), task.getRetryCount(), task.getMaxRetryCount(), 
+        log.info("开始执行SEND_MESSAGE任务: taskId={}, retryCount={}/{}, payload={}",
+                task.getId(), task.getRetryCount(), task.getMaxRetryCount(),
                 task.getActionPayload());
-        
+
         try {
-            // 1. 解析 action_payload JSON (T028: try-catch捕获异常)
+            // 1. 解析 action_payload JSON
             SendMessagePayload payload = JsonUtil.fromJson(
                     task.getActionPayload(), SendMessagePayload.class);
-            
+
             if (payload == null) {
                 throw new IllegalArgumentException("action_payload解析失败");
             }
-            
-            log.info("解析payload成功: messageId={}, senderId={}, receiverId={}, modelId={}", 
-                    payload.getMessageId(), payload.getSenderId(), 
+
+            log.info("解析payload成功: messageId={}, senderId={}, receiverId={}, modelId={}",
+                    payload.getMessageId(), payload.getSenderId(),
                     payload.getReceiverId(), payload.getModelId());
-            
-            // 2. 调用LLM推理服务 (T028: 捕获LLM调用异常)
+
+            // 2. US1: 使用路由策略选择模型
+            AiModel selectedModel = null;
+            try {
+                InferenceRequest tempRequest = new InferenceRequest();
+                tempRequest.setPrompt(payload.getContent());
+                selectedModel = modelRoutingService.selectModelByDefault(tempRequest);
+                log.info("使用默认路由策略选择模型: modelId={}, modelName={}",
+                        selectedModel.getId(), selectedModel.getName());
+            } catch (RoutingException e) {
+                // 降级：使用payload中的modelId
+                log.warn("默认路由策略失败: {}, 降级使用payload中的modelId={}",
+                        e.getMessage(), payload.getModelId());
+                if (payload.getModelId() != null) {
+                    selectedModel = new AiModel();
+                    selectedModel.setId(payload.getModelId());
+                    log.info("降级使用payload中的模型: modelId={}", selectedModel.getId());
+                } else {
+                    throw new RuntimeException("无法选择可用模型: 默认策略失败且payload无modelId");
+                }
+            }
+
+            // 3. US2: 使用模板渲染提示词
+            String finalPrompt = payload.getContent();  // 默认使用原始消息
+            try {
+                PromptTemplate template = promptTemplateService.getLatestStableByCharId(payload.getReceiverId());
+                if (template != null) {
+                    // 模板存在，进行渲染
+                    Map<String, Object> templateParams = buildTemplateParams(payload);
+                    try {
+                        finalPrompt = beetlTemplateService.render(template.getContent(), templateParams);
+                        log.info("模板渲染成功: templateId={}, promptLength={}字符",
+                                template.getId(), finalPrompt.length());
+                    } catch (Exception renderEx) {
+                        // 模板渲染失败，降级到原始消息
+                        log.error("模板渲染失败，降级使用原始消息: templateId={}, error={}",
+                                template.getId(), renderEx.getMessage());
+                        finalPrompt = payload.getContent();
+                    }
+                } else {
+                    // 模板不存在，使用原始消息
+                    log.debug("角色未配置模板，使用原始消息: charId={}", payload.getReceiverId());
+                }
+            } catch (Exception e) {
+                // 查询模板异常，降级到原始消息
+                log.warn("查询模板失败，使用原始消息: charId={}, error={}",
+                        payload.getReceiverId(), e.getMessage());
+            }
+
+            // 4. 调用LLM推理服务
             InferenceRequest inferenceRequest = new InferenceRequest();
-            inferenceRequest.setModelId(payload.getModelId());
-            inferenceRequest.setPrompt(payload.getContent());
-            inferenceRequest.setTemperature(0.7);
-            inferenceRequest.setMaxTokens(2000);
-            
-            log.info("调用LLM推理服务: modelId={}, promptLength={}", 
-                    payload.getModelId(), payload.getContent().length());
-            
+            inferenceRequest.setModelId(selectedModel.getId());
+            inferenceRequest.setPrompt(finalPrompt);
+            inferenceRequest.setTemperature(0.7);  // TODO: US3将从模板配置读取
+            inferenceRequest.setMaxTokens(2000);   // TODO: US3将从模板配置读取
+
+            log.info("调用LLM推理服务: modelId={}, promptLength={}",
+                    selectedModel.getId(), finalPrompt.length());
+
             InferenceResponse inferenceResponse = inferenceService.chat(inferenceRequest);
-            
+
             // 验证LLM响应
             if (inferenceResponse == null || !Boolean.TRUE.equals(inferenceResponse.getSuccess())) {
                 String errorMsg = inferenceResponse != null ? inferenceResponse.getErrorMessage() : "LLM响应为空";
-                log.warn("LLM推理失败: taskId={}, retryCount={}, error={}", 
+                log.warn("LLM推理失败: taskId={}, retryCount={}, error={}",
                         task.getId(), task.getRetryCount(), errorMsg);
-                // T032: WARN级别日志记录失败信息
                 throw new RuntimeException("LLM推理失败: " + errorMsg);
             }
-            
-            log.info("LLM推理成功: taskId={}, tokens={}, responseTime={}ms", 
-                    task.getId(), inferenceResponse.getTotalTokens(), 
+
+            log.info("LLM推理成功: taskId={}, tokens={}, responseTime={}ms",
+                    task.getId(), inferenceResponse.getTotalTokens(),
                     inferenceResponse.getResponseTimeMs());
-            
-            // 3. 创建AI回复消息
+
+            // 5. 创建AI回复消息
             Message aiReply = new Message();
             aiReply.setSenderId(payload.getReceiverId()); // AI用户ID
             aiReply.setReceiverId(payload.getSenderId()); // 原始发送者ID
@@ -296,45 +364,40 @@ public class RobotTaskExecutor {
             aiReply.setIsDeleted(0);
             aiReply.setCreatedAt(LocalDateTime.now());
             aiReply.setUpdatedAt(LocalDateTime.now());
-            
+
             messageRepository.save(aiReply);
-            
-            log.info("AI回复消息创建成功: messageId={}, content={}字符", 
+
+            log.info("AI回复消息创建成功: messageId={}, content={}字符",
                     aiReply.getId(), inferenceResponse.getContent().length());
-            
-            // 4. 更新会话表
+
+            // 6. 更新会话表
             try {
                 conversationMapper.upsertSender(
                         payload.getReceiverId(), // AI作为发送方
                         payload.getSenderId(), // 用户作为接收方
-                        aiReply.getId(), 
+                        aiReply.getId(),
                         aiReply.getCreatedAt());
                 conversationMapper.upsertReceiver(
                         payload.getSenderId(), // 用户作为接收方
                         payload.getReceiverId(), // AI作为发送方
-                        aiReply.getId(), 
+                        aiReply.getId(),
                         aiReply.getCreatedAt());
             } catch (Exception e) {
                 // 会话表更新失败不应阻断主流程
                 log.warn("更新会话表失败: {}", e.getMessage());
             }
-            
-            log.info("SEND_MESSAGE任务执行完成: taskId={}, aiReplyId={}", 
+
+            log.info("SEND_MESSAGE任务执行完成: taskId={}, aiReplyId={}",
                     task.getId(), aiReply.getId());
-                    
+
         } catch (Exception e) {
-            // T028: 捕获所有LLM调用异常
-            // T029: 捕获异常后，状态更新和error_message记录在handleTaskFailure中完成
-            // T030: 重试次数判断在handleTaskFailure中完成
-            // T031: 重新调度逻辑在handleTaskFailure中完成
-            // T032: 记录WARN级别日志
-            log.warn("SEND_MESSAGE任务执行失败: taskId={}, retryCount={}, error={}", 
+            // 捕获所有异常，由execute方法的异常处理逻辑处理
+            log.warn("SEND_MESSAGE任务执行失败: taskId={}, retryCount={}, error={}",
                     task.getId(), task.getRetryCount(), e.getMessage());
-            // 重新抛出异常，由execute方法的异常处理逻辑处理
             throw e;
         }
     }
-    
+
     /**
      * 执行发送语音行为
      */
@@ -342,7 +405,7 @@ public class RobotTaskExecutor {
         // TODO: 实现发送语音逻辑
         log.info("发送语音: taskId={}, payload={}", task.getId(), task.getActionPayload());
     }
-    
+
     /**
      * 执行发送通知行为
      */
@@ -350,7 +413,7 @@ public class RobotTaskExecutor {
         // TODO: 实现发送通知逻辑
         log.info("发送通知: taskId={}, payload={}", task.getId(), task.getActionPayload());
     }
-    
+
     /**
      * 处理任务失败后的重试逻辑
      * 独立事务方法，确保事务生效
@@ -364,7 +427,7 @@ public class RobotTaskExecutor {
         int retryCount = task.getRetryCount() + 1;
         int maxRetryCount = task.getMaxRetryCount();
         String previousLockedBy = task.getLockedBy();
-        
+
         if (retryCount >= maxRetryCount) {
             // 超过最大重试次数，标记为 FAILED
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
@@ -375,8 +438,8 @@ public class RobotTaskExecutor {
                         .set("error_message", errorMessage)
                         .set("locked_by", null);  // 清空所有权
             robotTaskMapper.update(null, updateWrapper);
-            
-            log.warn("任务失败且超过最大重试次数: taskId={}, retryCount={}, previousLockedBy={}", 
+
+            log.warn("任务失败且超过最大重试次数: taskId={}, retryCount={}, previousLockedBy={}",
                     task.getId(), retryCount, previousLockedBy);
         } else {
             // 计算下次执行时间
@@ -385,7 +448,7 @@ public class RobotTaskExecutor {
                                Integer.parseInt(retryDelay[retryDelay.length - 1]) :
                                Integer.parseInt(retryDelay[retryCount - 1]);
             LocalDateTime nextExecuteAt = LocalDateTime.now().plusSeconds(delaySeconds);
-            
+
             // 重置状态为 PENDING，增加重试计数，释放所有权
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", task.getId())
@@ -395,47 +458,47 @@ public class RobotTaskExecutor {
                         .set("error_message", errorMessage)
                         .set("locked_by", null);  // 清空所有权，允许其他实例重试
             robotTaskMapper.update(null, updateWrapper);
-            
-            log.warn("任务失败重试，释放所有权: taskId={}, previousLockedBy={}, retryCount={}, nextScheduledAt={}", 
+
+            log.warn("任务失败重试，释放所有权: taskId={}, previousLockedBy={}, retryCount={}, nextScheduledAt={}",
                     task.getId(), previousLockedBy, retryCount, nextExecuteAt);
         }
     }
-    
+
     /**
      * 记录执行日志
      * T044: 添加性能日志（LLM响应时间、任务等待时间）
      */
-    private void recordExecutionLog(RobotTask task, LocalDateTime startTime, 
-                                    LocalDateTime completedTime, boolean success, 
+    private void recordExecutionLog(RobotTask task, LocalDateTime startTime,
+                                    LocalDateTime completedTime, boolean success,
                                     String errorMessage) {
         try {
             // 计算执行延迟（任务等待时间）
             long delayMs = Duration.between(task.getScheduledAt(), startTime).toMillis();
-            long durationMs = completedTime != null ? 
+            long durationMs = completedTime != null ?
                              Duration.between(startTime, completedTime).toMillis() : 0;
-            
+
             // T044: 添加性能日志
             if (success) {
-                log.info("任务执行性能指标: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}", 
+                log.info("任务执行性能指标: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}",
                         task.getId(), durationMs, delayMs, task.getRetryCount() + 1);
-                
+
                 // 性能告警：执行时间过长
                 if (durationMs > 5000) {
                     log.warn("任务执行时间过长: taskId={}, duration={}ms (>5s)", task.getId(), durationMs);
                 }
-                
+
                 // 性能告警：调度延迟过大
                 if (delayMs > 60000) {
                     log.warn("任务调度延迟过大: taskId={}, delay={}ms (>60s)", task.getId(), delayMs);
                 }
             } else {
-                log.warn("任务执行失败性能指标: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}, error={}", 
+                log.warn("任务执行失败性能指标: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}, error={}",
                         task.getId(), durationMs, delayMs, task.getRetryCount() + 1, errorMessage);
             }
-            
+
             // 获取实例ID
             String instanceId = getInstanceId();
-            
+
             RobotTaskExecutionLog log = RobotTaskExecutionLog.builder()
                     .taskId(task.getId())
                     .executionAttempt(task.getRetryCount() + 1)
@@ -447,15 +510,15 @@ public class RobotTaskExecutor {
                     .errorMessage(errorMessage)
                     .instanceId(instanceId)
                     .build();
-            
+
             executionLogMapper.insert(log);
-            
+
         } catch (Exception e) {
             // 记录日志失败不应影响主流程
             RobotTaskExecutor.log.error("记录执行日志失败: taskId=" + task.getId(), e);
         }
     }
-    
+
     /**
      * 获取当前实例ID（pod名称或主机名）
      */
@@ -466,11 +529,62 @@ public class RobotTaskExecutor {
             if (podName != null && !podName.isEmpty()) {
                 return podName;
             }
-            
+
             // 否则使用主机名
             return InetAddress.getLocalHost().getHostName();
         } catch (Exception e) {
             return "unknown";
         }
+    }
+
+    /**
+     * 构建模板渲染参数
+     * @param payload 消息发送载荷
+     * @return 模板参数Map，包含userName、userId、content、receiverId、characterName
+     */
+    private Map<String, Object> buildTemplateParams(SendMessagePayload payload) {
+        Map<String, Object> params = new HashMap<>();
+
+        try {
+            // 1. 基本参数（直接从payload获取）
+            params.put("content", payload.getContent());
+
+            // 2. 查询用户昵称
+            String userName = "用户";  // 默认值
+            try {
+                User user = userMapper.findById(payload.getSenderId());
+                if (user != null && user.getNickName() != null && !user.getNickName().isEmpty()) {
+                    userName = user.getNickName();
+                } else if (user != null && user.getUsername() != null && !user.getUsername().isEmpty()) {
+                    userName = user.getUsername();
+                }
+            } catch (Exception e) {
+                log.warn("查询用户名失败，使用默认值: userId={}, error={}",
+                        payload.getSenderId(), e.getMessage());
+            }
+            params.put("user", userName);
+
+            // 3. 查询AI角色名称
+            String characterName = "AI助手";  // 默认值
+            try {
+                AiCharacter character = aiCharacterMapper.findById(payload.getReceiverId());
+                if (character != null && character.getName() != null && !character.getName().isEmpty()) {
+                    characterName = character.getName();
+                }
+            } catch (Exception e) {
+                log.warn("查询角色名失败，使用默认值: charId={}, error={}",
+                        payload.getReceiverId(), e.getMessage());
+            }
+            params.put("characterName", characterName);
+
+            log.debug("构建模板参数成功: userName={}, characterName={}, content={}字符",
+                    userName, characterName, payload.getContent().length());
+
+        } catch (Exception e) {
+            log.error("构建模板参数异常: {}", e.getMessage(), e);
+            // 即使异常也返回基本参数，确保后续流程可继续
+        }
+
+        return params;
     }
 }

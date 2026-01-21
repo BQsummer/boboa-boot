@@ -9,7 +9,7 @@ import com.bqsummer.framework.exception.SnorlaxClientException;
 import com.bqsummer.mapper.RechargeOrderMapper;
 import com.bqsummer.service.PointsService;
 import com.bqsummer.service.WalletService;
-import com.bqsummer.service.recharge.dto.PaySession;
+import com.bqsummer.common.dto.recharge.PaySession;
 import com.bqsummer.util.OrderNoGenerator;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;

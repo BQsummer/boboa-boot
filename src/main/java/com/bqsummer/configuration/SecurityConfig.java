@@ -52,11 +52,12 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index.html", "/static/**").permitAll()
                         .requestMatchers("/api/v1/feedback/submit").permitAll()
                         // 需要USER角色的接口
-                        .requestMatchers("/api/v1/user/**").hasRole("USER")
+                        .requestMatchers("/api/v1/user/**").hasAnyRole("USER", "ADMIN")
                         // 需要ADMIN角色的接口
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/test/admin").hasRole("ADMIN")
-                        .requestMatchers("/plugin-manager/config").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN")
+                        .requestMatchers("/api/v1/test/admin").hasAnyRole("ADMIN")
+                        .requestMatchers("/plugin-manager/config").hasAnyRole("ADMIN")
+                        .requestMatchers("/api/v1/ai/characters/**").hasAnyRole("ADMIN")
                         // 其他所有接口都需要认证
                         .anyRequest().authenticated()
                 );

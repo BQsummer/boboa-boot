@@ -1,4 +1,4 @@
-package com.bqsummer.service.configplus.proxy;
+package com.bqsummer.framework.configplus.proxy;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.FactoryBean;

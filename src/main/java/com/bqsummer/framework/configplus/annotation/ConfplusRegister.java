@@ -1,7 +1,7 @@
-package com.bqsummer.service.configplus.annotation;
+package com.bqsummer.framework.configplus.annotation;
 
-import com.bqsummer.service.configplus.proxy.ConfigProxyFactory;
-import com.bqsummer.service.configplus.proxy.ConfigService;
+import com.bqsummer.framework.configplus.proxy.ConfigProxyFactory;
+import com.bqsummer.framework.configplus.proxy.ConfigService;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.BeanClassLoaderAware;

@@ -1,4 +1,4 @@
-package com.bqsummer.service.configplus.annotation;
+package com.bqsummer.framework.configplus.annotation;
 
 import java.lang.annotation.*;
 
