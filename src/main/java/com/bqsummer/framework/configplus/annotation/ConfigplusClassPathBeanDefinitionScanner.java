@@ -1,4 +1,4 @@
-package com.bqsummer.service.configplus.annotation;
+package com.bqsummer.framework.configplus.annotation;
 
 import org.springframework.beans.factory.config.BeanDefinitionHolder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;

@@ -1,13 +1,9 @@
-
-
 # Boboa-Boot 项目宪章 (Project Constitution)
 
 ## 核心原则 (Core Principles)
-
 ### I. 中文优先的文档规范 (Chinese-First Documentation)
 
 **所有项目文档必须以中文为主体语言**。代码注释、技术规范、需求文档、设计文档等可以使用英文术语和代码示例，但核心说明、业务逻辑描述、用户场景等**必须使用中文**。
-
 具体要求：
 - 功能规格说明 (Specification)：主体内容使用中文，技术术语可保留英文
 - 实现计划 (Implementation Plan)：中文描述，代码片段使用英文
@@ -75,7 +71,61 @@
 - 未验证权限直接操作其他用户数据
 - 使用拼接 SQL 字符串
 
-### V. 最小化修改原则 (Minimal Change Principle)
+### V. JWT认证规范 (JWT Authentication Standards)
+
+**所有需要用户身份的操作必须通过注入的 JwtUtil 获取用户信息**，不允许通过其他方式传递或获取用户身份。
+
+要求：
+- Controller 层必须通过构造函数注入 `JwtUtil`（使用 `@RequiredArgsConstructor`）
+- 从请求的 `Authorization` header 中提取 JWT token
+- 使用 `jwtUtil.validateToken(token)` 验证 token 有效性
+- 使用 `jwtUtil.getUserIdFromToken(token)` 获取当前用户ID
+- 使用 `jwtUtil.getRolesFromToken(token)` 获取用户角色（如需权限检查）
+- 不允许在 URL 参数、请求体或其他 header 中传递用户ID
+- Service 层方法接收 userId 参数时，必须由 Controller 层从 JWT 中提取后传入
+
+**标准认证流程**：
+```java
+@RestController
+@RequiredArgsConstructor
+public class ExampleController {
+    private final JwtUtil jwtUtil;
+    private final ExampleService exampleService;
+
+    @GetMapping("/api/example")
+    public ResponseEntity<?> example(@RequestHeader("Authorization") String authHeader) {
+        String token = JwtUtil.extractBearerToken(authHeader);
+        if (token == null || !jwtUtil.validateToken(token)) {
+            throw new SnorlaxClientException(ErrorType.AUTHENTICATION_FAILED);
+        }
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        // 使用 userId 调用 service
+        return ResponseEntity.ok(exampleService.getData(userId));
+    }
+}
+```
+
+**理由**：
+- 确保身份验证的一致性和安全性
+- 防止用户伪造身份（如在请求中传递他人的 userId）
+- 集中管理 token 验证逻辑，便于维护和审计
+- 符合 JWT 标准实践和安全最佳实践
+
+**违规示例**（禁止）：
+```java
+// ❌ 错误：直接从请求参数获取 userId
+@GetMapping("/api/data")
+public ResponseEntity<?> getData(@RequestParam Long userId) { ... }
+
+// ❌ 错误：从请求体获取 userId
+@PostMapping("/api/update")
+public ResponseEntity<?> update(@RequestBody UpdateRequest request) {
+    Long userId = request.getUserId(); // 危险！可被伪造
+    ...
+}
+```
+
+### VI. 最小化修改原则 (Minimal Change Principle)
 
 **每次修改必须是最小且精准的**，不要改动无关代码。
 
@@ -90,7 +140,7 @@
 - 如果删除某段修改后功能依然正常，则该修改是多余的
 - 如果修改影响了其他测试，需要重新评估修改范围
 
-### VI. 数据库管理规范 (Database Management Standards)
+### VII. 数据库管理规范 (Database Management Standards)
 
 **所有 SQL 脚本必须写在 `src/main/resources/datasourceInit.sql` 中**，不允许使用数据库迁移工具或在 migration 目录下创建 SQL 文件。
 
@@ -122,6 +172,126 @@ CREATE TABLE IF NOT EXISTS ai_character (
 ❌ src/main/resources/db/migration/V002__add_user_type.sql
 ```
 
+### VIII. 异常处理规范 (Exception Handling Standards)
+
+**项目中不允许创建新的异常类**，所有异常处理必须使用现有的两个标准异常类：`SnorlaxClientException` 和 `SnorlaxServerException`。
+
+要求：
+- **禁止**创建任何新的自定义异常类（如 `CustomBusinessException`, `ValidationException` 等）
+- 客户端错误（4xx）使用 `SnorlaxClientException`：参数验证失败、业务规则违反、资源未找到、权限不足等
+- 服务端错误（5xx）使用 `SnorlaxServerException`：系统内部错误、外部服务调用失败、数据库操作异常等
+- 使用构造函数参数区分不同的错误场景：
+  - `new SnorlaxClientException(String message)` - 简单错误消息
+  - `new SnorlaxClientException(int code, String message)` - 带 HTTP 状态码
+  - `new SnorlaxClientException(int code, String message, String developMessage)` - 包含开发者调试信息
+
+**理由**：
+- 统一异常处理逻辑，简化全局异常拦截器的实现
+- 避免异常类泛滥，保持代码库整洁
+- 标准化错误响应格式，便于前端统一处理
+- 两个异常类已涵盖所有业务场景，无需扩展
+
+**示例**：
+```java
+// ✅ 正确：使用 SnorlaxClientException 处理客户端错误
+if (userId == null) {
+    throw new SnorlaxClientException(400, "用户ID不能为空");
+}
+if (!friendRepository.exists(userId, friendId)) {
+    throw new SnorlaxClientException(404, "用户不存在");
+}
+if (points < 0) {
+    throw new SnorlaxClientException(400, "积分不足", "current points: " + points);
+}
+
+// ✅ 正确：使用 SnorlaxServerException 处理服务端错误
+try {
+    externalService.call();
+} catch (Exception e) {
+    throw new SnorlaxServerException(500, "外部服务调用失败", e.getMessage());
+}
+
+// ❌ 错误：创建自定义异常类
+public class UserNotFoundException extends RuntimeException { ... }
+public class InsufficientPointsException extends RuntimeException { ... }
+```
+
+**违规行为**：
+- 创建任何继承自 `Exception`, `RuntimeException` 或其他异常基类的新类
+- 在 `src/main/java/com/bqsummer/exception/` 或其他包下定义新的异常类型
+
+### IX. Service类设计规范 (Service Class Design Standards)
+
+**Service层直接使用类实现，不需要定义接口**。这是简化架构、避免过度设计的重要原则。
+
+要求：
+- **禁止**为Service类创建对应的接口（如 `UserService` 接口 + `UserServiceImpl` 实现类）
+- 直接定义Service类并实现业务逻辑：`xxxService.java`（不是 `xxxServiceImpl.java`）
+- 使用 `@Service` 注解标注Service类
+- Controller层通过构造函数注入Service类（使用 `@RequiredArgsConstructor`）
+- Service类之间可以相互依赖注入
+
+**理由**：
+- 避免不必要的接口抽象层，减少代码冗余
+- Spring依赖注入不需要接口也能正常工作
+- 提高开发效率，减少样板代码
+- 符合YAGNI原则（You Aren't Gonna Need It）—— 只在真正需要多实现时才引入接口
+- 测试时可以使用Mockito等工具直接mock具体类
+
+**标准Service类结构**：
+```java
+@Service
+@RequiredArgsConstructor
+public class UserService {
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
+    
+    @Transactional
+    public UserDTO createUser(CreateUserRequest request) {
+        // 实现业务逻辑
+    }
+    
+    public UserDTO getUserById(Long userId) {
+        // 查询逻辑
+    }
+}
+```
+
+**Controller注入Service示例**：
+```java
+@RestController
+@RequiredArgsConstructor
+public class UserController {
+    private final UserService userService;  // 直接注入Service类，不是接口
+    private final JwtUtil jwtUtil;
+    
+    @GetMapping("/api/users/{id}")
+    public ResponseEntity<UserDTO> getUser(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.getUserById(id));
+    }
+}
+```
+
+**违规示例**（禁止）：
+```java
+// ❌ 错误：定义接口
+public interface UserService {
+    UserDTO createUser(CreateUserRequest request);
+}
+
+// ❌ 错误：实现类以 Impl 结尾
+@Service
+public class UserServiceImpl implements UserService {
+    @Override
+    public UserDTO createUser(CreateUserRequest request) { ... }
+}
+```
+
+**例外情况**（极少数）：
+- 确实需要多个实现（如不同的支付渠道、不同的通知方式）时，才考虑使用接口
+- 需要引入第三方库并进行适配封装时，可以定义适配器接口
+- 这些例外情况必须在代码审查中明确说明理由
+
 ## 技术栈约束 (Technology Stack Constraints)
 
 ### 核心技术栈（不可更改）
@@ -145,43 +315,9 @@ CREATE TABLE IF NOT EXISTS ai_character (
 
 - 使用 Lombok 减少样板代码（`@Data`, `@Builder`, `@RequiredArgsConstructor`）
 - Controller 层使用 `@RestController` + `@RequestMapping`
-- Service 层使用 `@Service` + `@Transactional`（需要时）
+- Service 层使用 `@Service` + `@Transactional`（需要时），**直接使用类不需要接口**（详见原则IX）
 - Mapper 层继承 `BaseMapper<T>` 并使用 `@Mapper` 注解
-- 异常处理使用 `SnorlaxClientException` 抛出业务异常
-
-## 开发工作流 (Development Workflow)
-
-### 功能开发流程
-
-1. **需求规格化** (`/speckit.specify`): 将需求转化为详细的中文功能规格说明
-   - 定义用户故事和验收标准
-   - 明确功能需求和成功标准
-   - 识别边界情况和异常场景
-
-2. **需求澄清** (`/speckit.clarify`，可选): 通过问答方式澄清模糊需求
-   - 识别未明确的需求点
-   - 与相关方确认细节
-   - 更新规格说明
-
-3. **实现计划** (`/speckit.plan`): 制定详细的技术实现方案
-   - 分析现有代码结构
-   - 设计数据模型和接口契约
-   - 规划实现步骤
-
-4. **任务分解** (`/speckit.tasks`): 将计划分解为可执行任务
-   - 按依赖关系排序任务
-   - 每个任务明确输入/输出和验收标准
-   - 标记测试任务优先级
-
-5. **实施开发** (`/speckit.implement`): 执行任务清单
-   - 遵循 TDD 原则先写测试
-   - 实现功能代码
-   - 验证测试通过
-
-6. **质量分析** (`/speckit.analyze`): 交叉验证一致性
-   - 检查规格与实现的一致性
-   - 验证宪章合规性
-   - 识别潜在问题
+- 异常处理使用 `SnorlaxClientException` 和 `SnorlaxServerException`
 
 ### 分支管理
 
@@ -198,32 +334,3 @@ CREATE TABLE IF NOT EXISTS ai_character (
 - `docs: 更新API文档` (文档)
 - `test: 添加好友服务测试用例` (测试)
 - `refactor: 重构用户查询逻辑` (重构)
-
-## 治理规则 (Governance)
-
-### 宪章权威性
-
-- 本宪章优先于所有其他开发实践和约定
-- 所有代码审查必须验证宪章合规性
-- 违反宪章的代码不得合并
-
-### 宪章修订
-
-- 宪章修订必须有充分理由和讨论
-- 修订需要明确版本号、修订日期、变更说明
-- 修订后必须更新相关文档模板和已有文档
-- 重大修订需要评估对现有代码的影响
-
-### 例外处理
-
-- 特殊情况需要偏离宪章时，必须在代码中添加注释说明理由
-- 例外情况需要在 PR 中明确说明并获得批准
-- 临时例外必须创建后续任务来消除例外
-
-### 质量门禁
-
-- 所有测试必须通过（单元测试 + 集成测试）
-- 代码必须编译成功（`mvn clean install`）
-- 不允许提交编译警告（严重警告）
-- 必须验证数据库脚本在 `datasourceInit.sql` 中的正确性
-- **禁止**在 `src/main/resources/db/migration/` 目录下创建文件

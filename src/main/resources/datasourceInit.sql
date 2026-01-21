@@ -42,7 +42,7 @@ CREATE TABLE QRTZ_TRIGGERS (
                                MISFIRE_INSTR SMALLINT(2) NULL,
                                JOB_DATA BLOB NULL,
                                PRIMARY KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP),
-                               FOREIGN KEY (SCHED_NAME,JOB_NAME,JOB_GROUP)
+                                 KEY (SCHED_NAME,JOB_NAME,JOB_GROUP)
                                    REFERENCES QRTZ_JOB_DETAILS(SCHED_NAME,JOB_NAME,JOB_GROUP))
     ENGINE=InnoDB;
 
@@ -256,9 +256,7 @@ CREATE TABLE `user_roles` (
                               PRIMARY KEY (`id`),
                               UNIQUE KEY `uk_user_role` (`user_id`, `role_id`),
                               KEY `idx_user_id` (`user_id`),
-                              KEY `idx_role_id` (`role_id`),
-                              CONSTRAINT `fk_user_roles_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-                              CONSTRAINT `fk_user_roles_role_id` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
+                              KEY `idx_role_id` (`role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户角色关系表';
 
 -- 刷新令牌表
@@ -271,8 +269,7 @@ CREATE TABLE `refresh_tokens` (
                                   PRIMARY KEY (`id`),
                                   UNIQUE KEY `uk_token` (`token`),
                                   KEY `idx_user_id` (`user_id`),
-                                  KEY `idx_expires_at` (`expires_at`),
-                                  CONSTRAINT `fk_refresh_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+                                  KEY `idx_expires_at` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='刷新令牌表';
 
 -- 积分系统表
@@ -365,9 +362,7 @@ CREATE TABLE IF NOT EXISTS `friends` (
   `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_friend` (`user_id`, `friend_user_id`),
-  KEY `idx_user` (`user_id`),
-  CONSTRAINT `fk_friends_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_friends_friend` FOREIGN KEY (`friend_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='好友关系表';
 
 -- 会话表（按用户维度管理与对端的会话）
@@ -383,9 +378,7 @@ CREATE TABLE IF NOT EXISTS `conversations` (
   `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_peer` (`user_id`, `peer_id`),
-  KEY `idx_user_updated` (`user_id`, `updated_time`),
-  CONSTRAINT `fk_conversations_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_conversations_peer` FOREIGN KEY (`peer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  KEY `idx_user_updated` (`user_id`, `updated_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户会话表';
 
 -- 邀请码主表
@@ -405,8 +398,7 @@ CREATE TABLE IF NOT EXISTS `invite_codes` (
   UNIQUE KEY `uk_code` (`code`),
   UNIQUE KEY `uk_code_hash` (`code_hash`),
   KEY `idx_creator` (`creator_user_id`),
-  KEY `idx_status_expire` (`status`, `expire_at`),
-  CONSTRAINT `fk_invite_codes_creator` FOREIGN KEY (`creator_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+  KEY `idx_status_expire` (`status`, `expire_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邀请码表';
 
 -- 邀请码使用记录表
@@ -423,9 +415,7 @@ CREATE TABLE IF NOT EXISTS `invite_usage` (
   UNIQUE KEY `uk_invitee` (`invitee_user_id`),
   KEY `idx_code` (`invite_code_id`),
   KEY `idx_hash_time` (`code_hash`, `used_at`),
-  KEY `idx_ip_time` (`client_ip`, `used_at`),
-  CONSTRAINT `fk_invite_usage_code` FOREIGN KEY (`invite_code_id`) REFERENCES `invite_codes` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_invite_usage_invitee` FOREIGN KEY (`invitee_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  KEY `idx_ip_time` (`client_ip`, `used_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邀请码使用记录表';
 
 -- AI 人物模板表
@@ -464,9 +454,7 @@ CREATE TABLE IF NOT EXISTS `ai_character_settings` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_character` (`user_id`, `character_id`),
   KEY `idx_character` (`character_id`),
-  key idx_associated_user_id ON ai_characters(associated_user_id);
-  CONSTRAINT `fk_ai_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_ai_settings_character` FOREIGN KEY (`character_id`) REFERENCES `ai_characters` (`id`) ON DELETE CASCADE
+  key idx_associated_user_id ON ai_characters(associated_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 人物用户设置';
 
 -- 充值/支付模块表结构
@@ -571,8 +559,7 @@ CREATE TABLE IF NOT EXISTS `user_profiles` (
   `created_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_id` (`user_id`),
-  CONSTRAINT `fk_user_profiles_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  UNIQUE KEY `uk_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户扩展资料表';
 
 -- 用户反馈表
@@ -644,7 +631,7 @@ CREATE TABLE IF NOT EXISTS robot_task (
     error_message TEXT NULL COMMENT '错误信息',
     created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    
+
     INDEX idx_status_scheduled (status, scheduled_at),
     INDEX idx_user_id (user_id),
     INDEX idx_robot_id (robot_id),
@@ -665,11 +652,10 @@ CREATE TABLE IF NOT EXISTS robot_task_execution_log (
     error_message TEXT NULL COMMENT '错误信息',
     instance_id VARCHAR(100) NOT NULL COMMENT '实例标识',
     created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    
+
     INDEX idx_task_id (task_id),
     INDEX idx_started_at (started_at),
     INDEX idx_instance_id (instance_id),
-    FOREIGN KEY (task_id) REFERENCES robot_task(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务执行日志表';
 
 
@@ -679,23 +665,23 @@ CREATE TABLE ai_model (
     version VARCHAR(50) NOT NULL COMMENT '模型版本，如 gpt-4-turbo',
     provider VARCHAR(50) NOT NULL COMMENT '提供商：openai/azure/qwen/gemini 等',
     model_type VARCHAR(20) NOT NULL COMMENT '模型类型：CHAT/EMBEDDING/RERANKER',
-    
+
     api_endpoint VARCHAR(500) NOT NULL COMMENT 'API 端点 URL',
     api_key TEXT NOT NULL COMMENT 'API 密钥（AES-256 加密存储）',
-    
+
     context_length INT COMMENT '上下文长度（token 数），如 8192',
     parameter_count VARCHAR(20) COMMENT '参数量，如 175B',
-    
+
     tags JSON COMMENT '自定义标签，如 ["fast", "cheap"]',
     weight INT DEFAULT 1 COMMENT '路由权重，用于加权负载均衡',
-    
+
     enabled TINYINT(1) DEFAULT 1 COMMENT '是否启用：1-启用 0-禁用',
-    
+
     created_by BIGINT COMMENT '创建人用户ID',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_by BIGINT COMMENT '最后更新人用户ID',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    
+
     UNIQUE KEY uk_name_version (name, version),
     INDEX idx_provider (provider),
     INDEX idx_model_type (model_type),
@@ -707,18 +693,18 @@ CREATE TABLE routing_strategy (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '策略ID',
     name VARCHAR(100) NOT NULL COMMENT '策略名称',
     description VARCHAR(500) COMMENT '策略描述',
-    
+
     strategy_type VARCHAR(30) NOT NULL COMMENT '策略类型：ROUND_ROBIN/LEAST_CONN/TAG_BASED/PRIORITY',
     config JSON NOT NULL COMMENT '策略配置（JSON格式）',
-    
+
     is_default TINYINT(1) DEFAULT 0 COMMENT '是否默认策略：1-是 0-否',
     enabled TINYINT(1) DEFAULT 1 COMMENT '是否启用：1-启用 0-禁用',
-    
+
     created_by BIGINT COMMENT '创建人用户ID',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_by BIGINT COMMENT '最后更新人用户ID',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    
+
     UNIQUE KEY uk_name (name),
     INDEX idx_strategy_type (strategy_type),
     INDEX idx_enabled (enabled)
@@ -730,67 +716,62 @@ CREATE TABLE strategy_model_relation (
     strategy_id BIGINT NOT NULL COMMENT '策略ID',
     model_id BIGINT NOT NULL COMMENT '模型ID',
     priority INT DEFAULT 0 COMMENT '优先级（用于 PRIORITY 策略，数值越大优先级越高）',
-    
+
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    
+
     UNIQUE KEY uk_strategy_model (strategy_id, model_id),
     INDEX idx_strategy_id (strategy_id),
-    INDEX idx_model_id (model_id),
-    
-    CONSTRAINT fk_strategy FOREIGN KEY (strategy_id) REFERENCES routing_strategy(id) ON DELETE CASCADE,
-    CONSTRAINT fk_model FOREIGN KEY (model_id) REFERENCES ai_model(id) ON DELETE CASCADE
+    INDEX idx_model_id (model_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='策略与模型关联表';
 
 -- 4. 模型健康状态表
 CREATE TABLE model_health_status (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '状态ID',
     model_id BIGINT NOT NULL COMMENT '模型ID',
-    
+
     status VARCHAR(20) NOT NULL COMMENT '健康状态：ONLINE/OFFLINE/TIMEOUT/AUTH_FAILED',
     consecutive_failures INT DEFAULT 0 COMMENT '连续失败次数',
     total_checks INT DEFAULT 0 COMMENT '总检查次数',
     successful_checks INT DEFAULT 0 COMMENT '成功检查次数',
-    
+
     last_check_time DATETIME COMMENT '最后检查时间',
     last_success_time DATETIME COMMENT '最后成功时间',
     last_error TEXT COMMENT '最后错误信息',
-    
+
     last_response_time INT COMMENT '最后响应时间（毫秒）',
     response_time_ms INT COMMENT '平均响应时间（毫秒）',
     uptime_percentage DECIMAL(5,2) COMMENT '可用率（%）',
-    
+
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    
+
     UNIQUE KEY uk_model_id (model_id),
     INDEX idx_status (status),
-    INDEX idx_last_check (last_check_time),
-    
-    CONSTRAINT fk_health_model FOREIGN KEY (model_id) REFERENCES ai_model(id) ON DELETE CASCADE
+    INDEX idx_last_check (last_check_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型健康状态表';
 
 -- 5. 模型请求日志表 (带分区)
 CREATE TABLE model_request_log (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '日志ID',
     request_id VARCHAR(64) NOT NULL COMMENT '请求唯一标识（UUID）',
-    
+
     model_id BIGINT NOT NULL COMMENT '调用的模型ID',
     model_name VARCHAR(100) COMMENT '模型名称快照',
-    
+
     request_type VARCHAR(20) NOT NULL COMMENT '请求类型：CHAT/EMBEDDING/RERANKER',
     prompt_tokens INT COMMENT '输入 token 数',
     completion_tokens INT COMMENT '输出 token 数',
     total_tokens INT COMMENT '总 token 数',
-    
+
     response_status VARCHAR(20) NOT NULL COMMENT '响应状态：SUCCESS/FAILED/TIMEOUT',
     response_time_ms INT COMMENT '响应耗时（毫秒）',
     error_message TEXT COMMENT '错误信息（如有）',
-    
+
     user_id BIGINT COMMENT '发起请求的用户ID',
     source VARCHAR(100) COMMENT '请求来源（IP或服务名）',
-    
+
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '请求时间',
-    
+
     INDEX idx_model_id (model_id),
     INDEX idx_request_id (request_id),
     INDEX idx_created_at (created_at),
@@ -869,7 +850,5 @@ CREATE TABLE IF NOT EXISTS `monthly_plans` (
   `updated_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_character_id` (`character_id`),
-  KEY `idx_character_deleted` (`character_id`, `is_deleted`),
-  CONSTRAINT `fk_monthly_plans_character` FOREIGN KEY (`character_id`) 
-    REFERENCES `ai_characters` (`id`) ON DELETE CASCADE
+  KEY `idx_character_deleted` (`character_id`, `is_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='虚拟人物月度计划表';

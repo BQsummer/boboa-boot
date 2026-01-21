@@ -30,9 +30,9 @@ class BeetlTemplateServiceTest {
         Configuration cfg = Configuration.defaultConfiguration();
         StringTemplateResourceLoader resourceLoader = new StringTemplateResourceLoader();
         GroupTemplate groupTemplate = new GroupTemplate(resourceLoader, cfg);
-        
+
         // 创建服务实例
-        beetlTemplateService = new BeetlTemplateServiceImpl(groupTemplate);
+        beetlTemplateService = new BeetlTemplateService(groupTemplate);
     }
 
     @Test
@@ -89,7 +89,7 @@ class BeetlTemplateServiceTest {
         Map<String, Object> params = new HashMap<>();
 
         // 验证抛出异常
-        assertThrows(TemplateRenderException.class, () -> {
+        assertThrows(com.bqsummer.framework.exception.SnorlaxServerException.class, () -> {
             beetlTemplateService.render(template, params);
         });
     }
@@ -102,7 +102,7 @@ class BeetlTemplateServiceTest {
         Map<String, Object> user = new HashMap<>();
         user.put("name", "李四");
         user.put("role", "管理员");
-        
+
         Map<String, Object> params = new HashMap<>();
         params.put("user", user);
 

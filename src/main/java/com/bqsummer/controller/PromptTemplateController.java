@@ -7,6 +7,8 @@ import com.bqsummer.common.vo.req.prompt.PromptTemplateRenderRequest;
 import com.bqsummer.common.vo.req.prompt.PromptTemplateUpdateRequest;
 import com.bqsummer.common.vo.resp.prompt.PromptTemplateResponse;
 import com.bqsummer.service.prompt.PromptTemplateService;
+import com.bqsummer.util.JwtUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,11 +17,9 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * Prompt 模板控制器
- * 
+ *
  * 提供 Prompt 模板的增删改查和渲染预览功能。
  *
- * @author Boboa Boot Team
- * @date 2025-11-27
  */
 @Slf4j
 @RestController
@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 public class PromptTemplateController {
 
     private final PromptTemplateService promptTemplateService;
+    private final JwtUtil jwtUtil;
 
     /**
      * 创建 Prompt 模板
@@ -36,13 +37,11 @@ public class PromptTemplateController {
      * @return 创建后的模板信息
      */
     @PostMapping
-    public ResponseEntity<PromptTemplateResponse> create(@Valid @RequestBody PromptTemplateCreateRequest request) {
-        // TODO: 从认证上下文获取当前用户ID
-        String currentUserId = "system";
-        
+    public ResponseEntity<PromptTemplateResponse> create(@Valid @RequestBody PromptTemplateCreateRequest request, HttpServletRequest http) {
+        Long currentUserId = jwtUtil.getUserIdFromRequest(http);
         PromptTemplateResponse response = promptTemplateService.create(request, currentUserId);
         log.info("创建 Prompt 模板成功，id: {}", response.getId());
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -80,13 +79,12 @@ public class PromptTemplateController {
     @PutMapping("/{id}")
     public ResponseEntity<PromptTemplateResponse> update(
             @PathVariable Long id,
-            @Valid @RequestBody PromptTemplateUpdateRequest request) {
-        // TODO: 从认证上下文获取当前用户ID
-        String currentUserId = "system";
-        
+            @Valid @RequestBody PromptTemplateUpdateRequest request,
+            HttpServletRequest http) {
+        Long currentUserId = jwtUtil.getUserIdFromRequest(http);
         PromptTemplateResponse response = promptTemplateService.update(id, request, currentUserId);
         log.info("更新 Prompt 模板成功，id: {}", id);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -97,13 +95,12 @@ public class PromptTemplateController {
      * @return 成功响应
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        // TODO: 从认证上下文获取当前用户ID
-        String currentUserId = "system";
-        
+    public ResponseEntity<Void> delete(@PathVariable Long id, HttpServletRequest http) {
+        Long currentUserId = jwtUtil.getUserIdFromRequest(http);
+
         promptTemplateService.delete(id, currentUserId);
         log.info("删除 Prompt 模板成功，id: {}", id);
-        
+
         return ResponseEntity.ok().build();
     }
 

@@ -2,7 +2,7 @@ package com.bqsummer.configuration;
 
 import com.bqsummer.mapper.ConfigHistoryMapper;
 import com.bqsummer.mapper.ConfigMapper;
-import com.bqsummer.service.configplus.proxy.ConfigService;
+import com.bqsummer.framework.configplus.proxy.ConfigService;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -33,6 +33,9 @@ public class ConfigConfiguration {
     public CacheLoader<String, Object> cacheLoader(ConfigService configService) {
         return key -> {
             String[] eles = key.split("#");
+            if (eles.length < 2) {
+                throw new IllegalArgumentException("Invalid cache key format: " + key + ". Expected format: 'configName#methodName'");
+            }
             return configService.getConfig(eles[0], configService.getFieldFromMethodName(eles[1]));
         };
     }

@@ -44,7 +44,7 @@ class PromptTemplateServiceTest {
     private BeetlTemplateService beetlTemplateService;
 
     @InjectMocks
-    private PromptTemplateServiceImpl promptTemplateService;
+    private PromptTemplateService promptTemplateService;
 
     @Nested
     @DisplayName("创建模板测试 (US2)")
@@ -67,7 +67,7 @@ class PromptTemplateServiceTest {
             when(promptTemplateMapper.insert(any(PromptTemplate.class))).thenReturn(1);
 
             // When
-            PromptTemplateResponse response = promptTemplateService.create(validRequest, "user001");
+            PromptTemplateResponse response = promptTemplateService.create(validRequest, 1001L);
 
             // Then
             assertThat(response).isNotNull();
@@ -85,7 +85,7 @@ class PromptTemplateServiceTest {
             when(promptTemplateMapper.insert(any(PromptTemplate.class))).thenReturn(1);
 
             // When
-            PromptTemplateResponse response = promptTemplateService.create(validRequest, "user001");
+            PromptTemplateResponse response = promptTemplateService.create(validRequest, 1001L);
 
             // Then
             assertThat(response).isNotNull();
@@ -104,7 +104,7 @@ class PromptTemplateServiceTest {
             when(promptTemplateMapper.insert(any(PromptTemplate.class))).thenReturn(1);
 
             // When
-            PromptTemplateResponse response = promptTemplateService.create(validRequest, "user001");
+            PromptTemplateResponse response = promptTemplateService.create(validRequest, 1001L);
 
             // Then
             assertThat(response.getStatus()).isEqualTo(TemplateStatus.DRAFT.getCode());
@@ -118,10 +118,10 @@ class PromptTemplateServiceTest {
             when(promptTemplateMapper.insert(any(PromptTemplate.class))).thenReturn(1);
 
             // When
-            PromptTemplateResponse response = promptTemplateService.create(validRequest, "user001");
+            PromptTemplateResponse response = promptTemplateService.create(validRequest, 1001L);
 
             // Then
-            assertThat(response.getCreatedBy()).isEqualTo("user001");
+            assertThat(response.getCreatedBy()).isEqualTo(1001L);
         }
 
         @Test
@@ -131,7 +131,7 @@ class PromptTemplateServiceTest {
             validRequest.setCharId(null);
 
             // When & Then
-            assertThatThrownBy(() -> promptTemplateService.create(validRequest, "user001"))
+            assertThatThrownBy(() -> promptTemplateService.create(validRequest, 1001L))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("charId");
         }
@@ -143,7 +143,7 @@ class PromptTemplateServiceTest {
             validRequest.setContent(null);
 
             // When & Then
-            assertThatThrownBy(() -> promptTemplateService.create(validRequest, "user001"))
+            assertThatThrownBy(() -> promptTemplateService.create(validRequest, 1001L))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("content");
         }
@@ -266,7 +266,7 @@ class PromptTemplateServiceTest {
             request.setStatus(TemplateStatus.ENABLED.getCode());
 
             // When
-            PromptTemplateResponse response = promptTemplateService.update(templateId, request, "user002");
+            PromptTemplateResponse response = promptTemplateService.update(templateId, request, 1002L);
 
             // Then
             assertThat(response).isNotNull();
@@ -286,10 +286,10 @@ class PromptTemplateServiceTest {
             request.setStatus(TemplateStatus.ENABLED.getCode());
 
             // When
-            PromptTemplateResponse response = promptTemplateService.update(templateId, request, "user002");
+            PromptTemplateResponse response = promptTemplateService.update(templateId, request, 1002L);
 
             // Then
-            assertThat(response.getUpdatedBy()).isEqualTo("user002");
+            assertThat(response.getUpdatedBy()).isEqualTo(1002L);
         }
 
         @Test
@@ -303,7 +303,7 @@ class PromptTemplateServiceTest {
             request.setStatus(TemplateStatus.ENABLED.getCode());
 
             // When & Then
-            assertThatThrownBy(() -> promptTemplateService.update(templateId, request, "user002"))
+            assertThatThrownBy(() -> promptTemplateService.update(templateId, request, 1002L))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("模板不存在");
         }
@@ -323,7 +323,7 @@ class PromptTemplateServiceTest {
             when(promptTemplateMapper.updateById(any(PromptTemplate.class))).thenReturn(1);
 
             // When
-            promptTemplateService.delete(templateId, "user001");
+            promptTemplateService.delete(templateId, 1001L);
 
             // Then
             verify(promptTemplateMapper).updateById(any(PromptTemplate.class));
@@ -337,7 +337,7 @@ class PromptTemplateServiceTest {
             when(promptTemplateMapper.selectById(templateId)).thenReturn(null);
 
             // When & Then
-            assertThatThrownBy(() -> promptTemplateService.delete(templateId, "user001"))
+            assertThatThrownBy(() -> promptTemplateService.delete(templateId, 1001L))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("模板不存在");
         }
@@ -378,11 +378,87 @@ class PromptTemplateServiceTest {
             
             Map<String, Object> params = Map.of("name", "张三");
             when(beetlTemplateService.render(any(), any()))
-                    .thenThrow(new TemplateRenderException("模板语法错误"));
+                    .thenThrow(new com.bqsummer.framework.exception.SnorlaxServerException("模板语法错误"));
 
             // When & Then
             assertThatThrownBy(() -> promptTemplateService.render(templateId, params))
-                    .isInstanceOf(TemplateRenderException.class);
+                    .isInstanceOf(com.bqsummer.framework.exception.SnorlaxServerException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("获取最新稳定模板测试 (T008)")
+    class GetLatestStableByCharIdTests {
+
+        @Test
+        @DisplayName("getLatestStableByCharId - 存在最新稳定模板")
+        void getLatestStableByCharId_TemplateExists_ShouldReturnTemplate() {
+            // Given
+            Long charId = 1L;
+            PromptTemplate mockTemplate = new PromptTemplate();
+            mockTemplate.setId(100L);
+            mockTemplate.setCharId(charId);
+            mockTemplate.setContent("你好，${userName}！");
+            mockTemplate.setVersion(3);
+            mockTemplate.setIsLatest(true);
+            mockTemplate.setIsStable(true);
+            mockTemplate.setIsDeleted(false);
+            mockTemplate.setStatus(TemplateStatus.ENABLED.getCode());
+            
+            when(promptTemplateMapper.selectOne(any())).thenReturn(mockTemplate);
+
+            // When
+            PromptTemplate result = promptTemplateService.getLatestStableByCharId(charId);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(100L);
+            assertThat(result.getCharId()).isEqualTo(charId);
+            assertThat(result.getIsLatest()).isTrue();
+            assertThat(result.getIsStable()).isTrue();
+            assertThat(result.getVersion()).isEqualTo(3);
+            
+            verify(promptTemplateMapper).selectOne(any());
+        }
+
+        @Test
+        @DisplayName("getLatestStableByCharId - 模板不存在")
+        void getLatestStableByCharId_TemplateNotExists_ShouldReturnNull() {
+            // Given
+            Long charId = 999L;
+            when(promptTemplateMapper.selectOne(any())).thenReturn(null);
+
+            // When
+            PromptTemplate result = promptTemplateService.getLatestStableByCharId(charId);
+
+            // Then
+            assertThat(result).isNull();
+            verify(promptTemplateMapper).selectOne(any());
+        }
+
+        @Test
+        @DisplayName("getLatestStableByCharId - 只查询is_latest=1且is_stable=1的模板")
+        void getLatestStableByCharId_OnlyLatestAndStable() {
+            // Given: 准备多个版本模板，但只有最新稳定版本应该被返回
+            Long charId = 1L;
+            PromptTemplate latestStableTemplate = new PromptTemplate();
+            latestStableTemplate.setId(103L);
+            latestStableTemplate.setCharId(charId);
+            latestStableTemplate.setVersion(3);
+            latestStableTemplate.setIsLatest(true);
+            latestStableTemplate.setIsStable(true);
+            latestStableTemplate.setIsDeleted(false);
+            
+            when(promptTemplateMapper.selectOne(any())).thenReturn(latestStableTemplate);
+
+            // When
+            PromptTemplate result = promptTemplateService.getLatestStableByCharId(charId);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(103L);
+            assertThat(result.getIsLatest()).isTrue();
+            assertThat(result.getIsStable()).isTrue();
         }
     }
 

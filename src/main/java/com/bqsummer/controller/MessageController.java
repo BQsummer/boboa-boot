@@ -23,7 +23,6 @@ public class MessageController {
 
     @PostMapping
     public void sendMessage(@Valid @RequestBody SendMessageRequest request) {
-
         messageService.sendMessage(request);
     }
 

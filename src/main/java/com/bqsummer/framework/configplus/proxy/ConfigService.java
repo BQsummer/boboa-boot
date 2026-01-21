@@ -1,4 +1,4 @@
-package com.bqsummer.service.configplus.proxy;
+package com.bqsummer.framework.configplus.proxy;
 
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -11,8 +11,8 @@ import com.bqsummer.common.vo.req.config.UpdateConfigReq;
 import com.bqsummer.constant.ConfigStatus;
 import com.bqsummer.constant.ConfigType;
 import com.bqsummer.framework.exception.SnorlaxClientException;
-import com.bqsummer.service.configplus.annotation.AppConfig;
-import com.bqsummer.service.configplus.annotation.ConfigEle;
+import com.bqsummer.framework.configplus.annotation.AppConfig;
+import com.bqsummer.framework.configplus.annotation.ConfigEle;
 import com.bqsummer.mapper.ConfigHistoryMapper;
 import com.bqsummer.mapper.ConfigMapper;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -55,13 +55,37 @@ public class ConfigService {
 
     public static Map<String, Class<?>> methodNameMapToReturnType = new HashMap<>();
 
+    public static Map<String, Object> methodNameMapToDefaultValue = new HashMap<>();
+
     public static void initMethodMap(Field[] fields, BeanDefinitionHolder holder) throws ClassNotFoundException {
         if (fields.length > 0) {
             AppConfig appConfig = Class.forName(holder.getBeanDefinition().getBeanClassName()).getAnnotation(AppConfig.class);
+            Class<?> clazz = Class.forName(holder.getBeanDefinition().getBeanClassName());
+            Object instance = null;
+            try {
+                instance = clazz.getDeclaredConstructor().newInstance();
+            } catch (Exception e) {
+                log.warn("Failed to create instance for getting default values: {}", clazz.getName(), e);
+            }
+
             for (Field field : fields) {
                 ConfigEle configEle = field.getAnnotation(ConfigEle.class);
-                methodNameMapToConfig.put(buildMapKey(appConfig.name(), field.getName()), configEle.name());
-                methodNameMapToReturnType.put(buildMapKey(appConfig.name(), field.getName()), field.getType());
+                String mapKey = buildMapKey(appConfig.name(), field.getName());
+                methodNameMapToConfig.put(mapKey, configEle.name());
+                methodNameMapToReturnType.put(mapKey, field.getType());
+
+                // Store default value
+                if (instance != null) {
+                    try {
+                        field.setAccessible(true);
+                        Object defaultValue = field.get(instance);
+                        if (defaultValue != null) {
+                            methodNameMapToDefaultValue.put(mapKey, defaultValue);
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to get default value for field: {}", field.getName(), e);
+                    }
+                }
             }
         }
     }
@@ -70,9 +94,19 @@ public class ConfigService {
     public <T> T getConfig(String configTypeName, String methodName) {
         Cache<String, Object> configCache = applicationContext.getBean(Cache.class);
         String fieldName = getFieldFromMethodName(methodName);
-        String configName = methodNameMapToConfig.get(buildMapKey(configTypeName, fieldName));
+        String mapKey = buildMapKey(configTypeName, fieldName);
+        String configName = methodNameMapToConfig.get(mapKey);
         if (configName != null) {
-            T value = (T) configCache.get(configName, e -> this.getConfigFromDB(configName, methodNameMapToReturnType.get(fieldName)));
+            T value = (T) configCache.get(mapKey, e -> {
+                Object dbValue = this.getConfigFromDB(configName, methodNameMapToReturnType.get(mapKey));
+                // If database doesn't have value, use the default value from code
+                if (dbValue == null) {
+                    Object defaultValue = methodNameMapToDefaultValue.get(mapKey);
+                    log.info("Using default value for config {} : {}", configName, defaultValue);
+                    return defaultValue;
+                }
+                return dbValue;
+            });
             log.info("get config value of {} : {}", configName, value);
             return value;
         }
@@ -111,7 +145,7 @@ public class ConfigService {
             char[] methodChars = methodName.toCharArray();
             return subPrefix(methodChars, 2);
         }
-        return null;
+        return methodName;
     }
 
     public String subPrefix(char[] methodChars, int startIndex) {

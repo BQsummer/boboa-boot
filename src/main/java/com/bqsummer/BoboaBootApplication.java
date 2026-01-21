@@ -1,6 +1,6 @@
 package com.bqsummer;
 
-import com.bqsummer.service.configplus.annotation.SnorlaxScan;
+import com.bqsummer.framework.configplus.annotation.SnorlaxScan;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

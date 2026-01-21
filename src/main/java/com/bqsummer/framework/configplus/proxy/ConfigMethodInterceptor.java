@@ -1,6 +1,6 @@
-package com.bqsummer.service.configplus.proxy;
+package com.bqsummer.framework.configplus.proxy;
 
-import com.bqsummer.service.configplus.annotation.AppConfig;
+import com.bqsummer.framework.configplus.annotation.AppConfig;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cglib.proxy.MethodInterceptor;

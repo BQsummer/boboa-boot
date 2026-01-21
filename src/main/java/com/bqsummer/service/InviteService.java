@@ -192,3 +192,4 @@ public class InviteService {
     public record RedeemResult(boolean success, int remainingUses) {}
 }
 
+

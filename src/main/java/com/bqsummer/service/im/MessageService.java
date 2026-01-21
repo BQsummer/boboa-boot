@@ -13,6 +13,7 @@ import com.bqsummer.service.robot.RobotTaskScheduler;
 import com.bqsummer.util.JsonUtil;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,20 +40,20 @@ public class MessageService {
     private final com.bqsummer.mapper.ConversationMapper conversationMapper;
     private final UserMapper userMapper;
     private final RobotTaskMapper robotTaskMapper;
-    private final RobotTaskScheduler robotTaskScheduler;
+    private final ObjectProvider<RobotTaskScheduler> robotTaskSchedulerProvider;
     private final RobotTaskConfiguration config;
 
     public MessageService(MessageRepository messageRepository,
                           com.bqsummer.mapper.ConversationMapper conversationMapper,
                           UserMapper userMapper,
                           RobotTaskMapper robotTaskMapper,
-                          RobotTaskScheduler robotTaskScheduler,
+                          ObjectProvider<RobotTaskScheduler> robotTaskSchedulerProvider,
                           RobotTaskConfiguration config) {
         this.messageRepository = messageRepository;
         this.conversationMapper = conversationMapper;
         this.userMapper = userMapper;
         this.robotTaskMapper = robotTaskMapper;
-        this.robotTaskScheduler = robotTaskScheduler;
+        this.robotTaskSchedulerProvider = robotTaskSchedulerProvider;
         this.config = config;
     }
 
@@ -111,28 +112,32 @@ public class MessageService {
 
         // 通知接收方有新消息
         notifyUser(request.getReceiverId());
-        
+
         // 新增逻辑：如果接收方是AI用户，创建RobotTask
         if (isAiUser(request.getReceiverId())) {
             RobotTask task = createRobotTask(msg, request.getReceiverId());
             robotTaskMapper.insert(task);
-            
-            // 尝试加载到内存队列
-            int loaded = robotTaskScheduler.loadTasks(Collections.singletonList(task));
-            // TODO 加监控
-            if (loaded == 0) {
-                log.warn("任务加载失败，队列已满: taskId={}", task.getId());
+
+            // 尝试加载到内存队列（使用ObjectProvider延迟获取，避免循环依赖）
+            RobotTaskScheduler robotTaskScheduler = robotTaskSchedulerProvider.getIfAvailable();
+            if (robotTaskScheduler == null) {
+                log.warn("RobotTaskScheduler 未就绪，跳过内存队列加载: taskId={}", task.getId());
             } else {
-                log.info("任务创建并加载成功: taskId={}, receiverId={}", task.getId(), request.getReceiverId());
+                int loaded = robotTaskScheduler.loadTasks(Collections.singletonList(task));
+                if (loaded == 0) {
+                    log.warn("任务加载失败，队列已满: taskId={}", task.getId());
+                } else {
+                    log.info("任务创建并加载成功: taskId={}, receiverId={}", task.getId(), request.getReceiverId());
+                }
             }
         } else {
             log.error("非法的AI用户消息发送请求，receiverId={}", request.getReceiverId());
         }
     }
-    
+
     /**
      * 判断用户是否为AI用户
-     * 
+     *
      * @param userId 用户ID
      * @return true表示AI用户，false表示普通用户
      */
@@ -140,10 +145,10 @@ public class MessageService {
         User user = userMapper.findById(userId);
         return user != null && "AI".equals(user.getUserType());
     }
-    
+
     /**
      * 创建RobotTask任务
-     * 
+     *
      * @param msg 消息对象
      * @param robotId AI用户ID
      * @return 创建的RobotTask对象
@@ -156,7 +161,7 @@ public class MessageService {
                 .receiverId(msg.getReceiverId())
                 .content(msg.getContent())
                 .build();
-        
+
         // 创建RobotTask
         RobotTask task = new RobotTask();
         // TODO 加个xxx_id字段做索引
@@ -169,7 +174,7 @@ public class MessageService {
         task.setStatus("PENDING");
         task.setRetryCount(0);
         task.setMaxRetryCount(3);
-        
+
         return task;
     }
 }

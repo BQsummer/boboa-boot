@@ -1,4 +1,4 @@
-package com.bqsummer.service.recharge.dto;
+package com.bqsummer.common.dto.recharge;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

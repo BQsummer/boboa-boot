@@ -1,6 +1,4 @@
-package com.bqsummer.service.configplus.annotation;
-
-import org.springframework.context.annotation.Import;
+package com.bqsummer.framework.configplus.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -9,7 +7,6 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-@Import({ConfplusRegister.class})
-public @interface ConfigplusScan {
-    String[] basePackages() default {};
+@ConfigplusScan
+public @interface SnorlaxScan {
 }
