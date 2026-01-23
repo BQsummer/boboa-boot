@@ -158,12 +158,12 @@ public ResponseEntity<?> update(@RequestBody UpdateRequest request) {
 **示例**：
 ```sql
 -- datasourceInit.sql 中添加新表
-CREATE TABLE IF NOT EXISTS ai_character (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL,
-    associated_user_id BIGINT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE QRTZ_CALENDARS (
+SCHED_NAME VARCHAR(120) NOT NULL,
+CALENDAR_NAME VARCHAR(190) NOT NULL,
+CALENDAR BYTEA NOT NULL,
+PRIMARY KEY (SCHED_NAME,CALENDAR_NAME)
+);
 ```
 
 **违规示例**（禁止）：
@@ -299,7 +299,7 @@ public class UserServiceImpl implements UserService {
 - **框架**: Spring Boot 3.5.5 + Spring Security 6.5.3
 - **Java 版本**: Java 17
 - **ORM**: MyBatis Plus 3.5.14
-- **数据库**: MySQL + Druid 连接池
+- **数据库**: Postgres + Druid 连接池
 - **认证**: JWT (jjwt 0.12.3)
 - **测试**: JUnit 5 + RestAssured 5.5.6
 - **构建工具**: Maven

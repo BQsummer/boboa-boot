@@ -218,7 +218,7 @@ public final class DbAssert {
         String url = System.getProperty("spring.datasource.url", props.getProperty("spring.datasource.url"));
         String username = System.getProperty("spring.datasource.username", props.getProperty("spring.datasource.username"));
         String password = System.getProperty("spring.datasource.password", props.getProperty("spring.datasource.password"));
-        String driver = System.getProperty("spring.datasource.driver-class-name", props.getProperty("spring.datasource.driver-class-name", "com.mysql.cj.jdbc.Driver"));
+        String driver = System.getProperty("spring.datasource.driver-class-name", props.getProperty("spring.datasource.driver-class-name", "org.postgresql.Driver"));
 
         if (url == null || username == null) {
             throw new IllegalStateException("spring.datasource.url/username not found. Ensure application.properties is on classpath or set system properties.");

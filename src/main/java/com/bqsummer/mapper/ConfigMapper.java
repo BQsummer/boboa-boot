@@ -9,6 +9,6 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface ConfigMapper extends BaseMapper<Config> {
 
-    @Select("select `value`, `type` from config where env = #{env} and name = #{name} and application = #{application} and status = 'ACTIVE' limit 1")
+    @Select("select value, type from config where env = #{env} and name = #{name} and application = #{application} and status = 'ACTIVE' limit 1")
     Config getConfigFromDB(@Param("env") String env, @Param("application") String application, @Param("name") String name);
 }

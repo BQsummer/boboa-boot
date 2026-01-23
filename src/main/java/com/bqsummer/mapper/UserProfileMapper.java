@@ -12,14 +12,14 @@ public interface UserProfileMapper {
 
     @Insert("INSERT INTO user_profiles (user_id, gender, birthday, height_cm, mbti, occupation, interests, photos) " +
             "VALUES (#{userId}, #{gender}, #{birthday}, #{heightCm}, #{mbti}, #{occupation}, #{interests}, #{photos}) " +
-            "ON DUPLICATE KEY UPDATE " +
-            "gender = VALUES(gender), " +
-            "birthday = VALUES(birthday), " +
-            "height_cm = VALUES(height_cm), " +
-            "mbti = VALUES(mbti), " +
-            "occupation = VALUES(occupation), " +
-            "interests = VALUES(interests), " +
-            "photos = VALUES(photos), " +
+            "ON CONFLICT (user_id) DO UPDATE SET " +
+            "gender = EXCLUDED.gender, " +
+            "birthday = EXCLUDED.birthday, " +
+            "height_cm = EXCLUDED.height_cm, " +
+            "mbti = EXCLUDED.mbti, " +
+            "occupation = EXCLUDED.occupation, " +
+            "interests = EXCLUDED.interests, " +
+            "photos = EXCLUDED.photos, " +
             "updated_time = CURRENT_TIMESTAMP")
     int upsert(UserProfile profile);
 }

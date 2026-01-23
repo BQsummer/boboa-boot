@@ -33,9 +33,9 @@ public interface RechargeOrderMapper extends BaseMapper<RechargeOrder> {
     @Update("UPDATE recharge_order SET channel_order_no = #{channelOrderNo}, updated_time = NOW() WHERE id = #{id}")
     int setChannelOrderNo(@Param("id") Long id, @Param("channelOrderNo") String channelOrderNo);
 
-    @Select("SELECT COALESCE(SUM(amount_cents),0) FROM recharge_order WHERE user_id = #{userId} AND created_time >= CURDATE()")
+    @Select("SELECT COALESCE(SUM(amount_cents),0) FROM recharge_order WHERE user_id = #{userId} AND created_time >= CURRENT_DATE")
     Long sumAmountToday(@Param("userId") Long userId);
 
-    @Select("SELECT COUNT(1) FROM recharge_order WHERE user_id = #{userId} AND created_time >= CURDATE()")
+    @Select("SELECT COUNT(1) FROM recharge_order WHERE user_id = #{userId} AND created_time >= CURRENT_DATE")
     Integer countToday(@Param("userId") Long userId);
 }

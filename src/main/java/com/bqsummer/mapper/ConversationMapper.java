@@ -33,7 +33,7 @@ public interface ConversationMapper extends BaseMapper<Conversation> {
 
     @Insert("INSERT INTO conversations (user_id, peer_id, last_message_id, last_message_time, unread_count, is_deleted, created_time, updated_time) " +
             "VALUES (#{userId}, #{peerId}, #{messageId}, #{messageTime}, 0, 0, NOW(), NOW()) " +
-            "ON DUPLICATE KEY UPDATE last_message_id=VALUES(last_message_id), last_message_time=VALUES(last_message_time), updated_time=NOW(), is_deleted=0")
+            "ON CONFLICT (user_id, peer_id) DO UPDATE SET last_message_id=EXCLUDED.last_message_id, last_message_time=EXCLUDED.last_message_time, updated_time=NOW(), is_deleted=0")
     int upsertSender(@Param("userId") Long userId,
                      @Param("peerId") Long peerId,
                      @Param("messageId") Long messageId,
@@ -41,7 +41,7 @@ public interface ConversationMapper extends BaseMapper<Conversation> {
 
     @Insert("INSERT INTO conversations (user_id, peer_id, last_message_id, last_message_time, unread_count, is_deleted, created_time, updated_time) " +
             "VALUES (#{userId}, #{peerId}, #{messageId}, #{messageTime}, 1, 0, NOW(), NOW()) " +
-            "ON DUPLICATE KEY UPDATE last_message_id=VALUES(last_message_id), last_message_time=VALUES(last_message_time), unread_count = unread_count + 1, updated_time=NOW(), is_deleted=0")
+            "ON CONFLICT (user_id, peer_id) DO UPDATE SET last_message_id=EXCLUDED.last_message_id, last_message_time=EXCLUDED.last_message_time, unread_count = conversations.unread_count + 1, updated_time=NOW(), is_deleted=0")
     int upsertReceiver(@Param("userId") Long userId,
                        @Param("peerId") Long peerId,
                        @Param("messageId") Long messageId,
@@ -49,7 +49,7 @@ public interface ConversationMapper extends BaseMapper<Conversation> {
 
     @Insert("INSERT INTO conversations (user_id, peer_id, unread_count, is_deleted, created_time, updated_time) " +
             "VALUES (#{userId}, #{peerId}, 0, 0, NOW(), NOW()) " +
-            "ON DUPLICATE KEY UPDATE is_deleted=0, updated_time=NOW()")
+            "ON CONFLICT (user_id, peer_id) DO UPDATE SET is_deleted=0, updated_time=NOW()")
     int insertOrRestore(@Param("userId") Long userId, @Param("peerId") Long peerId);
 
     @Update("UPDATE conversations SET is_deleted=1, unread_count=0, updated_time=NOW() WHERE user_id=#{userId} AND peer_id=#{peerId}")

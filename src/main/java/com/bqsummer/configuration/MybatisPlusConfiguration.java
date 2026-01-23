@@ -16,7 +16,7 @@ public class MybatisPlusConfiguration {
         // 添加乐观锁插件（用于机器人任务调度防重）
         interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         // 添加分页插件
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.POSTGRE_SQL));
         return interceptor;
     }
 

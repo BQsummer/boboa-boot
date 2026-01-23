@@ -103,7 +103,7 @@ public interface UserMapper {
     /**
      * 搜索用户（按用户名或昵称模糊搜索，排除当前用户）
      */
-    @Select("SELECT * FROM users WHERE (username LIKE CONCAT('%', #{keyword}, '%') OR nick_name LIKE CONCAT('%', #{keyword}, '%')) " +
+    @Select("SELECT * FROM users WHERE (username LIKE '%' || #{keyword} || '%' OR nick_name LIKE '%' || #{keyword} || '%') " +
             "AND id != #{currentUserId} AND is_deleted = 0 AND status = 1 ORDER BY username LIMIT 20")
     @Results({
         @Result(property = "nickName", column = "nick_name"),

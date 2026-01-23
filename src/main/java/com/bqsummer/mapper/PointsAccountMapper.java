@@ -11,7 +11,7 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface PointsAccountMapper extends BaseMapper<PointsAccount> {
 
-    @Insert("INSERT INTO points_account (user_id, balance) VALUES (#{userId}, #{amount}) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)")
+    @Insert("INSERT INTO points_account (user_id, balance) VALUES (#{userId}, #{amount}) ON CONFLICT (user_id) DO UPDATE SET balance = points_account.balance + EXCLUDED.balance")
     int upsertAddBalance(@Param("userId") Long userId, @Param("amount") Long amount);
 
     @Update("UPDATE points_account SET balance = balance - #{amount} WHERE user_id = #{userId} AND balance >= #{amount}")
