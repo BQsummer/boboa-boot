@@ -10,6 +10,7 @@ import com.bqsummer.mapper.UserMapper;
 import com.bqsummer.mapper.RobotTaskMapper;
 import com.bqsummer.repository.MessageRepository;
 import com.bqsummer.service.robot.RobotTaskScheduler;
+import com.bqsummer.service.memory.ConversationMessageService;
 import com.bqsummer.util.JsonUtil;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -42,19 +43,22 @@ public class MessageService {
     private final RobotTaskMapper robotTaskMapper;
     private final ObjectProvider<RobotTaskScheduler> robotTaskSchedulerProvider;
     private final RobotTaskConfiguration config;
+    private final ConversationMessageService conversationMessageService;
 
     public MessageService(MessageRepository messageRepository,
                           com.bqsummer.mapper.ConversationMapper conversationMapper,
                           UserMapper userMapper,
                           RobotTaskMapper robotTaskMapper,
                           ObjectProvider<RobotTaskScheduler> robotTaskSchedulerProvider,
-                          RobotTaskConfiguration config) {
+                          RobotTaskConfiguration config,
+                          ConversationMessageService conversationMessageService) {
         this.messageRepository = messageRepository;
         this.conversationMapper = conversationMapper;
         this.userMapper = userMapper;
         this.robotTaskMapper = robotTaskMapper;
         this.robotTaskSchedulerProvider = robotTaskSchedulerProvider;
         this.config = config;
+        this.conversationMessageService = conversationMessageService;
     }
 
     private Sinks.Many<String> getNotifier(Long userId) {
@@ -101,6 +105,20 @@ public class MessageService {
 
         // 入库
         messageRepository.save(msg);
+        
+        // 【新增】保存到对话记忆系统（US1 MVP功能）
+        try {
+            conversationMessageService.saveMessage(
+                uid,              // userId
+                msg.getReceiverId(),  // aiCharacterId（接收方是AI角色）
+                "USER",           // senderType
+                msg.getContent()  // content
+            );
+            log.debug("消息已保存到对话记忆系统: messageId={}", msg.getId());
+        } catch (Exception e) {
+            log.error("保存消息到对话记忆系统失败: messageId={}", msg.getId(), e);
+            // 不影响主流程，继续执行
+        }
 
         // 更新会话（发送方、接收方）
         try {
