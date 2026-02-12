@@ -6,8 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.beetl.core.GroupTemplate;
 import org.beetl.core.Template;
 import org.beetl.core.exception.BeetlException;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
@@ -49,6 +53,41 @@ public class BeetlTemplateService {
         } catch (Exception e) {
             log.error("模板渲染发生未知错误：{}", e.getMessage(), e);
             throw new SnorlaxServerException("模板渲染发生未知错误：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 从资源文件渲染模板
+     *
+     * @param resourcePath 资源路径（相对于classpath，例如："prompts/memory/summary-template.md"）
+     * @param params       模板参数
+     * @return 渲染结果
+     */
+    public String renderFromResource(String resourcePath, Map<String, Object> params) {
+        if (resourcePath == null || resourcePath.trim().isEmpty()) {
+            throw new SnorlaxServerException("资源路径不能为空");
+        }
+
+        try {
+            // 读取资源文件内容
+            ClassPathResource resource = new ClassPathResource(resourcePath);
+            if (!resource.exists()) {
+                throw new SnorlaxServerException("模板文件不存在: " + resourcePath);
+            }
+
+            String templateContent = StreamUtils.copyToString(
+                    resource.getInputStream(),
+                    StandardCharsets.UTF_8
+            );
+
+            log.debug("从资源文件加载模板: {}, 内容长度: {}", resourcePath, templateContent.length());
+
+            // 使用现有的render方法渲染模板
+            return render(templateContent, params);
+
+        } catch (IOException e) {
+            log.error("读取模板文件失败: {}", resourcePath, e);
+            throw new SnorlaxServerException("读取模板文件失败: " + resourcePath);
         }
     }
 }

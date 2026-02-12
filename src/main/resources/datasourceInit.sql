@@ -827,3 +827,100 @@ CREATE TABLE monthly_plans (
 );
 CREATE INDEX idx_character_id ON monthly_plans (character_id);
 CREATE INDEX idx_character_deleted ON monthly_plans (character_id, is_deleted);
+
+-- ============================================
+-- Feature: 001-conversation-memory
+-- Date: 2026-01-24
+-- Description: 对话记忆系统表结构
+-- ============================================
+
+-- 启用 pgvector-rs 扩展
+CREATE EXTENSION IF NOT EXISTS vectors;
+
+-- 1. 对话消息表
+CREATE TABLE conversation_message (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    ai_character_id BIGINT NOT NULL,
+    session_id VARCHAR(64),
+    sender_type VARCHAR(16) NOT NULL CHECK (sender_type IN ('USER', 'AI')),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    metadata JSONB,
+    
+    CONSTRAINT fk_cm_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cm_ai_character_id FOREIGN KEY (ai_character_id) REFERENCES ai_character(id) ON DELETE RESTRICT
+);
+
+-- 复合索引：按用户+AI角色+时间查询（最常用）
+CREATE INDEX idx_cm_user_char_created_at ON conversation_message(user_id, ai_character_id, created_at DESC);
+CREATE INDEX idx_cm_session_id ON conversation_message(session_id) WHERE session_id IS NOT NULL;
+
+-- 2. 对话总结表
+CREATE TABLE conversation_summary (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    ai_character_id BIGINT NOT NULL,
+    session_id VARCHAR(64),
+    summary_json JSONB NOT NULL,
+    covered_until_message_id BIGINT NOT NULL,
+    message_count INT NOT NULL CHECK (message_count > 0),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_cs_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cs_ai_character_id FOREIGN KEY (ai_character_id) REFERENCES ai_character(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_cs_covered_message_id FOREIGN KEY (covered_until_message_id) 
+        REFERENCES conversation_message(id) ON DELETE RESTRICT
+);
+
+-- 复合索引：按用户+AI角色+时间查询
+CREATE INDEX idx_cs_user_char_created_at ON conversation_summary(user_id, ai_character_id, created_at DESC);
+CREATE INDEX idx_cs_covered_message_id ON conversation_summary(covered_until_message_id);
+
+-- 3. 长期记忆表
+CREATE TABLE long_term_memory (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    ai_character_id BIGINT NOT NULL,
+    text TEXT NOT NULL,
+    embedding vector(1536) NOT NULL,
+    memory_type VARCHAR(32) NOT NULL CHECK (memory_type IN ('event', 'preference', 'relationship', 'emotion', 'fact')),
+    importance FLOAT NOT NULL CHECK (importance >= 0.0 AND importance <= 1.0),
+    source_message_id BIGINT,
+    last_accessed_at TIMESTAMP,
+    access_count INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_ltm_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ltm_ai_character_id FOREIGN KEY (ai_character_id) REFERENCES ai_character(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_ltm_source_message_id FOREIGN KEY (source_message_id) 
+        REFERENCES conversation_message(id) ON DELETE SET NULL
+);
+
+-- 复合索引：按用户+AI角色查询（向量检索时的前置过滤）
+CREATE INDEX idx_ltm_user_char ON long_term_memory(user_id, ai_character_id);
+CREATE INDEX idx_ltm_importance ON long_term_memory(importance DESC);
+CREATE INDEX idx_ltm_type ON long_term_memory(memory_type);
+
+-- 向量索引（初期使用 IVFFlat，后期可切换到 HNSW）
+CREATE INDEX idx_ltm_embedding ON long_term_memory 
+USING vectors (embedding vector_cosine_ops)
+WITH (options = $$
+    [indexing.ivf]
+    nlist = 100
+$$);
+
+-- ============================================
+-- 注释说明
+-- ============================================
+COMMENT ON TABLE conversation_message IS '存储用户与AI角色之间的原始对话消息，每个(user_id, ai_character_id)形成独立对话';
+COMMENT ON TABLE conversation_summary IS '存储对话的结构化总结，按(user_id, ai_character_id)分组压缩上下文';
+COMMENT ON TABLE long_term_memory IS '存储长期记忆，按(user_id, ai_character_id)隔离，支持向量相似度检索';
+
+COMMENT ON COLUMN conversation_message.ai_character_id IS 'AI角色ID，与user_id共同确定对话上下文';
+COMMENT ON COLUMN conversation_summary.ai_character_id IS 'AI角色ID，确保总结针对特定对话上下文';
+COMMENT ON COLUMN long_term_memory.ai_character_id IS 'AI角色ID，记忆按角色隔离避免混淆';
+
+COMMENT ON COLUMN long_term_memory.embedding IS '文本向量表示，1536维，使用 OpenAI text-embedding-3-small 生成';
+COMMENT ON COLUMN long_term_memory.importance IS '记忆重要性评分，范围 0.0 - 1.0';
+COMMENT ON COLUMN long_term_memory.last_accessed_at IS '最后访问时间，用于时间衰减计算';
