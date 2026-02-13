@@ -192,12 +192,12 @@ export default function CharacterDetailPage() {
               </span>
               <span
                 className={`text-xs px-3 py-1 rounded ${
-                  character.status === 1
+                  character.status
                     ? 'bg-blue-100 text-blue-800'
                     : 'bg-red-100 text-red-800'
                 }`}
               >
-                {character.status === 1 ? '启用' : '禁用'}
+                {character.status ? '启用' : '禁用'}
               </span>
             </div>
             <div className="text-sm text-gray-600">

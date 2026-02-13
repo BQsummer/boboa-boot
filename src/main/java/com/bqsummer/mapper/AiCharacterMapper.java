@@ -22,7 +22,7 @@ public interface AiCharacterMapper {
     })
     AiCharacter findById(@Param("id") Long id);
 
-    @Select("SELECT * FROM ai_characters WHERE is_deleted = FALSE AND status = TRUE AND (visibility = 'PUBLIC' OR created_by_user_id = #{userId}) ORDER BY id DESC")
+    @Select("SELECT * FROM ai_characters WHERE is_deleted = FALSE AND (visibility = 'PUBLIC' OR created_by_user_id = #{userId}) ORDER BY id DESC")
     @Results({
             @Result(property = "createdByUserId", column = "created_by_user_id"),
             @Result(property = "imageUrl", column = "image_url"),

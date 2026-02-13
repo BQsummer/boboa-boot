@@ -25,7 +25,7 @@ export default function CharactersPage() {
     imageUrl: '',
     author: '',
     visibility: 'PUBLIC',
-    status: 1,
+    status: true,
   });
 
   // 加载角色列表
@@ -54,7 +54,7 @@ export default function CharactersPage() {
       imageUrl: '',
       author: '',
       visibility: 'PUBLIC',
-      status: 1,
+      status: true,
     });
     setIsDialogOpen(true);
   };
@@ -149,12 +149,12 @@ export default function CharactersPage() {
                     </span>
                     <span
                       className={`text-xs px-2 py-1 rounded ${
-                        character.status === 1
+                        character.status
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-red-100 text-red-800'
                       }`}
                     >
-                      {character.status === 1 ? '启用' : '禁用'}
+                      {character.status ? '启用' : '禁用'}
                     </span>
                   </div>
                 </div>
@@ -246,16 +246,16 @@ export default function CharactersPage() {
                   <label className="block text-sm font-medium mb-1">状态</label>
                   <select
                     className="w-full px-3 py-2 border rounded-md"
-                    value={formData.status}
+                    value={formData.status ? 'true' : 'false'}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: parseInt(e.target.value),
+                        status: e.target.value === 'true',
                       })
                     }
                   >
-                    <option value={1}>启用</option>
-                    <option value={0}>禁用</option>
+                    <option value="true">启用</option>
+                    <option value="false">禁用</option>
                   </select>
                 </div>
               </div>

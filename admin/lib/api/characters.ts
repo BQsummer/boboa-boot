@@ -11,7 +11,7 @@ export interface AiCharacter {
   author?: string;
   createdByUserId: number;
   visibility: 'PUBLIC' | 'PRIVATE';
-  status: number; // 1-启用，0-禁用
+  status: boolean; // true-启用，false-禁用
   isDeleted: number;
   createdTime: string;
   updatedTime: string;
@@ -23,7 +23,7 @@ export interface CreateAiCharacterReq {
   imageUrl?: string;
   author?: string;
   visibility: 'PUBLIC' | 'PRIVATE';
-  status?: number;
+  status?: boolean;
 }
 
 export interface AiCharacterSetting {
