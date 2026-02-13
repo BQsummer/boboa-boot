@@ -12,6 +12,8 @@ import {
   createPromptTemplate,
   updatePromptTemplate,
   deletePromptTemplate,
+  enablePromptTemplate,
+  disablePromptTemplate,
   renderPromptTemplate,
 } from '@/lib/api/prompt-templates';
 import { listCharacters, AiCharacter } from '@/lib/api/characters';
@@ -177,6 +179,20 @@ export default function PromptsPage() {
   };
 
   // 打开渲染对话框
+  const handleToggleStatus = async (template: PromptTemplate) => {
+    try {
+      if (template.status === 1) {
+        await disablePromptTemplate(template.id);
+      } else {
+        await enablePromptTemplate(template.id);
+      }
+      loadTemplates();
+    } catch (error) {
+      console.error('切换模板状态失败:', error);
+      alert('切换模板状态失败');
+    }
+  };
+
   const handleRender = (template: PromptTemplate) => {
     setRenderingTemplate(template);
     setRenderParams('{}');
@@ -318,6 +334,9 @@ export default function PromptsPage() {
                   <div className="flex gap-2 ml-4">
                     <Button variant="outline" size="sm" onClick={() => handleRender(template)}>
                       渲染
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleToggleStatus(template)}>
+                      {template.status === 1 ? '禁用' : '启用'}
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => handleEdit(template)}>
                       编辑

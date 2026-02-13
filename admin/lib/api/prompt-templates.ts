@@ -140,6 +140,18 @@ export async function deletePromptTemplate(id: number): Promise<void> {
 /**
  * 渲染模板预览
  */
+export async function enablePromptTemplate(id: number): Promise<PromptTemplate> {
+  return fetchApi(`/api/v1/prompt-templates/${id}/enable`, {
+    method: 'POST',
+  });
+}
+
+export async function disablePromptTemplate(id: number): Promise<PromptTemplate> {
+  return fetchApi(`/api/v1/prompt-templates/${id}/disable`, {
+    method: 'POST',
+  });
+}
+
 export async function renderPromptTemplate(id: number, params: Record<string, any>): Promise<string> {
   return fetchApi(`/api/v1/prompt-templates/${id}/render`, {
     method: 'POST',

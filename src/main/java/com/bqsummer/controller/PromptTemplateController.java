@@ -111,6 +111,20 @@ public class PromptTemplateController {
      * @param request 渲染请求（包含参数）
      * @return 渲染后的内容
      */
+    @PostMapping("/{id}/enable")
+    public ResponseEntity<PromptTemplateResponse> enable(@PathVariable Long id, HttpServletRequest http) {
+        Long currentUserId = jwtUtil.getUserIdFromRequest(http);
+        PromptTemplateResponse response = promptTemplateService.enable(id, currentUserId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/disable")
+    public ResponseEntity<PromptTemplateResponse> disable(@PathVariable Long id, HttpServletRequest http) {
+        Long currentUserId = jwtUtil.getUserIdFromRequest(http);
+        PromptTemplateResponse response = promptTemplateService.disable(id, currentUserId);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/{id}/render")
     public ResponseEntity<String> render(
             @PathVariable Long id,

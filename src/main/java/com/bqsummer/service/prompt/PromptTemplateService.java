@@ -200,6 +200,36 @@ public class PromptTemplateService {
         log.info("删除 Prompt 模板成功，id: {}, deletedBy: {}", id, deletedBy);
     }
 
+    @Transactional
+    public PromptTemplateResponse updateStatus(Long id, Integer status, Long updatedBy) {
+        PromptTemplate template = promptTemplateMapper.selectById(id);
+
+        if (template == null || Boolean.TRUE.equals(template.getIsDeleted())) {
+            throw new RuntimeException("template not found or deleted, id: " + id);
+        }
+
+        if (status == null || TemplateStatus.fromCode(status) == null) {
+            throw new IllegalArgumentException("invalid template status: " + status);
+        }
+
+        template.setStatus(status);
+        template.setUpdatedBy(String.valueOf(updatedBy));
+        template.setUpdatedAt(LocalDateTime.now());
+        promptTemplateMapper.updateById(template);
+
+        return convertToResponse(template);
+    }
+
+    @Transactional
+    public PromptTemplateResponse enable(Long id, Long updatedBy) {
+        return updateStatus(id, TemplateStatus.ENABLED.getCode(), updatedBy);
+    }
+
+    @Transactional
+    public PromptTemplateResponse disable(Long id, Long updatedBy) {
+        return updateStatus(id, TemplateStatus.DISABLED.getCode(), updatedBy);
+    }
+
     public String render(Long id, Map<String, Object> params) {
         PromptTemplate template = promptTemplateMapper.selectById(id);
 
