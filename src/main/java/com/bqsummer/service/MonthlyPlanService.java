@@ -104,7 +104,7 @@ public class MonthlyPlanService {
                 .action(req.getAction())
                 .participants(req.getParticipants())
                 .extra(req.getExtra())
-                .isDeleted(0)
+                .isDeleted(false)
                 .build();
         monthlyPlanMapper.insert(plan);
         log.info("月度计划创建成功: planId={}, characterId={}", plan.getId(), req.getCharacterId());
@@ -120,7 +120,7 @@ public class MonthlyPlanService {
         
         // 校验虚拟人物存在且用户有权限查看
         AiCharacter character = aiCharacterMapper.findById(characterId);
-        if (character == null || (character.getIsDeleted() != null && character.getIsDeleted() == 1)) {
+        if (character == null || Boolean.TRUE.equals(character.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -147,7 +147,7 @@ public class MonthlyPlanService {
 
         // 校验用户对关联的虚拟人物有查看权限
         AiCharacter character = aiCharacterMapper.findById(plan.getCharacterId());
-        if (character == null || (character.getIsDeleted() != null && character.getIsDeleted() == 1)) {
+        if (character == null || Boolean.TRUE.equals(character.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -257,7 +257,7 @@ public class MonthlyPlanService {
      */
     private ResponseEntity<?> checkCharacterPermission(Long characterId, Long userId) {
         AiCharacter character = aiCharacterMapper.findById(characterId);
-        if (character == null || (character.getIsDeleted() != null && character.getIsDeleted() == 1)) {
+        if (character == null || Boolean.TRUE.equals(character.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 

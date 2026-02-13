@@ -1,0 +1,688 @@
+openapi: 3.0.3
+info:
+  title: 对话记忆系统 API
+  description: |
+    对话记忆系统的REST API规范，提供消息存储、总结生成、长期记忆管理和检索功能。
+    
+    **核心功能**：
+    - 保存用户与AI的对话消息
+    - 自动生成对话总结（达到阈值时）
+    - 提取和存储长期记忆
+    - 基于语义相似度检索记忆
+    
+    **认证方式**: Bearer Token (JWT)
+  version: 1.0.0
+  contact:
+    name: Boboa Boot Team
+    email: dev@boboa.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+  - url: https://api.boboa.com
+    description: 生产环境
+
+tags:
+  - name: 消息管理
+    description: 对话消息的增删改查
+  - name: 总结管理
+    description: 对话总结的生成与查询
+  - name: 记忆管理
+    description: 长期记忆的提取、存储与检索
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/v1/memory/messages:
+    post:
+      tags:
+        - 消息管理
+      summary: 保存对话消息
+      description: |
+        保存一条用户或AI的对话消息到数据库。
+        
+        **注意事项**:
+        - userId 从 JWT token 中自动提取，请求体中无需传递
+        - 系统会自动检测是否需要触发总结生成
+        - 如果是用户消息，会异步判断是否需要提取长期记忆
+      operationId: saveMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveMessageRequest'
+            examples:
+              userMessage:
+                summary: 用户消息示例
+                value:
+                  senderType: USER
+                  content: "我最近工作压力很大，经常加班到深夜"
+                  sessionId: "session-123"
+              aiMessage:
+                summary: AI回复消息示例
+                value:
+                  senderType: AI
+                  content: "我理解你的压力。长期高强度工作对身心健康都有影响，建议..."
+                  sessionId: "session-123"
+      responses:
+        '200':
+          description: 消息保存成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveMessageResponse'
+              example:
+                code: 0
+                message: "消息保存成功"
+                data:
+                  messageId: 12345
+                  summaryTriggered: false
+                  memoryExtractionQueued: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    get:
+      tags:
+        - 消息管理
+      summary: 查询消息历史
+      description: |
+        分页查询用户的对话消息历史。
+        
+        **默认行为**:
+        - 按时间倒序返回（最新的在前）
+        - 如果提供 sessionId，只返回该会话的消息
+        - 支持游标分页（beforeMessageId）
+      operationId: getMessageHistory
+      parameters:
+        - name: sessionId
+          in: query
+          description: 会话ID（可选）
+          schema:
+            type: string
+          example: "session-123"
+        - name: beforeMessageId
+          in: query
+          description: 查询此消息ID之前的消息（游标分页）
+          schema:
+            type: integer
+            format: int64
+          example: 12345
+        - name: limit
+          in: query
+          description: 返回消息数量限制
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageHistoryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/memory/summaries:
+    get:
+      tags:
+        - 总结管理
+      summary: 查询对话总结
+      description: |
+        查询用户的对话总结记录。
+        
+        **返回内容**:
+        - 按时间倒序
+        - 包含结构化的总结内容（JSON）
+        - 显示总结覆盖的消息范围
+      operationId: getSummaries
+      parameters:
+        - name: sessionId
+          in: query
+          description: 会话ID（可选）
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: 返回数量限制
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - 总结管理
+      summary: 手动触发总结生成
+      description: |
+        手动触发对话总结生成（通常由系统自动触发，此接口用于特殊场景）。
+        
+        **使用场景**:
+        - 测试或调试
+        - 用户主动请求"总结一下我们的对话"
+        - 会话结束时强制生成总结
+      operationId: triggerSummary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerSummaryRequest'
+      responses:
+        '200':
+          description: 总结生成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/memory/long-term:
+    get:
+      tags:
+        - 记忆管理
+      summary: 查询长期记忆列表
+      description: |
+        查询用户的所有长期记忆（支持过滤和排序）。
+        
+        **过滤条件**:
+        - 按记忆类型过滤
+        - 按重要性范围过滤
+        - 按创建时间范围过滤
+      operationId: getMemories
+      parameters:
+        - name: memoryType
+          in: query
+          description: 记忆类型过滤
+          schema:
+            type: string
+            enum: [event, preference, relationship, emotion, fact]
+        - name: minImportance
+          in: query
+          description: 最小重要性（0.0-1.0）
+          schema:
+            type: number
+            format: float
+            minimum: 0.0
+            maximum: 1.0
+        - name: orderBy
+          in: query
+          description: 排序方式
+          schema:
+            type: string
+            enum: [importance, created_at, access_count]
+            default: importance
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/memory/long-term/search:
+    post:
+      tags:
+        - 记忆管理
+      summary: 语义检索长期记忆
+      description: |
+        基于语义相似度检索相关的长期记忆。
+        
+        **检索流程**:
+        1. 将查询文本转换为向量（embedding）
+        2. 在向量库中搜索最相似的记忆（topK）
+        3. 应用重排序规则（重要性、时效性等）
+        4. 返回最终的top结果
+        
+        **应用场景**:
+        - 生成AI回复前，检索相关记忆作为上下文
+        - 用户查询"你还记得我说过的XXX吗？"
+      operationId: searchMemories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemorySearchRequest'
+            example:
+              query: "我的工作相关信息"
+              topK: 5
+              filters:
+                memoryTypes: ["fact", "preference"]
+                minImportance: 0.5
+      responses:
+        '200':
+          description: 检索成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySearchResponse'
+              example:
+                code: 0
+                message: "检索成功"
+                data:
+                  query: "我的工作相关信息"
+                  results:
+                    - memoryId: 789
+                      text: "用户在一家互联网公司担任技术架构师"
+                      memoryType: "fact"
+                      importance: 0.8
+                      similarity: 0.92
+                      finalScore: 0.87
+                    - memoryId: 456
+                      text: "用户偏好直接的技术建议，不喜欢空泛的理论"
+                      memoryType: "preference"
+                      importance: 0.75
+                      similarity: 0.85
+                      finalScore: 0.81
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/memory/long-term/{memoryId}:
+    delete:
+      tags:
+        - 记忆管理
+      summary: 删除长期记忆
+      description: |
+        删除指定的长期记忆（用户主动遗忘功能）。
+        
+        **注意**:
+        - 只能删除当前用户自己的记忆
+        - 删除操作不可恢复
+      operationId: deleteMemory
+      parameters:
+        - name: memoryId
+          in: path
+          required: true
+          description: 记忆ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: 无权删除他人的记忆
+        '404':
+          description: 记忆不存在
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token格式: `Authorization: Bearer <token>`
+        
+        Token中必须包含以下claims:
+        - userId: 用户ID
+        - roles: 用户角色列表
+
+  schemas:
+    SaveMessageRequest:
+      type: object
+      required:
+        - senderType
+        - content
+      properties:
+        senderType:
+          type: string
+          enum: [USER, AI]
+          description: 发送者类型
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: 消息内容
+        sessionId:
+          type: string
+          maxLength: 64
+          description: 会话ID（可选，用于区分多个对话）
+        metadata:
+          type: object
+          additionalProperties: true
+          description: 扩展元数据（如model_id, tokens等）
+          example:
+            modelId: 1
+            tokensUsed: 150
+
+    SaveMessageResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: "消息保存成功"
+        data:
+          type: object
+          properties:
+            messageId:
+              type: integer
+              format: int64
+              description: 新创建的消息ID
+            summaryTriggered:
+              type: boolean
+              description: 是否触发了总结生成
+            memoryExtractionQueued:
+              type: boolean
+              description: 是否已加入记忆提取队列
+
+    MessageHistoryResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageDTO'
+            hasMore:
+              type: boolean
+              description: 是否还有更多消息
+            nextCursor:
+              type: integer
+              format: int64
+              description: 下一页的游标（最旧消息的ID）
+
+    MessageDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        senderType:
+          type: string
+          enum: [USER, AI]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    TriggerSummaryRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: 会话ID（可选）
+        forceGenerate:
+          type: boolean
+          default: false
+          description: 是否强制生成（即使未达到阈值）
+
+    SummaryResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/SummaryDTO'
+
+    SummaryListResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            summaries:
+              type: array
+              items:
+                $ref: '#/components/schemas/SummaryDTO'
+            total:
+              type: integer
+
+    SummaryDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        summaryJson:
+          $ref: '#/components/schemas/SummaryContent'
+        coveredUntilMessageId:
+          type: integer
+          format: int64
+        messageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    SummaryContent:
+      type: object
+      description: 结构化总结内容
+      properties:
+        topics:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              summary:
+                type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+        userEmotion:
+          type: string
+          enum: [calm, excited, frustrated, confused, sad, happy, anxious]
+        contextCarryOver:
+          type: string
+
+    MemorySearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: 查询文本（将转换为向量进行检索）
+        topK:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 20
+          description: 返回结果数量
+        filters:
+          type: object
+          description: 可选过滤条件
+          properties:
+            memoryTypes:
+              type: array
+              items:
+                type: string
+                enum: [event, preference, relationship, emotion, fact]
+            minImportance:
+              type: number
+              format: float
+              minimum: 0.0
+              maximum: 1.0
+            excludeRecentlyUsed:
+              type: boolean
+              default: true
+              description: 是否排除最近已使用的记忆
+
+    MemorySearchResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            query:
+              type: string
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/MemorySearchResult'
+
+    MemorySearchResult:
+      type: object
+      properties:
+        memoryId:
+          type: integer
+          format: int64
+        text:
+          type: string
+        memoryType:
+          type: string
+        importance:
+          type: number
+          format: float
+        similarity:
+          type: number
+          format: float
+          description: 向量相似度（0-1）
+        finalScore:
+          type: number
+          format: float
+          description: 综合评分（相似度+重要性+时效性）
+        lastAccessedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    MemoryListResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            memories:
+              type: array
+              items:
+                $ref: '#/components/schemas/MemoryDTO'
+            total:
+              type: integer
+
+    MemoryDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        text:
+          type: string
+        memoryType:
+          type: string
+        importance:
+          type: number
+          format: float
+        accessCount:
+          type: integer
+        lastAccessedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    SuccessResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: "操作成功"
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "请求参数错误"
+        developMessage:
+          type: string
+          description: 开发者调试信息（生产环境可能不返回）
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 400
+            message: "请求参数错误：content不能为空"
+
+    Unauthorized:
+      description: 未授权或Token无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 401
+            message: "未授权访问"

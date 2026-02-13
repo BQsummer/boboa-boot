@@ -20,7 +20,7 @@ public class VoiceAsset {
     private Integer durationMs; // 时长（毫秒），可选
     private String format; // 例如 mp3/wav/ogg，可选
 
-    private Integer isDeleted = 0;
+    private Boolean isDeleted = false;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

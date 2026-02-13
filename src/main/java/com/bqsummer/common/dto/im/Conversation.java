@@ -14,7 +14,7 @@ public class Conversation {
     private Long lastMessageId;
     private LocalDateTime lastMessageTime;
     private Integer unreadCount;
-    private Integer isDeleted;
+    private Boolean isDeleted;
     private LocalDateTime createdTime;
     private LocalDateTime updatedTime;
 }

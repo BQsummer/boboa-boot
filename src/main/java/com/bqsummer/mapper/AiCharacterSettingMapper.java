@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.*;
 @Mapper
 public interface AiCharacterSettingMapper {
 
-    @Select("SELECT * FROM ai_character_settings WHERE user_id = #{userId} AND character_id = #{characterId} AND is_deleted = 0")
+    @Select("SELECT * FROM ai_character_settings WHERE user_id = #{userId} AND character_id = #{characterId} AND is_deleted = FALSE")
     @Results({
             @Result(property = "userId", column = "user_id"),
             @Result(property = "characterId", column = "character_id"),
@@ -40,6 +40,6 @@ public interface AiCharacterSettingMapper {
     })
     int upsert(AiCharacterSetting setting);
 
-    @Update("UPDATE ai_character_settings SET is_deleted = 1, updated_time = NOW() WHERE user_id = #{userId} AND character_id = #{characterId} AND is_deleted = 0")
+    @Update("UPDATE ai_character_settings SET is_deleted = TRUE, updated_time = NOW() WHERE user_id = #{userId} AND character_id = #{characterId} AND is_deleted = FALSE")
     int softDelete(@Param("userId") Long userId, @Param("characterId") Long characterId);
 }

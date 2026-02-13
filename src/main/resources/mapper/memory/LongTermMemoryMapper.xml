@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bqsummer.mapper.memory.LongTermMemoryMapper">
+
+    <resultMap id="BaseResultMap" type="com.bqsummer.common.dto.memory.LongTermMemory">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="ai_character_id" property="aiCharacterId"/>
+        <result column="text" property="text"/>
+        <result column="embedding" property="embedding"
+                typeHandler="com.bqsummer.framework.handler.FloatArrayTypeHandler"/>
+        <result column="memory_type" property="memoryType"/>
+        <result column="importance" property="importance"/>
+        <result column="source_message_id" property="sourceMessageId"/>
+        <result column="last_accessed_at" property="lastAccessedAt"/>
+        <result column="access_count" property="accessCount"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <!-- 根据记忆类型查询 -->
+    <select id="findByType" resultMap="BaseResultMap">
+        SELECT id, user_id, ai_character_id, text, embedding, memory_type,
+               importance, source_message_id, last_accessed_at, access_count, created_at
+        FROM long_term_memory
+        WHERE user_id = #{userId}
+          AND ai_character_id = #{aiCharacterId}
+          AND memory_type = #{memoryType}
+        ORDER BY importance DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 查询高重要性记忆 -->
+    <select id="findHighImportance" resultMap="BaseResultMap">
+        SELECT id, user_id, ai_character_id, text, embedding, memory_type,
+               importance, source_message_id, last_accessed_at, access_count, created_at
+        FROM long_term_memory
+        WHERE user_id = #{userId}
+          AND ai_character_id = #{aiCharacterId}
+          AND importance >= #{minImportance}
+        ORDER BY importance DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 向量相似度搜索 -->
+    <select id="searchByEmbedding" resultMap="BaseResultMap">
+        SELECT id, user_id, ai_character_id, text, embedding, memory_type,
+               importance, source_message_id, last_accessed_at, access_count, created_at,
+               1 - (embedding &lt;=&gt; #{queryEmbedding}::vector) AS similarity
+        FROM long_term_memory
+        WHERE user_id = #{userId}
+          AND ai_character_id = #{aiCharacterId}
+          AND (embedding &lt;=&gt; #{queryEmbedding}::vector) &lt; 0.3
+        ORDER BY embedding &lt;=&gt; #{queryEmbedding}::vector
+        LIMIT #{topK}
+    </select>
+
+    <!-- 更新访问时间 -->
+    <update id="updateAccessTime">
+        UPDATE long_term_memory
+        SET last_accessed_at = #{now},
+            access_count = access_count + 1
+        WHERE id = #{memoryId}
+    </update>
+
+</mapper>

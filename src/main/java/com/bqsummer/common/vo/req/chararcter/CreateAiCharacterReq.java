@@ -29,7 +29,7 @@ public class CreateAiCharacterReq {
     private String visibility;
 
     /**
-     * 状态：1-启用，0-禁用
+     * 状态：true-启用，false-禁用
      */
-    private Integer status;
+    private Boolean status;
 }

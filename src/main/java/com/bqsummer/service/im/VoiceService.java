@@ -54,7 +54,7 @@ public class VoiceService {
         v.setSizeBytes(size);
         v.setDurationMs(durationMs);
         v.setFormat(extFrom(filename));
-        v.setIsDeleted(0);
+        v.setIsDeleted(false);
         v.setCreatedAt(LocalDateTime.now());
         v.setUpdatedAt(LocalDateTime.now());
         return repository.save(v);

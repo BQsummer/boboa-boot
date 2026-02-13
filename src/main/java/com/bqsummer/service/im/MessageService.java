@@ -99,7 +99,7 @@ public class MessageService {
         msg.setType(request.getType());
         msg.setContent(request.getContent());
         msg.setStatus("sent");
-        msg.setIsDeleted(0);
+        msg.setIsDeleted(false);
         msg.setCreatedAt(LocalDateTime.now());
         msg.setUpdatedAt(LocalDateTime.now());
 

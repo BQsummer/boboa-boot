@@ -64,9 +64,9 @@ class MonthlyPlanServiceTest extends BaseTest {
                 .imageUrl("https://example.com/test.jpg")
                 .author("测试作者")
                 .visibility("PUBLIC")
-                .status(1)
+                .status(true)
                 .createdByUserId(testCreator.getId())
-                .isDeleted(0)
+                .isDeleted(false)
                 .build();
         aiCharacterMapper.insert(testCharacter);
     }
@@ -494,9 +494,9 @@ class MonthlyPlanServiceTest extends BaseTest {
                     .name("新AI角色")
                     .imageUrl("https://example.com/new.jpg")
                     .visibility("PUBLIC")
-                    .status(1)
+                    .status(true)
                     .createdByUserId(testCreator.getId())
-                    .isDeleted(0)
+                    .isDeleted(false)
                     .build();
             aiCharacterMapper.insert(newCharacter);
 

@@ -17,7 +17,7 @@ public interface ConversationMapper extends BaseMapper<Conversation> {
             "FROM conversations c " +
             "LEFT JOIN `message` m ON c.last_message_id = m.id " +
             "JOIN users u ON c.peer_id = u.id " +
-            "WHERE c.user_id = #{userId} AND c.is_deleted = 0 " +
+            "WHERE c.user_id = #{userId} AND c.is_deleted = FALSE " +
             "ORDER BY c.updated_time DESC")
     @Results({
             @Result(property = "peerId", column = "peer_id"),
@@ -32,26 +32,26 @@ public interface ConversationMapper extends BaseMapper<Conversation> {
     List<ConversationItem> listConversations(Long userId);
 
     @Insert("INSERT INTO conversations (user_id, peer_id, last_message_id, last_message_time, unread_count, is_deleted, created_time, updated_time) " +
-            "VALUES (#{userId}, #{peerId}, #{messageId}, #{messageTime}, 0, 0, NOW(), NOW()) " +
-            "ON CONFLICT (user_id, peer_id) DO UPDATE SET last_message_id=EXCLUDED.last_message_id, last_message_time=EXCLUDED.last_message_time, updated_time=NOW(), is_deleted=0")
+            "VALUES (#{userId}, #{peerId}, #{messageId}, #{messageTime}, 0, FALSE, NOW(), NOW()) " +
+            "ON CONFLICT (user_id, peer_id) DO UPDATE SET last_message_id=EXCLUDED.last_message_id, last_message_time=EXCLUDED.last_message_time, updated_time=NOW(), is_deleted=FALSE")
     int upsertSender(@Param("userId") Long userId,
                      @Param("peerId") Long peerId,
                      @Param("messageId") Long messageId,
                      @Param("messageTime") LocalDateTime messageTime);
 
     @Insert("INSERT INTO conversations (user_id, peer_id, last_message_id, last_message_time, unread_count, is_deleted, created_time, updated_time) " +
-            "VALUES (#{userId}, #{peerId}, #{messageId}, #{messageTime}, 1, 0, NOW(), NOW()) " +
-            "ON CONFLICT (user_id, peer_id) DO UPDATE SET last_message_id=EXCLUDED.last_message_id, last_message_time=EXCLUDED.last_message_time, unread_count = conversations.unread_count + 1, updated_time=NOW(), is_deleted=0")
+            "VALUES (#{userId}, #{peerId}, #{messageId}, #{messageTime}, 1, FALSE, NOW(), NOW()) " +
+            "ON CONFLICT (user_id, peer_id) DO UPDATE SET last_message_id=EXCLUDED.last_message_id, last_message_time=EXCLUDED.last_message_time, unread_count = conversations.unread_count + 1, updated_time=NOW(), is_deleted=FALSE")
     int upsertReceiver(@Param("userId") Long userId,
                        @Param("peerId") Long peerId,
                        @Param("messageId") Long messageId,
                        @Param("messageTime") LocalDateTime messageTime);
 
     @Insert("INSERT INTO conversations (user_id, peer_id, unread_count, is_deleted, created_time, updated_time) " +
-            "VALUES (#{userId}, #{peerId}, 0, 0, NOW(), NOW()) " +
-            "ON CONFLICT (user_id, peer_id) DO UPDATE SET is_deleted=0, updated_time=NOW()")
+            "VALUES (#{userId}, #{peerId}, 0, FALSE, NOW(), NOW()) " +
+            "ON CONFLICT (user_id, peer_id) DO UPDATE SET is_deleted=FALSE, updated_time=NOW()")
     int insertOrRestore(@Param("userId") Long userId, @Param("peerId") Long peerId);
 
-    @Update("UPDATE conversations SET is_deleted=1, unread_count=0, updated_time=NOW() WHERE user_id=#{userId} AND peer_id=#{peerId}")
+    @Update("UPDATE conversations SET is_deleted=TRUE, unread_count=0, updated_time=NOW() WHERE user_id=#{userId} AND peer_id=#{peerId}")
     int softDelete(@Param("userId") Long userId, @Param("peerId") Long peerId);
 }

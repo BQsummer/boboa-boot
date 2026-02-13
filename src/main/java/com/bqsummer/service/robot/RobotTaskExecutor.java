@@ -361,7 +361,7 @@ public class RobotTaskExecutor {
             aiReply.setType("text");
             aiReply.setContent(inferenceResponse.getContent());
             aiReply.setStatus("sent");
-            aiReply.setIsDeleted(0);
+            aiReply.setIsDeleted(false);
             aiReply.setCreatedAt(LocalDateTime.now());
             aiReply.setUpdatedAt(LocalDateTime.now());
 

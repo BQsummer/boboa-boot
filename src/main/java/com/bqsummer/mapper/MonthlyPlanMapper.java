@@ -11,7 +11,7 @@ import java.util.List;
 @Mapper
 public interface MonthlyPlanMapper {
 
-    @Select("SELECT * FROM monthly_plans WHERE id = #{id} AND is_deleted = 0")
+    @Select("SELECT * FROM monthly_plans WHERE id = #{id} AND is_deleted = FALSE")
     @Results(id = "monthlyPlanResultMap", value = {
             @Result(property = "characterId", column = "character_id"),
             @Result(property = "dayRule", column = "day_rule"),
@@ -23,7 +23,7 @@ public interface MonthlyPlanMapper {
     })
     MonthlyPlan findById(@Param("id") Long id);
 
-    @Select("SELECT * FROM monthly_plans WHERE character_id = #{characterId} AND is_deleted = 0 ORDER BY start_time ASC")
+    @Select("SELECT * FROM monthly_plans WHERE character_id = #{characterId} AND is_deleted = FALSE ORDER BY start_time ASC")
     @ResultMap("monthlyPlanResultMap")
     List<MonthlyPlan> listByCharacterId(@Param("characterId") Long characterId);
 
@@ -45,11 +45,11 @@ public interface MonthlyPlanMapper {
             "<if test='extra != null'>extra = #{extra},</if>",
             "updated_time = NOW()",
             "</set>",
-            "WHERE id = #{id} AND is_deleted = 0",
+            "WHERE id = #{id} AND is_deleted = FALSE",
             "</script>"
     })
     int update(MonthlyPlan plan);
 
-    @Update("UPDATE monthly_plans SET is_deleted = 1, updated_time = NOW() WHERE id = #{id} AND is_deleted = 0")
+    @Update("UPDATE monthly_plans SET is_deleted = TRUE, updated_time = NOW() WHERE id = #{id} AND is_deleted = FALSE")
     int softDelete(@Param("id") Long id);
 }

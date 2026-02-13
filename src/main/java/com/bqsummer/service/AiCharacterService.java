@@ -48,7 +48,7 @@ public class AiCharacterService {
     public ResponseEntity<?> createCharacter(CreateAiCharacterReq req, Long userId) {
         // 校验用户存在
         User user = userMapper.findById(userId);
-        if (user == null || (user.getIsDeleted() != null && user.getIsDeleted() == 1)) {
+        if (user == null || Boolean.TRUE.equals(user.getIsDeleted())) {
             return ResponseEntity.status(401).body("用户无效");
         }
 
@@ -63,9 +63,9 @@ public class AiCharacterService {
                 .imageUrl(req.getImageUrl())
                 .author(req.getAuthor())
                 .visibility(visibility)
-                .status(req.getStatus() == null ? 1 : req.getStatus())
+                .status(req.getStatus() == null ? true : req.getStatus())
                 .createdByUserId(userId)
-                .isDeleted(0)
+                .isDeleted(false)
                 .build();
         aiCharacterMapper.insert(c);
 
@@ -110,7 +110,7 @@ public class AiCharacterService {
      */
     public ResponseEntity<AiCharacter> getCharacterById(Long id, Long userId) {
         AiCharacter c = aiCharacterMapper.findById(id);
-        if (c == null || (c.getIsDeleted() != null && c.getIsDeleted() == 1)) {
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -138,7 +138,7 @@ public class AiCharacterService {
     @Transactional
     public ResponseEntity<?> updateCharacter(Long id, CreateAiCharacterReq req, Long userId) {
         AiCharacter exist = aiCharacterMapper.findById(id);
-        if (exist == null || (exist.getIsDeleted() != null && exist.getIsDeleted() == 1)) {
+        if (exist == null || Boolean.TRUE.equals(exist.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -187,7 +187,7 @@ public class AiCharacterService {
      * <p>
      * 功能：删除AI角色时同时软删除关联的用户账户
      * 事务性：使用@Transactional确保AI角色和用户同步删除
-     * 保留历史数据，只标记is_deleted=1
+     * 保留历史数据，只标记is_deleted=true
      * </p>
      *
      * @param id     AI角色ID
@@ -197,7 +197,7 @@ public class AiCharacterService {
     @Transactional
     public ResponseEntity<?> deleteCharacter(Long id, Long userId) {
         AiCharacter exist = aiCharacterMapper.findById(id);
-        if (exist == null || (exist.getIsDeleted() != null && exist.getIsDeleted() == 1)) {
+        if (exist == null || Boolean.TRUE.equals(exist.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -222,7 +222,7 @@ public class AiCharacterService {
      */
     public ResponseEntity<AiCharacterSetting> getCharacterSetting(Long characterId, Long userId) {
         AiCharacter c = aiCharacterMapper.findById(characterId);
-        if (c == null || (c.getIsDeleted() != null && c.getIsDeleted() == 1)) {
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -240,7 +240,7 @@ public class AiCharacterService {
      */
     public ResponseEntity<?> upsertCharacterSetting(Long characterId, UpsertCharacterSettingReq req, Long userId) {
         AiCharacter c = aiCharacterMapper.findById(characterId);
-        if (c == null || (c.getIsDeleted() != null && c.getIsDeleted() == 1)) {
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -268,7 +268,7 @@ public class AiCharacterService {
                 .background(req.getBackground())
                 .language(req.getLanguage())
                 .customParams(req.getCustomParams())
-                .isDeleted(0)
+                .isDeleted(false)
                 .build();
         settingMapper.upsert(s);
         return ResponseEntity.ok("保存成功");
@@ -279,7 +279,7 @@ public class AiCharacterService {
      */
     public ResponseEntity<?> deleteCharacterSetting(Long characterId, Long userId) {
         AiCharacter c = aiCharacterMapper.findById(characterId);
-        if (c == null || (c.getIsDeleted() != null && c.getIsDeleted() == 1)) {
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
             return ResponseEntity.notFound().build();
         }
 

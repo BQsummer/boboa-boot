@@ -22,7 +22,7 @@ public interface PromptTemplateMapper extends BaseMapper<PromptTemplate> {
      * @param charId 角色ID
      * @return 最大版本号，如果不存在则返回 null
      */
-    @Select("SELECT MAX(version) FROM prompt_template WHERE char_id = #{charId} AND is_deleted = 0")
+    @Select("SELECT MAX(version) FROM prompt_template WHERE char_id = #{charId} AND is_deleted = FALSE")
     Integer getMaxVersionByCharId(@Param("charId") Long charId);
 
     /**
@@ -31,6 +31,6 @@ public interface PromptTemplateMapper extends BaseMapper<PromptTemplate> {
      * @param charId 角色ID
      * @return 更新的行数
      */
-    @Update("UPDATE prompt_template SET is_latest = 0 WHERE char_id = #{charId} AND is_deleted = 0")
+    @Update("UPDATE prompt_template SET is_latest = FALSE WHERE char_id = #{charId} AND is_deleted = FALSE")
     int markAllAsNotLatest(@Param("charId") Long charId);
 }

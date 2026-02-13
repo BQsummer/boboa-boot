@@ -39,7 +39,7 @@ public class Message {
     /**
      * 是否已删除（0=否, 1=是）
      */
-    private Integer isDeleted = 0;
+    private Boolean isDeleted = false;
 
     /**
      * 创建时间

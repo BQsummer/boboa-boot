@@ -1,7 +1,7 @@
 package com.bqsummer.common.dto.ai;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.bqsummer.framework.handler.PgJsonStringListTypeHandler;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -72,7 +72,7 @@ public class AiModel {
     /**
      * 自定义标签，如 ["fast", "cheap"]
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "tags", typeHandler = PgJsonStringListTypeHandler.class)
     private List<String> tags;
     
     /**

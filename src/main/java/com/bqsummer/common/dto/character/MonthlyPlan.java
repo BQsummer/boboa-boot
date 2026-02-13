@@ -1,5 +1,7 @@
 package com.bqsummer.common.dto.character;
 
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -62,7 +64,9 @@ public class MonthlyPlan {
     /**
      * 是否删除：0-未删除，1-已删除
      */
-    private Integer isDeleted;
+    @TableLogic(value = "false", delval = "true")
+    @TableField("is_deleted")
+    private Boolean isDeleted;
 
     /**
      * 创建时间

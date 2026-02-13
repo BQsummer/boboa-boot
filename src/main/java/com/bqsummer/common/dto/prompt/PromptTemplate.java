@@ -167,7 +167,7 @@ public class PromptTemplate {
     /**
      * 逻辑删除：false=否，true=是
      */
-    @TableLogic
+    @TableLogic(value = "false", delval = "true")
     @TableField("is_deleted")
     private Boolean isDeleted;
 }

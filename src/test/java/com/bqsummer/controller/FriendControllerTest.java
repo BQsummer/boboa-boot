@@ -47,8 +47,8 @@ class FriendControllerTest extends BaseTest {
         );
 
         assertAll("conversation records inserted",
-                () -> assertExists("conversations", "user_id = ? AND peer_id = ? AND is_deleted = 0", owner.id, partner.id),
-                () -> assertExists("conversations", "user_id = ? AND peer_id = ? AND is_deleted = 0", partner.id, owner.id)
+                () -> assertExists("conversations", "user_id = ? AND peer_id = ? AND is_deleted = FALSE", owner.id, partner.id),
+                () -> assertExists("conversations", "user_id = ? AND peer_id = ? AND is_deleted = FALSE", partner.id, owner.id)
         );
     }
 
@@ -155,8 +155,8 @@ class FriendControllerTest extends BaseTest {
                 .statusCode(200)
                 .body("success", equalTo(true));
         assertAll("conversation records removed (soft delete)",
-                () -> assertExists("conversations", "user_id = ? AND peer_id = ? AND is_deleted = 1", friendship.owner.id, friendship.partner.id),
-                () -> assertExists("conversations", "user_id = ? AND peer_id = ? AND is_deleted = 1", friendship.partner.id, friendship.owner.id)
+                () -> assertExists("conversations", "user_id = ? AND peer_id = ? AND is_deleted = TRUE", friendship.owner.id, friendship.partner.id),
+                () -> assertExists("conversations", "user_id = ? AND peer_id = ? AND is_deleted = TRUE", friendship.partner.id, friendship.owner.id)
         );
 
 

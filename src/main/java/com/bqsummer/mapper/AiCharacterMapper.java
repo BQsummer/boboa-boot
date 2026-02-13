@@ -11,7 +11,7 @@ import java.util.List;
 @Mapper
 public interface AiCharacterMapper {
 
-    @Select("SELECT * FROM ai_characters WHERE id = #{id} AND is_deleted = 0")
+    @Select("SELECT * FROM ai_characters WHERE id = #{id} AND is_deleted = FALSE")
     @Results({
             @Result(property = "createdByUserId", column = "created_by_user_id"),
             @Result(property = "imageUrl", column = "image_url"),
@@ -22,7 +22,7 @@ public interface AiCharacterMapper {
     })
     AiCharacter findById(@Param("id") Long id);
 
-    @Select("SELECT * FROM ai_characters WHERE is_deleted = 0 AND status = 1 AND (visibility = 'PUBLIC' OR created_by_user_id = #{userId}) ORDER BY id DESC")
+    @Select("SELECT * FROM ai_characters WHERE is_deleted = FALSE AND status = TRUE AND (visibility = 'PUBLIC' OR created_by_user_id = #{userId}) ORDER BY id DESC")
     @Results({
             @Result(property = "createdByUserId", column = "created_by_user_id"),
             @Result(property = "imageUrl", column = "image_url"),
@@ -48,12 +48,12 @@ public interface AiCharacterMapper {
             "<if test='status != null'>status = #{status},</if>",
             "updated_time = NOW()",
             "</set>",
-            "WHERE id = #{id} AND is_deleted = 0",
+            "WHERE id = #{id} AND is_deleted = FALSE",
             "</script>"
     })
     int update(AiCharacter c);
 
-    @Update("UPDATE ai_characters SET is_deleted = 1, status = 0, updated_time = NOW() WHERE id = #{id} AND is_deleted = 0")
+    @Update("UPDATE ai_characters SET is_deleted = TRUE, status = FALSE, updated_time = NOW() WHERE id = #{id} AND is_deleted = FALSE")
     int softDelete(@Param("id") Long id);
 
     /**
