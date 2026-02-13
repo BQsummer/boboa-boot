@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -111,6 +112,19 @@ public class AiModelService {
         
         log.info("查询到 {} 个模型", responses.size());
         return responses;
+    }
+
+    public List<String> listModelCodes() {
+        LambdaQueryWrapper<AiModel> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.select(AiModel::getName);
+
+        return aiModelMapper.selectList(queryWrapper).stream()
+                .map(AiModel::getName)
+                .filter(name -> name != null && !name.trim().isEmpty())
+                .map(String::trim)
+                .distinct()
+                .sorted(Comparator.naturalOrder())
+                .collect(Collectors.toList());
     }
     
     public ModelResponse getModelById(Long id) {

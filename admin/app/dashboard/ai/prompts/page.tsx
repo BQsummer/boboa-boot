@@ -15,10 +15,12 @@ import {
   renderPromptTemplate,
 } from '@/lib/api/prompt-templates';
 import { listCharacters, AiCharacter } from '@/lib/api/characters';
+import { listModelCodes } from '@/lib/api/models';
 
 export default function PromptsPage() {
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [characters, setCharacters] = useState<AiCharacter[]>([]);
+  const [modelCodes, setModelCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isRenderDialogOpen, setIsRenderDialogOpen] = useState(false);
@@ -53,6 +55,16 @@ export default function PromptsPage() {
     }
   };
 
+  const loadModelCodes = async () => {
+    try {
+      const data = await listModelCodes();
+      setModelCodes(data || []);
+    } catch (error) {
+      console.error('加载模型代码失败:', error);
+      setModelCodes([]);
+    }
+  };
+
   // 加载模板列表
   const loadTemplates = async () => {
     try {
@@ -75,6 +87,7 @@ export default function PromptsPage() {
 
   useEffect(() => {
     loadCharacters();
+    loadModelCodes();
   }, []);
 
   useEffect(() => {
@@ -386,11 +399,18 @@ export default function PromptsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">模型代码</label>
-                    <Input
+                    <select
+                      className="w-full px-3 py-2 border rounded-md"
                       value={formData.modelCode}
                       onChange={(e) => setFormData({ ...formData, modelCode: e.target.value })}
-                      placeholder="如: gpt-4"
-                    />
+                    >
+                      <option value="">不指定模型</option>
+                      {modelCodes.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">语言</label>

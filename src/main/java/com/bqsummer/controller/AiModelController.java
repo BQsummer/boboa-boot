@@ -79,6 +79,25 @@ public class AiModelController {
         
         return ResponseEntity.ok(result);
     }
+
+    /**
+     * 查询模型代码下拉选项
+     * GET /api/v1/models/codes
+     *
+     * @return 模型代码列表
+     */
+    @GetMapping("/codes")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> listModelCodes() {
+        List<String> codes = aiModelService.listModelCodes();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("code", 0);
+        result.put("message", "success");
+        result.put("data", codes);
+
+        return ResponseEntity.ok(result);
+    }
     
     /**
      * 查询模型详情
