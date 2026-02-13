@@ -15,6 +15,11 @@ import {
   UpsertCharacterSettingReq,
 } from '@/lib/api/characters';
 
+type Notice = {
+  type: 'success' | 'error';
+  message: string;
+};
+
 export default function CharacterDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -24,6 +29,7 @@ export default function CharacterDetailPage() {
   const [setting, setSetting] = useState<AiCharacterSetting | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
   
   const [settingsForm, setSettingsForm] = useState<UpsertCharacterSettingReq>({
     name: '',
@@ -34,6 +40,16 @@ export default function CharacterDetailPage() {
     language: '',
     customParams: '',
   });
+
+  const showNotice = (type: Notice['type'], message: string) => {
+    setNotice({ type, message });
+  };
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 3000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   // 加载角色详情和设置
   const loadData = async () => {
@@ -60,7 +76,7 @@ export default function CharacterDetailPage() {
       }
     } catch (error) {
       console.error('加载角色详情失败:', error);
-      alert('加载角色详情失败');
+      showNotice('error', '加载角色详情失败');
     } finally {
       setLoading(false);
     }
@@ -77,10 +93,10 @@ export default function CharacterDetailPage() {
       await upsertCharacterSetting(characterId, settingsForm);
       setIsEditingSettings(false);
       loadData();
-      alert('设置保存成功');
+      showNotice('success', '设置保存成功');
     } catch (error) {
       console.error('保存设置失败:', error);
-      alert('保存设置失败');
+      showNotice('error', '保存设置失败');
     }
   };
 
@@ -100,10 +116,10 @@ export default function CharacterDetailPage() {
         language: '',
         customParams: '',
       });
-      alert('设置删除成功');
+      showNotice('success', '设置删除成功');
     } catch (error) {
       console.error('删除设置失败:', error);
-      alert('删除设置失败');
+      showNotice('error', '删除设置失败');
     }
   };
 
@@ -117,6 +133,20 @@ export default function CharacterDetailPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {notice && (
+        <div className="fixed top-4 right-4 z-50">
+          <div
+            className={`rounded-md border px-4 py-3 text-sm shadow-lg transition-all ${
+              notice.type === 'success'
+                ? 'border-green-200 bg-green-50 text-green-800'
+                : 'border-red-200 bg-red-50 text-red-800'
+            }`}
+          >
+            {notice.message}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 mb-6">
         <Button variant="outline" onClick={() => router.back()}>
           ← 返回
