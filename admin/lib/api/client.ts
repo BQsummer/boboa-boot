@@ -43,7 +43,7 @@ export async function fetchApi<T>(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = await parseErrorResponse(response);
     
     // 处理 401 未授权错误 - token 过期或无效
     if (response.status === 401 && typeof window !== 'undefined') {
@@ -64,5 +64,35 @@ export async function fetchApi<T>(
     );
   }
 
-  return response.json();
+  return parseSuccessResponse<T>(response);
+}
+
+async function parseErrorResponse(response: Response): Promise<any> {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json().catch(() => ({}));
+  }
+
+  const text = await response.text().catch(() => '');
+  return text ? { message: text } : {};
+}
+
+async function parseSuccessResponse<T>(response: Response): Promise<T> {
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  const contentLength = response.headers.get('content-length');
+
+  if (contentLength === '0') {
+    return undefined as T;
+  }
+
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  const text = await response.text();
+  return (text as unknown) as T;
 }
