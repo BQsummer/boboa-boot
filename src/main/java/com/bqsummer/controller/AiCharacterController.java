@@ -72,17 +72,43 @@ public class AiCharacterController {
      * 获取当前用户对该人物的个性化设置
      */
     @GetMapping("/{id}/setting")
-    public ResponseEntity<AiCharacterSetting> getSetting(@PathVariable("id") Long id) {
+    public ResponseEntity<AiCharacterSetting> getSetting(@PathVariable("id") Long id,
+                                                         @RequestParam(value = "targetUserId", required = false) Long targetUserId,
+                                                         @RequestParam(value = "isDefault", required = false, defaultValue = "false") boolean isDefault) {
         Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        if (isDefault) {
+            return aiCharacterService.getDefaultCharacterSetting(id, userId);
+        }
+        if (targetUserId != null) {
+            return aiCharacterService.getCharacterSettingForUser(id, targetUserId, userId);
+        }
         return aiCharacterService.getCharacterSetting(id, userId);
+    }
+
+    /**
+     * 列出该角色全部用户个性化设置
+     */
+    @GetMapping("/{id}/settings")
+    public ResponseEntity<List<AiCharacterSetting>> listSettings(@PathVariable("id") Long id) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        return aiCharacterService.listCharacterSettings(id, userId);
     }
 
     /**
      * 设置/更新 当前用户对该人物的个性化设置（upsert）
      */
     @PutMapping("/{id}/setting")
-    public ResponseEntity<?> upsertSetting(@PathVariable("id") Long id, @RequestBody UpsertCharacterSettingReq req) {
+    public ResponseEntity<?> upsertSetting(@PathVariable("id") Long id,
+                                           @RequestBody UpsertCharacterSettingReq req,
+                                           @RequestParam(value = "targetUserId", required = false) Long targetUserId,
+                                           @RequestParam(value = "isDefault", required = false, defaultValue = "false") boolean isDefault) {
         Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        if (isDefault) {
+            return aiCharacterService.upsertDefaultCharacterSetting(id, req, userId);
+        }
+        if (targetUserId != null) {
+            return aiCharacterService.upsertCharacterSettingForUser(id, req, targetUserId, userId);
+        }
         return aiCharacterService.upsertCharacterSetting(id, req, userId);
     }
 
@@ -90,8 +116,16 @@ public class AiCharacterController {
      * 删除个人化设置（软删除）
      */
     @DeleteMapping("/{id}/setting")
-    public ResponseEntity<?> deleteSetting(@PathVariable("id") Long id) {
+    public ResponseEntity<?> deleteSetting(@PathVariable("id") Long id,
+                                           @RequestParam(value = "targetUserId", required = false) Long targetUserId,
+                                           @RequestParam(value = "isDefault", required = false, defaultValue = "false") boolean isDefault) {
         Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        if (isDefault) {
+            return aiCharacterService.deleteDefaultCharacterSetting(id, userId);
+        }
+        if (targetUserId != null) {
+            return aiCharacterService.deleteCharacterSettingForUser(id, targetUserId, userId);
+        }
         return aiCharacterService.deleteCharacterSetting(id, userId);
     }
 }

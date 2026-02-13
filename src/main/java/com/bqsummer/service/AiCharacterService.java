@@ -232,13 +232,60 @@ public class AiCharacterService {
         }
 
         AiCharacterSetting s = settingMapper.findByUserAndCharacter(userId, characterId);
+        if (s == null) {
+            s = settingMapper.findDefaultByCharacter(characterId);
+        }
         return ResponseEntity.ok(s);
     }
 
     /**
      * 设置/更新个性化设置
      */
+    public ResponseEntity<AiCharacterSetting> getCharacterSettingForUser(Long characterId, Long targetUserId, Long userId) {
+        AiCharacter c = aiCharacterMapper.findById(characterId);
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (!c.getVisibility().equals("PUBLIC") && !c.getCreatedByUserId().equals(userId)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        AiCharacterSetting s = settingMapper.findByUserAndCharacter(targetUserId, characterId);
+        return ResponseEntity.ok(s);
+    }
+
+    public ResponseEntity<List<AiCharacterSetting>> listCharacterSettings(Long characterId, Long userId) {
+        AiCharacter c = aiCharacterMapper.findById(characterId);
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (!c.getVisibility().equals("PUBLIC") && !c.getCreatedByUserId().equals(userId)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        return ResponseEntity.ok(settingMapper.listByCharacter(characterId));
+    }
+
+    public ResponseEntity<AiCharacterSetting> getDefaultCharacterSetting(Long characterId, Long userId) {
+        AiCharacter c = aiCharacterMapper.findById(characterId);
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (!c.getVisibility().equals("PUBLIC") && !c.getCreatedByUserId().equals(userId)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        return ResponseEntity.ok(settingMapper.findDefaultByCharacter(characterId));
+    }
+
     public ResponseEntity<?> upsertCharacterSetting(Long characterId, UpsertCharacterSettingReq req, Long userId) {
+        return upsertCharacterSettingForUser(characterId, req, userId, userId);
+    }
+
+    public ResponseEntity<?> upsertCharacterSettingForUser(Long characterId, UpsertCharacterSettingReq req, Long targetUserId, Long userId) {
         AiCharacter c = aiCharacterMapper.findById(characterId);
         if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
             return ResponseEntity.notFound().build();
@@ -259,7 +306,7 @@ public class AiCharacterService {
         }
 
         AiCharacterSetting s = AiCharacterSetting.builder()
-                .userId(userId)
+                .userId(targetUserId)
                 .characterId(characterId)
                 .name(req.getName())
                 .avatarUrl(req.getAvatarUrl())
@@ -277,7 +324,50 @@ public class AiCharacterService {
     /**
      * 删除个性化设置
      */
+    public ResponseEntity<?> upsertDefaultCharacterSetting(Long characterId, UpsertCharacterSettingReq req, Long userId) {
+        AiCharacter c = aiCharacterMapper.findById(characterId);
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (!c.getVisibility().equals("PUBLIC") && !c.getCreatedByUserId().equals(userId)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        LocalDate memorialDay = null;
+        if (StringUtils.hasText(req.getMemorialDay())) {
+            try {
+                memorialDay = LocalDate.parse(req.getMemorialDay());
+            } catch (DateTimeParseException e) {
+                return ResponseEntity.badRequest().body("绾康鏃ユ牸寮忓簲涓?yyyy-MM-dd");
+            }
+        }
+
+        AiCharacterSetting s = AiCharacterSetting.builder()
+                .userId(null)
+                .characterId(characterId)
+                .name(req.getName())
+                .avatarUrl(req.getAvatarUrl())
+                .memorialDay(memorialDay)
+                .relationship(req.getRelationship())
+                .background(req.getBackground())
+                .language(req.getLanguage())
+                .customParams(req.getCustomParams())
+                .isDeleted(false)
+                .build();
+
+        int updated = settingMapper.updateDefault(s);
+        if (updated == 0) {
+            settingMapper.insertDefault(s);
+        }
+        return ResponseEntity.ok("淇濆瓨鎴愬姛");
+    }
+
     public ResponseEntity<?> deleteCharacterSetting(Long characterId, Long userId) {
+        return deleteCharacterSettingForUser(characterId, userId, userId);
+    }
+
+    public ResponseEntity<?> deleteCharacterSettingForUser(Long characterId, Long targetUserId, Long userId) {
         AiCharacter c = aiCharacterMapper.findById(characterId);
         if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
             return ResponseEntity.notFound().build();
@@ -288,7 +378,19 @@ public class AiCharacterService {
             return ResponseEntity.status(403).body("无权限访问该人物");
         }
 
-        settingMapper.softDelete(userId, characterId);
+        settingMapper.softDelete(targetUserId, characterId);
+        return ResponseEntity.ok().build();
+    }
+
+    public ResponseEntity<?> deleteDefaultCharacterSetting(Long characterId, Long userId) {
+        AiCharacter c = aiCharacterMapper.findById(characterId);
+        if (c == null || Boolean.TRUE.equals(c.getIsDeleted())) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!c.getVisibility().equals("PUBLIC") && !c.getCreatedByUserId().equals(userId)) {
+            return ResponseEntity.status(403).body("鏃犳潈闄愯闂浜虹墿");
+        }
+        settingMapper.softDeleteDefault(characterId);
         return ResponseEntity.ok().build();
     }
 }

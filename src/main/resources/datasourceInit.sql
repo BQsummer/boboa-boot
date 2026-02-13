@@ -455,7 +455,7 @@ CREATE INDEX idx_creator ON ai_characters (created_by_user_id);
 
 CREATE TABLE ai_character_settings (
                                        id BIGSERIAL PRIMARY KEY,
-                                       user_id BIGINT NOT NULL,
+                                       user_id BIGINT,
                                        character_id BIGINT NOT NULL,
                                        name VARCHAR(128),
                                        avatar_url VARCHAR(512),
@@ -466,11 +466,29 @@ CREATE TABLE ai_character_settings (
                                        custom_params VARCHAR(2000),
                                        is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
                                        created_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                       updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                       UNIQUE (user_id, character_id)
+                                       updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_character
     ON ai_character_settings (character_id);
+
+-- Compatibility migration for existing databases:
+-- default character setting uses user_id IS NULL
+ALTER TABLE ai_character_settings
+    ALTER COLUMN user_id DROP NOT NULL;
+
+ALTER TABLE ai_character_settings
+    DROP CONSTRAINT IF EXISTS ai_character_settings_user_id_character_id_key;
+
+DROP INDEX IF EXISTS uk_ai_character_setting_user_character;
+DROP INDEX IF EXISTS uk_ai_character_setting_default;
+
+CREATE UNIQUE INDEX uk_ai_character_setting_user_character
+    ON ai_character_settings (user_id, character_id)
+    WHERE user_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uk_ai_character_setting_default
+    ON ai_character_settings (character_id)
+    WHERE user_id IS NULL;
 
 
 CREATE TABLE recharge_order (

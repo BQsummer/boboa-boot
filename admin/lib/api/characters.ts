@@ -28,7 +28,7 @@ export interface CreateAiCharacterReq {
 
 export interface AiCharacterSetting {
   id: number;
-  userId: number;
+  userId: number | null;
   characterId: number;
   name?: string;
   avatarUrl?: string;
@@ -109,6 +109,33 @@ export async function getCharacterSetting(id: number): Promise<AiCharacterSettin
 }
 
 /**
+ * 获取指定用户的角色设置（精确查询，不做默认回退）
+ */
+export async function getCharacterSettingForUser(
+  id: number,
+  targetUserId: number
+): Promise<AiCharacterSetting | null> {
+  return fetchApi(`/api/v1/ai/characters/${id}/setting?targetUserId=${targetUserId}`, {
+    method: 'GET',
+  });
+}
+
+export async function getDefaultCharacterSetting(id: number): Promise<AiCharacterSetting | null> {
+  return fetchApi(`/api/v1/ai/characters/${id}/setting?isDefault=true`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * 获取角色下全部用户设置
+ */
+export async function listCharacterSettings(id: number): Promise<AiCharacterSetting[]> {
+  return fetchApi(`/api/v1/ai/characters/${id}/settings`, {
+    method: 'GET',
+  });
+}
+
+/**
  * 更新角色设置
  */
 export async function upsertCharacterSetting(
@@ -122,10 +149,49 @@ export async function upsertCharacterSetting(
 }
 
 /**
+ * 更新指定用户的角色设置
+ */
+export async function upsertCharacterSettingForUser(
+  id: number,
+  targetUserId: number,
+  data: UpsertCharacterSettingReq
+): Promise<AiCharacterSetting> {
+  return fetchApi(`/api/v1/ai/characters/${id}/setting?targetUserId=${targetUserId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function upsertDefaultCharacterSetting(
+  id: number,
+  data: UpsertCharacterSettingReq
+): Promise<AiCharacterSetting> {
+  return fetchApi(`/api/v1/ai/characters/${id}/setting?isDefault=true`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
  * 删除角色设置
  */
 export async function deleteCharacterSetting(id: number): Promise<void> {
   return fetchApi(`/api/v1/ai/characters/${id}/setting`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * 删除指定用户的角色设置
+ */
+export async function deleteCharacterSettingForUser(id: number, targetUserId: number): Promise<void> {
+  return fetchApi(`/api/v1/ai/characters/${id}/setting?targetUserId=${targetUserId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function deleteDefaultCharacterSetting(id: number): Promise<void> {
+  return fetchApi(`/api/v1/ai/characters/${id}/setting?isDefault=true`, {
     method: 'DELETE',
   });
 }
