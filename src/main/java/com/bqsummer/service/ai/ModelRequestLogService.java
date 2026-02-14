@@ -1,5 +1,6 @@
 package com.bqsummer.service.ai;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.ModelRequestLog;
 import com.bqsummer.common.dto.ai.RequestType;
@@ -31,7 +32,7 @@ public class ModelRequestLogService {
      * 记录请求日志（独立事务）
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public void logRequest(AiModel model, InferenceRequest request, InferenceResponse response, long duration) {
+    public void logRequest(AiModelBo model, InferenceRequest request, InferenceResponse response, long duration) {
         try {
             // log prompt
             log.info( "模型请求日志: modelId={}, modelName={}, userId={}, prompt={}, durationMs={}, success={}, errorMessage={}",

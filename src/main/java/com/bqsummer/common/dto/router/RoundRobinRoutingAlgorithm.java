@@ -1,5 +1,6 @@
 package com.bqsummer.common.dto.router;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.RoutingStrategy;
@@ -28,13 +29,13 @@ public class RoundRobinRoutingAlgorithm implements RoutingAlgorithm {
     }
     
     @Override
-    public AiModel select(RoutingStrategy strategy, List<AiModel> models, InferenceRequest request) {
+    public AiModelBo select(RoutingStrategy strategy, List<AiModelBo> models, InferenceRequest request) {
         if (models.isEmpty()) {
             return null;
         }
         
         int index = Math.abs(counter.getAndIncrement() % models.size());
-        AiModel selected = models.get(index);
+        AiModelBo selected = models.get(index);
         
         log.debug("轮询路由选择: strategyId={}, selectedModelId={}, index={}/{}", 
                 strategy.getId(), selected.getId(), index, models.size());

@@ -1,7 +1,9 @@
 package com.bqsummer.service.ai;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.configuration.Configs;
+import com.bqsummer.mapstruct.ai.AiModelStructMapper;
 import com.bqsummer.service.ai.adapter.ModelAdapter;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
@@ -35,7 +37,8 @@ public class ModelHealthService {
     private final Configs configs;
 
     private static final String HEALTH_CHECK_PROMPT = "ping";
-    
+    private final AiModelStructMapper aiModelStructMapper;
+
     public void performHealthCheck(Long modelId) {
         AiModel model = aiModelMapper.selectById(modelId);
         if (model == null) {
@@ -52,7 +55,7 @@ public class ModelHealthService {
         
         try {
             // 选择适配器
-            ModelAdapter adapter = selectAdapter(model);
+            ModelAdapter adapter = selectAdapter(aiModelStructMapper.toBo(model));
             if (adapter == null) {
                 errorMessage = "没有可用的适配器";
                 recordHealthCheck(modelId, false, 0, errorMessage);
@@ -65,7 +68,7 @@ public class ModelHealthService {
             request.setMaxTokens(10);
             request.setTemperature(0.0);
             
-            InferenceResponse response = adapter.chat(model, request);
+            InferenceResponse response = adapter.chat(aiModelStructMapper.toBo(model), request);
             
             responseTime = (int) (System.currentTimeMillis() - startTime);
             success = response.getSuccess();
@@ -190,7 +193,7 @@ public class ModelHealthService {
     /**
      * 选择适配器
      */
-    private ModelAdapter selectAdapter(AiModel model) {
+    private ModelAdapter selectAdapter(AiModelBo model) {
         for (ModelAdapter adapter : adapters) {
             if (adapter.supports(model)) {
                 return adapter;

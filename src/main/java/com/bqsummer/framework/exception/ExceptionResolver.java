@@ -69,13 +69,19 @@ public class ExceptionResolver {
             ServletRequestBindingException.class,
             ConversionNotSupportedException.class,
             MissingServletRequestPartException.class,
-            AsyncRequestTimeoutException.class,
             ValidationException.class
     })
     public ResponseEntity<Response<?>> handleServletException(Exception e) {
         log.warn("Bad request: {}", e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Response.fail(COMMON_SERVER_ERROR_CODE, COMMON_SERVER_ERROR_MESSAGE, e.getMessage()));
+    }
+
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public ResponseEntity<Response<?>> handleAsyncTimeout(AsyncRequestTimeoutException e) {
+        log.info("Request timeout: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT)
+                .body(Response.fail(COMMON_CLIENT_ERROR_CODE, REQUEST_ERROR_MESSAGE, "request timeout"));
     }
 
     // 认证失败 -> 401，并打印日志

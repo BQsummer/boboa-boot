@@ -1,5 +1,6 @@
 package com.bqsummer.service.ai.adapter;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
 import com.bqsummer.common.dto.ai.AiModel;
@@ -20,13 +21,13 @@ import java.util.UUID;
 public class GenericAdapter implements ModelAdapter {
     
     @Override
-    public boolean supports(AiModel model) {
+    public boolean supports(AiModelBo model) {
         // 通用适配器不参与常规匹配，避免抢占专用适配器
         return false;
     }
     
     @Override
-    public InferenceResponse chat(AiModel model, InferenceRequest request) {
+    public InferenceResponse chat(AiModelBo model, InferenceRequest request) {
         String requestId = UUID.randomUUID().toString();
         
         log.warn("使用通用适配器: modelId={}, provider={}, 可能需要实现专用适配器", 

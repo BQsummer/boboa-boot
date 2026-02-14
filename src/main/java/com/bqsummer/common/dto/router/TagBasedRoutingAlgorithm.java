@@ -2,6 +2,7 @@ package com.bqsummer.common.dto.router;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.RoutingStrategy;
@@ -29,7 +30,7 @@ public class TagBasedRoutingAlgorithm implements RoutingAlgorithm {
     }
     
     @Override
-    public AiModel select(RoutingStrategy strategy, List<AiModel> models, InferenceRequest request) {
+    public AiModelBo select(RoutingStrategy strategy, List<AiModelBo> models, InferenceRequest request) {
         if (models.isEmpty()) {
             return null;
         }
@@ -43,7 +44,7 @@ public class TagBasedRoutingAlgorithm implements RoutingAlgorithm {
         }
         
         // 过滤出包含所有必需标签的模型
-        List<AiModel> matchedModels = models.stream()
+        List<AiModelBo> matchedModels = models.stream()
                 .filter(model -> model.getTags() != null && model.getTags().containsAll(requiredTags))
                 .collect(Collectors.toList());
         
@@ -54,7 +55,7 @@ public class TagBasedRoutingAlgorithm implements RoutingAlgorithm {
             return models.get(0);
         }
         
-        AiModel selected = matchedModels.get(0);
+        AiModelBo selected = matchedModels.get(0);
         log.debug("标签路由选择: strategyId={}, selectedModelId={}, tags={}", 
                 strategy.getId(), selected.getId(), selected.getTags());
         

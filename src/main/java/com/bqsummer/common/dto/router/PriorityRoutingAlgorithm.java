@@ -1,5 +1,6 @@
 package com.bqsummer.common.dto.router;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.RoutingStrategy;
@@ -24,14 +25,14 @@ public class PriorityRoutingAlgorithm implements RoutingAlgorithm {
     }
     
     @Override
-    public AiModel select(RoutingStrategy strategy, List<AiModel> models, InferenceRequest request) {
+    public AiModelBo select(RoutingStrategy strategy, List<AiModelBo> models, InferenceRequest request) {
         if (models.isEmpty()) {
             return null;
         }
         
         // 注意：models 列表应该已经按 priority 排序（由 ModelRoutingService 提供）
         // 选择第一个（最高优先级）
-        AiModel selected = models.get(0);
+        AiModelBo selected = models.get(0);
         
         log.debug("优先级路由选择: strategyId={}, selectedModelId={}", 
                 strategy.getId(), selected.getId());

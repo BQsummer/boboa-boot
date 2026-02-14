@@ -1,6 +1,7 @@
 package com.bqsummer.service.ai;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.RoutingStrategy;
 import com.bqsummer.common.dto.ai.StrategyModelRelation;
@@ -10,6 +11,7 @@ import com.bqsummer.exception.RoutingException;
 import com.bqsummer.mapper.AiModelMapper;
 import com.bqsummer.mapper.RoutingStrategyMapper;
 import com.bqsummer.mapper.StrategyModelRelationMapper;
+import com.bqsummer.mapstruct.ai.AiModelStructMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,8 +33,9 @@ public class ModelRoutingService {
     private final StrategyModelRelationMapper relationMapper;
     private final AiModelMapper aiModelMapper;
     private final List<RoutingAlgorithm> algorithms;
+    private final AiModelStructMapper aiModelStructMapper;
 
-    public AiModel selectModel(Long strategyId, InferenceRequest request) {
+    public AiModelBo selectModel(Long strategyId, InferenceRequest request) {
         RoutingStrategy strategy = routingStrategyMapper.selectById(strategyId);
         if (strategy == null) {
             throw new RoutingException("路由策略不存在: " + strategyId);
@@ -41,13 +44,13 @@ public class ModelRoutingService {
             throw new RoutingException("路由策略已禁用: " + strategyId);
         }
 
-        List<AiModel> models = getModelsForStrategy(strategyId);
+        List<AiModelBo> models = getModelsForStrategy(strategyId);
         if (models.isEmpty()) {
             throw new RoutingException("策略下没有可用的模型: " + strategyId);
         }
 
         RoutingAlgorithm algorithm = selectAlgorithm(strategy);
-        AiModel selected = algorithm.select(strategy, models, request);
+        AiModelBo selected = algorithm.select(strategy, models, request);
         if (selected == null) {
             throw new RoutingException("路由算法未返回有效模型: " + strategy.getName());
         }
@@ -57,7 +60,7 @@ public class ModelRoutingService {
         return selected;
     }
 
-    public AiModel selectModelByDefault(InferenceRequest request) {
+    public AiModelBo selectModelByDefault(InferenceRequest request) {
         LambdaQueryWrapper<RoutingStrategy> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoutingStrategy::getIsDefault, true)
                 .eq(RoutingStrategy::getEnabled, true)
@@ -78,7 +81,7 @@ public class ModelRoutingService {
         return strategy;
     }
 
-    private List<AiModel> getModelsForStrategy(Long strategyId) {
+    private List<AiModelBo> getModelsForStrategy(Long strategyId) {
         LambdaQueryWrapper<StrategyModelRelation> relationQuery = new LambdaQueryWrapper<>();
         relationQuery.eq(StrategyModelRelation::getStrategyId, strategyId)
                 .orderByDesc(StrategyModelRelation::getPriority);
@@ -105,15 +108,17 @@ public class ModelRoutingService {
         List<AiModel> models = aiModelMapper.selectList(modelQuery);
 
         return models.stream()
+                .map(model -> {
+                    StrategyModelRelation relation = relationMap.get(model.getId());
+                    AiModelBo enriched = aiModelStructMapper.toBo(model);
+                    if (relation != null) {
+                        enriched.setWeight(relation.getWeight());
+                    }
+                    return enriched;
+                })
                 .sorted(Comparator.comparing(
                         model -> relationMap.getOrDefault(model.getId(), new StrategyModelRelation()).getPriority(),
                         Comparator.nullsLast(Comparator.reverseOrder())))
-                .peek(model -> {
-                    StrategyModelRelation relation = relationMap.get(model.getId());
-                    if (relation != null && relation.getWeight() != null) {
-                        model.setWeight(relation.getWeight());
-                    }
-                })
                 .collect(Collectors.toList());
     }
 

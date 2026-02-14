@@ -2,6 +2,7 @@ package com.bqsummer.service.ai.adapter;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
@@ -37,7 +38,7 @@ public class QwenAdapter implements ModelAdapter {
     }
 
     @Override
-    public InferenceResponse chat(AiModel model, InferenceRequest request) {
+    public InferenceResponse chat(AiModelBo model, InferenceRequest request) {
         long startTime = System.currentTimeMillis();
         String requestId = UUID.randomUUID().toString();
 
@@ -74,7 +75,7 @@ public class QwenAdapter implements ModelAdapter {
 
             HttpEntity<Map<String, Object>> httpEntity = new HttpEntity<>(requestBody, headers);
 
-            String url = model.getApiEndpoint() + "/chat/completions";
+            String url = resolveChatCompletionsUrl(model);
             ResponseEntity<String> responseEntity = restTemplate.postForEntity(url, httpEntity, String.class);
 
             JSONObject responseJson = JSON.parseObject(responseEntity.getBody());

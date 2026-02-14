@@ -1,6 +1,7 @@
 package com.bqsummer.service.robot;
 
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.im.Message;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.RobotTaskExecutionLog;
@@ -283,7 +284,7 @@ public class RobotTaskExecutor {
                     payload.getReceiverId(), payload.getModelId());
 
             // 2. US1: 使用路由策略选择模型
-            AiModel selectedModel = null;
+            AiModelBo selectedModel = null;
             try {
                 InferenceRequest tempRequest = new InferenceRequest();
                 tempRequest.setPrompt(payload.getContent());
@@ -295,7 +296,7 @@ public class RobotTaskExecutor {
                 log.warn("默认路由策略失败: {}, 降级使用payload中的modelId={}",
                         e.getMessage(), payload.getModelId());
                 if (payload.getModelId() != null) {
-                    selectedModel = new AiModel();
+                    selectedModel = new AiModelBo();
                     selectedModel.setId(payload.getModelId());
                     log.info("降级使用payload中的模型: modelId={}", selectedModel.getId());
                 } else {

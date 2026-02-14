@@ -1,5 +1,6 @@
 package com.bqsummer.service.ai.adapter;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
@@ -7,12 +8,15 @@ import com.bqsummer.util.EncryptionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.model.SimpleApiKey;
+import org.springframework.ai.model.NoopApiKey;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import java.util.Set;
 import java.util.UUID;
@@ -35,7 +39,7 @@ public class OpenAiAdapter implements ModelAdapter {
     }
 
     @Override
-    public InferenceResponse chat(AiModel model, InferenceRequest request) {
+    public InferenceResponse chat(AiModelBo model, InferenceRequest request) {
         long startTime = System.currentTimeMillis();
         String requestId = UUID.randomUUID().toString();
 
@@ -47,13 +51,19 @@ public class OpenAiAdapter implements ModelAdapter {
             if (encryptionUtil != null) {
                 apiKey = encryptionUtil.decrypt(apiKey);
             }
+            String bearerToken = ensureBearerToken(apiKey);
+
+            MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
+            headers.add(HttpHeaders.AUTHORIZATION, bearerToken);
 
             OpenAiApi openAiApi = OpenAiApi.builder()
-                    .apiKey(new SimpleApiKey(apiKey))
+                    .baseUrl(resolveOpenAiBaseUrl(model))
+                    .apiKey(new NoopApiKey())
+                    .headers(headers)
                     .build();
 
             OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
-                    .model(model.getVersion());
+                    .model(model.getName());
 
             if (request.getTemperature() != null) {
                 optionsBuilder.temperature(request.getTemperature());
@@ -119,5 +129,16 @@ public class OpenAiAdapter implements ModelAdapter {
     @Override
     public String getName() {
         return "OpenAI Adapter";
+    }
+
+    private String ensureBearerToken(String tokenOrApiKey) {
+        if (tokenOrApiKey == null || tokenOrApiKey.trim().isEmpty()) {
+            throw new IllegalArgumentException("OpenAI token cannot be blank");
+        }
+        String normalized = tokenOrApiKey.trim();
+        if (normalized.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return normalized;
+        }
+        return "Bearer " + normalized;
     }
 }

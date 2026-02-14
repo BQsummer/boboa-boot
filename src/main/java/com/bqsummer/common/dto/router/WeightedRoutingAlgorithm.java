@@ -1,5 +1,6 @@
 package com.bqsummer.common.dto.router;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.RoutingStrategy;
 import com.bqsummer.common.dto.ai.StrategyType;
@@ -27,20 +28,20 @@ public class WeightedRoutingAlgorithm implements RoutingAlgorithm {
     }
 
     @Override
-    public AiModel select(RoutingStrategy strategy, List<AiModel> models, InferenceRequest request) {
+    public AiModelBo select(RoutingStrategy strategy, List<AiModelBo> models, InferenceRequest request) {
         if (models.isEmpty()) {
             return null;
         }
 
-        for (AiModel model : models) {
+        for (AiModelBo model : models) {
             Integer weight = model.getWeight();
             if (weight == null || weight < 1 || weight > 100) {
-                throw new RoutingException("模型权重必须在1到100之间: modelId=" + model.getId());
+                throw new RoutingException("模型权重必须在1到100之间: modelId=" + model.getId() + "，权重：" + weight);
             }
         }
 
         int totalWeight = models.stream()
-                .mapToInt(AiModel::getWeight)
+                .mapToInt(AiModelBo::getWeight)
                 .sum();
         if (totalWeight != REQUIRED_TOTAL_WEIGHT) {
             throw new RoutingException("加权策略模型权重总和必须为100，当前为: " + totalWeight);
@@ -48,7 +49,7 @@ public class WeightedRoutingAlgorithm implements RoutingAlgorithm {
 
         int randomWeight = random.nextInt(totalWeight);
         int currentWeight = 0;
-        for (AiModel model : models) {
+        for (AiModelBo model : models) {
             currentWeight += model.getWeight();
             if (randomWeight < currentWeight) {
                 log.debug("权重路由选择: strategyId={}, selectedModelId={}, weight={}/{}",

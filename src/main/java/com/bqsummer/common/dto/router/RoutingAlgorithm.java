@@ -1,5 +1,6 @@
 package com.bqsummer.common.dto.router;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.RoutingStrategy;
@@ -30,7 +31,7 @@ public interface RoutingAlgorithm {
      * @param request 推理请求
      * @return 选中的模型
      */
-    AiModel select(RoutingStrategy strategy, List<AiModel> models, InferenceRequest request);
+    AiModelBo select(RoutingStrategy strategy, List<AiModelBo> models, InferenceRequest request);
     
     /**
      * 获取算法名称

@@ -1,5 +1,6 @@
 package com.bqsummer.service.ai.adapter;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
@@ -15,7 +16,7 @@ public interface ModelAdapter {
     /**
      * Whether this adapter supports the given model.
      */
-    default boolean supports(AiModel model) {
+    default boolean supports(AiModelBo model) {
         if (model == null || model.getProvider() == null) {
             return false;
         }
@@ -36,9 +37,52 @@ public interface ModelAdapter {
     }
 
     /**
+     * Resolve and normalize API endpoint from model config.
+     */
+    default String resolveApiEndpoint(AiModelBo model) {
+        if (model == null || model.getApiEndpoint() == null) {
+            throw new IllegalArgumentException("Model apiEndpoint is required");
+        }
+
+        String endpoint = model.getApiEndpoint().trim();
+        if (endpoint.isEmpty()) {
+            throw new IllegalArgumentException("Model apiEndpoint is required");
+        }
+
+        while (endpoint.endsWith("/")) {
+            endpoint = endpoint.substring(0, endpoint.length() - 1);
+        }
+        return endpoint;
+    }
+
+    /**
+     * Resolve base URL for Spring AI OpenAI client.
+     * Spring AI appends version path internally, so endpoint suffix "/v1" must be removed.
+     */
+    default String resolveOpenAiBaseUrl(AiModelBo model) {
+        String endpoint = resolveApiEndpoint(model);
+        if (endpoint.endsWith("/v1")) {
+            return endpoint.substring(0, endpoint.length() - 3);
+        }
+        return endpoint;
+    }
+
+    /**
+     * Resolve chat completions URL for manual HTTP requests.
+     * Supports both endpoint styles: ".../v1" and "...".
+     */
+    default String resolveChatCompletionsUrl(AiModelBo model) {
+        String endpoint = resolveApiEndpoint(model);
+        if (endpoint.endsWith("/v1")) {
+            return endpoint + "/chat/completions";
+        }
+        return endpoint + "/v1/chat/completions";
+    }
+
+    /**
      * Execute chat inference.
      */
-    InferenceResponse chat(AiModel model, InferenceRequest request);
+    InferenceResponse chat(AiModelBo model, InferenceRequest request);
 
     /**
      * Adapter display name.

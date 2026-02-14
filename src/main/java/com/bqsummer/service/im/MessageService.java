@@ -36,7 +36,9 @@ public class MessageService {
 
     private final Map<Long, Sinks.Many<String>> userNotifiers = new ConcurrentHashMap<>();
 
-    private static final Duration LONG_POLL_TIMEOUT = Duration.ofSeconds(30);
+    // Keep business long-poll timeout shorter than servlet async timeout
+    // to avoid AsyncRequestTimeoutException at the container layer.
+    private static final Duration LONG_POLL_TIMEOUT = Duration.ofSeconds(25);
 
     private final MessageRepository messageRepository;
     private final com.bqsummer.mapper.ConversationMapper conversationMapper;

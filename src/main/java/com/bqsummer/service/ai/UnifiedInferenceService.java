@@ -1,6 +1,8 @@
 package com.bqsummer.service.ai;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.bqsummer.common.bo.ai.AiModelBo;
+import com.bqsummer.mapstruct.ai.AiModelStructMapper;
 import com.bqsummer.service.ai.adapter.ModelAdapter;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
@@ -27,7 +29,8 @@ public class UnifiedInferenceService {
     private final List<ModelAdapter> adapters;
     private final ModelRoutingService routingService;
     private final ModelRequestLogService requestLogService;
-    
+    private final AiModelStructMapper aiModelStructMapper;
+
     public InferenceResponse chat(InferenceRequest request) {
         return executeInference(request, null);
     }
@@ -41,7 +44,7 @@ public class UnifiedInferenceService {
      */
     private InferenceResponse executeInference(InferenceRequest request, Long strategyId) {
         long startTime = System.currentTimeMillis();
-        AiModel model = null;
+        AiModelBo model = null;
         InferenceResponse response = null;
         
         try {
@@ -89,7 +92,7 @@ public class UnifiedInferenceService {
     /**
      * 选择模型
      */
-    private AiModel selectModel(InferenceRequest request, Long strategyId) {
+    private AiModelBo selectModel(InferenceRequest request, Long strategyId) {
         if (request.getModelId() != null) {
             // 指定模型 ID，直接使用
             AiModel model = aiModelMapper.selectById(request.getModelId());
@@ -99,7 +102,7 @@ public class UnifiedInferenceService {
             if (!model.getEnabled()) {
                 throw new RoutingException("模型已禁用: " + request.getModelId());
             }
-            return model;
+            return aiModelStructMapper.toBo(model);
         }
         
         if (strategyId != null) {
@@ -120,10 +123,10 @@ public class UnifiedInferenceService {
     /**
      * 回退的模型选择逻辑
      */
-    private AiModel selectModelFallback() {
+    private AiModelBo selectModelFallback() {
         LambdaQueryWrapper<AiModel> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(AiModel::getEnabled, true)
-                    .orderByDesc(AiModel::getWeight)
+                    .orderByDesc(AiModel::getUpdatedAt)
                     .last("LIMIT 1");
         
         AiModel model = aiModelMapper.selectOne(queryWrapper);
@@ -131,13 +134,13 @@ public class UnifiedInferenceService {
             throw new RoutingException("没有可用的模型");
         }
         
-        return model;
+        return aiModelStructMapper.toBo(model);
     }
     
     /**
      * 选择适配器
      */
-    private ModelAdapter selectAdapter(AiModel model) {
+    private ModelAdapter selectAdapter(AiModelBo model) {
         for (ModelAdapter adapter : adapters) {
             if (adapter.supports(model)) {
                 log.debug("选择适配器: adapter={}, modelId={}", adapter.getName(), model.getId());
@@ -151,7 +154,7 @@ public class UnifiedInferenceService {
     /**
      * 执行推理（带重试）
      */
-    private InferenceResponse executeWithRetry(ModelAdapter adapter, AiModel model, InferenceRequest request) {
+    private InferenceResponse executeWithRetry(ModelAdapter adapter, AiModelBo model, InferenceRequest request) {
         int maxRetries = 1;
         InferenceResponse lastResponse = null;
         

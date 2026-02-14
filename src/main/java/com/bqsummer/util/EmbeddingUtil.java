@@ -129,7 +129,7 @@ public class EmbeddingUtil {
                 new LambdaQueryWrapper<AiModel>()
                         .eq(AiModel::getModelType, ModelType.EMBEDDING)
                         .eq(AiModel::getEnabled, true)
-                        .orderByDesc(AiModel::getWeight)
+                        .orderByDesc(AiModel::getUpdatedAt)
                         .last("LIMIT 1")
         );
         

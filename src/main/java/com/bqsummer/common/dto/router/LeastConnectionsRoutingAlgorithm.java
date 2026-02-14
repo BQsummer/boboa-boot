@@ -1,5 +1,6 @@
 package com.bqsummer.common.dto.router;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.RoutingStrategy;
@@ -15,9 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 最少连接路由算法
  * 选择当前活跃请求数最少的模型
- * 
- * @author Boboa Boot Team
- * @date 2025-10-21
+ *
  */
 @Slf4j
 @Component
@@ -32,16 +31,16 @@ public class LeastConnectionsRoutingAlgorithm implements RoutingAlgorithm {
     }
     
     @Override
-    public AiModel select(RoutingStrategy strategy, List<AiModel> models, InferenceRequest request) {
+    public AiModelBo select(RoutingStrategy strategy, List<AiModelBo> models, InferenceRequest request) {
         if (models.isEmpty()) {
             return null;
         }
         
         // 找到连接数最少的模型
-        AiModel selected = models.get(0);
+        AiModelBo selected = models.get(0);
         int minConnections = getConnectionCount(selected.getId());
         
-        for (AiModel model : models) {
+        for (AiModelBo model : models) {
             int count = getConnectionCount(model.getId());
             if (count < minConnections) {
                 minConnections = count;

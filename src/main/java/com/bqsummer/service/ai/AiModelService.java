@@ -60,11 +60,7 @@ public class AiModelService {
         // 加密 API Key
         String encryptedApiKey = encryptionUtil.encrypt(request.getApiKey());
         model.setApiKey(encryptedApiKey);
-        
-        // 设置默认值
-        if (model.getWeight() == null) {
-            model.setWeight(1);
-        }
+
         if (model.getEnabled() == null) {
             model.setEnabled(true);
         }
