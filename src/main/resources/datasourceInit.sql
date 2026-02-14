@@ -727,8 +727,10 @@ CREATE TABLE strategy_model_relation (
                                          strategy_id BIGINT NOT NULL,
                                          model_id BIGINT NOT NULL,
                                          priority INT DEFAULT 0,
+                                         weight INT DEFAULT 1,
 
                                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                                          CONSTRAINT uk_strategy_model UNIQUE (strategy_id, model_id)
 );

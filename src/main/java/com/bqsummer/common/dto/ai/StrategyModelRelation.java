@@ -6,7 +6,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 策略模型关联实体类（多对多关系表）
+ * 策略模型关联实体类（多对多关系表�?
  * 对应表：strategy_model_relation
  * 
  * @author Boboa Boot Team
@@ -35,14 +35,27 @@ public class StrategyModelRelation {
     private Long modelId;
     
     /**
-     * 优先级（用于 PRIORITY 策略，数值越大优先级越高）
+     * 优先级（用于 PRIORITY 策略，数值越大优先级越高�?
      */
     @TableField("priority")
     private Integer priority;
+
+    /**
+     * 权重（范围：1-100，用�?WEIGHTED 策略�?     */
+    @TableField("weight")
+    private Integer weight;
     
     /**
      * 创建时间
      */
     @TableField("created_at")
     private LocalDateTime createdAt;
+
+    /**
+     * ����ʱ��
+     */
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
 }
+
+

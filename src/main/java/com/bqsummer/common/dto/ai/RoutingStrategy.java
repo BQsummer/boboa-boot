@@ -1,7 +1,7 @@
 package com.bqsummer.common.dto.ai;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.bqsummer.framework.handler.PgJsonStringTypeHandler;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -42,7 +42,7 @@ public class RoutingStrategy {
     /**
      * 策略配置（JSON格式）
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "config", typeHandler = PgJsonStringTypeHandler.class)
     private String config;
     
     /**
