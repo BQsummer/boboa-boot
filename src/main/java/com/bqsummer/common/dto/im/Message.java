@@ -6,7 +6,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("`message`")
+@TableName("message")
 public class Message {
 
     private Long id;

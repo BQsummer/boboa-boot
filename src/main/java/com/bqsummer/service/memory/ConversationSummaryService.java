@@ -1,6 +1,5 @@
 package com.bqsummer.service.memory;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bqsummer.common.dto.memory.ConversationMessage;
 import com.bqsummer.common.dto.memory.ConversationSummary;
 import com.bqsummer.common.dto.memory.SummaryJson;
@@ -166,17 +165,7 @@ public class ConversationSummaryService {
      * @return 消息列表（按时间升序）
      */
     private List<ConversationMessage> getMessagesForSummary(Long userId, Long aiCharacterId, Long startMessageId) {
-        LambdaQueryWrapper<ConversationMessage> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(ConversationMessage::getUserId, userId)
-                .eq(ConversationMessage::getAiCharacterId, aiCharacterId);
-        
-        if (startMessageId != null) {
-            queryWrapper.gt(ConversationMessage::getId, startMessageId);
-        }
-        
-        queryWrapper.orderByAsc(ConversationMessage::getCreatedAt);
-        
-        return messageMapper.selectList(queryWrapper);
+        return messageMapper.findMessagesForSummary(userId, aiCharacterId, startMessageId);
     }
 
     /**

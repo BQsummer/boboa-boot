@@ -39,6 +39,10 @@ export interface CreateModelReq {
   enabled?: boolean;
 }
 
+export interface UpdateModelReq extends Omit<CreateModelReq, 'apiKey'> {
+  apiKey?: string;
+}
+
 export interface ModelQueryReq {
   page?: number;
   pageSize?: number;
@@ -104,6 +108,16 @@ export async function listModelCodes(): Promise<string[]> {
 }
 
 /**
+ * List model provider codes from adapters
+ */
+export async function listModelProviders(): Promise<string[]> {
+  const result = await fetchApi<ApiResult<string[]>>('/api/v1/models/providers', {
+    method: 'GET',
+  });
+  return unwrap(result) || [];
+}
+
+/**
  * Get model detail
  */
 export async function getModel(id: number): Promise<ModelResponse> {
@@ -116,7 +130,7 @@ export async function getModel(id: number): Promise<ModelResponse> {
 /**
  * Update model
  */
-export async function updateModel(id: number, data: CreateModelReq): Promise<ModelResponse> {
+export async function updateModel(id: number, data: UpdateModelReq): Promise<ModelResponse> {
   const result = await fetchApi<ApiResult<ModelResponse>>(`/api/v1/models/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),

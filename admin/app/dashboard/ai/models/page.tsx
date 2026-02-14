@@ -8,7 +8,9 @@ import {
   ModelType,
   ModelResponse,
   CreateModelReq,
+  UpdateModelReq,
   listModels,
+  listModelProviders,
   createModel,
   updateModel,
   deleteModel,
@@ -44,6 +46,7 @@ export default function ModelsPage() {
   const [filterProvider, setFilterProvider] = useState('');
   const [filterModelType, setFilterModelType] = useState<ModelType | ''>('');
   const [filterEnabled, setFilterEnabled] = useState<'ALL' | 'TRUE' | 'FALSE'>('ALL');
+  const [providerOptions, setProviderOptions] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<CreateModelReq>(DEFAULT_FORM);
   const [tagsInput, setTagsInput] = useState('');
@@ -78,6 +81,20 @@ export default function ModelsPage() {
     loadModels();
   }, [loadModels]);
 
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        const providers = await listModelProviders();
+        setProviderOptions(providers || []);
+      } catch (error) {
+        console.error('加载提供商选项失败:', error);
+        setProviderOptions([]);
+      }
+    };
+
+    loadProviders();
+  }, []);
+
   const handleCreate = () => {
     setEditingModel(null);
     setFormData({ ...DEFAULT_FORM });
@@ -107,7 +124,8 @@ export default function ModelsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const payload: CreateModelReq = {
+    const apiKey = formData.apiKey.trim();
+    const basePayload: Omit<CreateModelReq, 'apiKey'> = {
       ...formData,
       parameterCount: formData.parameterCount?.trim() || undefined,
       contextLength:
@@ -126,8 +144,20 @@ export default function ModelsPage() {
 
     try {
       if (editingModel) {
+        const payload: UpdateModelReq = {
+          ...basePayload,
+          apiKey: apiKey || undefined,
+        };
         await updateModel(editingModel.id, payload);
       } else {
+        if (!apiKey) {
+          alert('API Key 不能为空');
+          return;
+        }
+        const payload: CreateModelReq = {
+          ...basePayload,
+          apiKey,
+        };
         await createModel(payload);
       }
 
@@ -171,6 +201,11 @@ export default function ModelsPage() {
     return <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-800">停用</span>;
   };
 
+  const providerOptionsForForm =
+    formData.provider && !providerOptions.includes(formData.provider)
+      ? [formData.provider, ...providerOptions]
+      : providerOptions;
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -182,14 +217,21 @@ export default function ModelsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
             <label className="block text-sm font-medium mb-1">提供商</label>
-            <Input
+            <select
+              className="w-full px-3 py-2 border rounded-md"
               value={filterProvider}
               onChange={(e) => {
                 setFilterProvider(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="例如 OpenAI"
-            />
+            >
+              <option value="">全部提供商</option>
+              {providerOptions.map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">模型类型</label>
@@ -333,12 +375,21 @@ export default function ModelsPage() {
                     <label className="block text-sm font-medium mb-1">
                       提供商 <span className="text-red-500">*</span>
                     </label>
-                    <Input
+                    <select
+                      className="w-full px-3 py-2 border rounded-md"
                       value={formData.provider}
                       onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
                       required
-                      placeholder="例如 OpenAI"
-                    />
+                    >
+                      <option value="" disabled>
+                        请选择提供商
+                      </option>
+                      {providerOptionsForForm.map((provider) => (
+                        <option key={provider} value={provider}>
+                          {provider}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">
@@ -384,8 +435,8 @@ export default function ModelsPage() {
                     type="password"
                     value={formData.apiKey}
                     onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                    required
-                    placeholder={editingModel ? '编辑时需重新填写 API Key' : '请输入 API Key'}
+                    required={!editingModel}
+                    placeholder={editingModel ? '留空表示不更新 API Key' : '请输入 API Key'}
                   />
                 </div>
 

@@ -215,6 +215,9 @@ export default function CharacterDetailPage() {
         <Button variant="outline" onClick={() => router.back()}>
           返回
         </Button>
+        <Button onClick={() => router.push(`/dashboard/business/characters/${characterId}/test`)}>
+          测试对话
+        </Button>
         <h1 className="text-2xl font-bold">角色详情</h1>
       </div>
 

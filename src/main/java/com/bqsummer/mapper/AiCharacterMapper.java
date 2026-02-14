@@ -22,6 +22,17 @@ public interface AiCharacterMapper {
     })
     AiCharacter findById(@Param("id") Long id);
 
+    @Select("SELECT * FROM ai_characters WHERE associated_user_id = #{associatedUserId} AND is_deleted = FALSE LIMIT 1")
+    @Results({
+            @Result(property = "createdByUserId", column = "created_by_user_id"),
+            @Result(property = "imageUrl", column = "image_url"),
+            @Result(property = "isDeleted", column = "is_deleted"),
+            @Result(property = "createdTime", column = "created_time"),
+            @Result(property = "updatedTime", column = "updated_time"),
+            @Result(property = "associatedUserId", column = "associated_user_id")
+    })
+    AiCharacter findByAssociatedUserId(@Param("associatedUserId") Long associatedUserId);
+
     @Select("SELECT * FROM ai_characters WHERE is_deleted = FALSE AND (visibility = 'PUBLIC' OR created_by_user_id = #{userId}) ORDER BY id DESC")
     @Results({
             @Result(property = "createdByUserId", column = "created_by_user_id"),

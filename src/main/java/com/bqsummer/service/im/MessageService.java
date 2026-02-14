@@ -1,16 +1,18 @@
 package com.bqsummer.service.im;
 
 import com.bqsummer.common.dto.auth.User;
+import com.bqsummer.common.dto.character.AiCharacter;
 import com.bqsummer.common.dto.im.Message;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.SendMessagePayload;
 import com.bqsummer.common.vo.req.im.SendMessageRequest;
 import com.bqsummer.configuration.RobotTaskConfiguration;
-import com.bqsummer.mapper.UserMapper;
+import com.bqsummer.mapper.AiCharacterMapper;
 import com.bqsummer.mapper.RobotTaskMapper;
+import com.bqsummer.mapper.UserMapper;
 import com.bqsummer.repository.MessageRepository;
-import com.bqsummer.service.robot.RobotTaskScheduler;
 import com.bqsummer.service.memory.ConversationMessageService;
+import com.bqsummer.service.robot.RobotTaskScheduler;
 import com.bqsummer.util.JsonUtil;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -34,11 +36,11 @@ public class MessageService {
 
     private final Map<Long, Sinks.Many<String>> userNotifiers = new ConcurrentHashMap<>();
 
-    // 长轮询超时时间
     private static final Duration LONG_POLL_TIMEOUT = Duration.ofSeconds(30);
 
     private final MessageRepository messageRepository;
     private final com.bqsummer.mapper.ConversationMapper conversationMapper;
+    private final AiCharacterMapper aiCharacterMapper;
     private final UserMapper userMapper;
     private final RobotTaskMapper robotTaskMapper;
     private final ObjectProvider<RobotTaskScheduler> robotTaskSchedulerProvider;
@@ -47,6 +49,7 @@ public class MessageService {
 
     public MessageService(MessageRepository messageRepository,
                           com.bqsummer.mapper.ConversationMapper conversationMapper,
+                          AiCharacterMapper aiCharacterMapper,
                           UserMapper userMapper,
                           RobotTaskMapper robotTaskMapper,
                           ObjectProvider<RobotTaskScheduler> robotTaskSchedulerProvider,
@@ -54,6 +57,7 @@ public class MessageService {
                           ConversationMessageService conversationMessageService) {
         this.messageRepository = messageRepository;
         this.conversationMapper = conversationMapper;
+        this.aiCharacterMapper = aiCharacterMapper;
         this.userMapper = userMapper;
         this.robotTaskMapper = robotTaskMapper;
         this.robotTaskSchedulerProvider = robotTaskSchedulerProvider;
@@ -63,39 +67,36 @@ public class MessageService {
 
     private Sinks.Many<String> getNotifier(Long userId) {
         return userNotifiers.computeIfAbsent(userId,
-                id -> Sinks.many().unicast().onBackpressureBuffer());
+                id -> Sinks.many().multicast().onBackpressureBuffer(256, false));
     }
 
-    /**
-     * 入库成功后调用，发一个通知事件
-     */
     public void notifyUser(Long userId) {
         getNotifier(userId).tryEmitNext("notify");
     }
 
-    /**
-     * 长轮询接口
-     */
     public Mono<List<Message>> pollMessages(Long userId, long lastSyncId, int limit) {
-        // 数据库查询封装，避免提前执行
         Mono<List<Message>> dbQuery = Mono.fromSupplier(
                 () -> messageRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(userId, lastSyncId, limit)
         );
 
-        // 等待通知事件；超时则走兜底查询。无论是否收到事件，都会执行一次查询。
         return getNotifier(userId).asFlux().next()
                 .timeout(LONG_POLL_TIMEOUT, Mono.just("timeout"))
                 .flatMap(ignored -> dbQuery);
     }
 
-
-
     @Transactional(rollbackFor = Exception.class)
     public void sendMessage(@Valid SendMessageRequest request) {
         Long uid = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        ReceiverResolution receiver = resolveReceiver(request.getReceiverId());
+        if (!isAiUser(receiver.aiUserId())) {
+            log.error("invalid ai receiver: receiverId={}, resolvedAiUserId={}",
+                    request.getReceiverId(), receiver.aiUserId());
+            return;
+        }
+
         Message msg = new Message();
         msg.setSenderId(uid);
-        msg.setReceiverId(request.getReceiverId());
+        msg.setReceiverId(receiver.aiUserId());
         msg.setType(request.getType());
         msg.setContent(request.getContent());
         msg.setStatus("sent");
@@ -103,24 +104,22 @@ public class MessageService {
         msg.setCreatedAt(LocalDateTime.now());
         msg.setUpdatedAt(LocalDateTime.now());
 
-        // 入库
         messageRepository.save(msg);
-        
-        // 【新增】保存到对话记忆系统（US1 MVP功能）
+
         try {
             conversationMessageService.saveMessage(
-                uid,              // userId
-                msg.getReceiverId(),  // aiCharacterId（接收方是AI角色）
-                "USER",           // senderType
-                msg.getContent()  // content
+                    msg.getId(),
+                    uid,
+                    receiver.aiCharacterId(),
+                    "USER",
+                    msg.getContent()
             );
-            log.debug("消息已保存到对话记忆系统: messageId={}", msg.getId());
+            log.debug("message saved to conversation memory: messageId={}, aiCharacterId={}",
+                    msg.getId(), receiver.aiCharacterId());
         } catch (Exception e) {
-            log.error("保存消息到对话记忆系统失败: messageId={}", msg.getId(), e);
-            // 不影响主流程，继续执行
+            log.error("save message to conversation memory failed: messageId={}", msg.getId(), e);
         }
 
-        // 更新会话（发送方、接收方）
         try {
             conversationMapper.upsertSender(uid, msg.getReceiverId(), msg.getId(), msg.getCreatedAt());
             conversationMapper.upsertReceiver(msg.getReceiverId(), uid, msg.getId(), msg.getCreatedAt());
@@ -128,61 +127,40 @@ public class MessageService {
             log.warn("update conversation failed: {}", e.getMessage());
         }
 
-        // 通知接收方有新消息
-        notifyUser(request.getReceiverId());
+        notifyUser(receiver.aiUserId());
 
-        // 新增逻辑：如果接收方是AI用户，创建RobotTask
-        if (isAiUser(request.getReceiverId())) {
-            RobotTask task = createRobotTask(msg, request.getReceiverId());
-            robotTaskMapper.insert(task);
+        RobotTask task = createRobotTask(msg, receiver.aiUserId(), receiver.aiCharacterId());
+        robotTaskMapper.insert(task);
 
-            // 尝试加载到内存队列（使用ObjectProvider延迟获取，避免循环依赖）
-            RobotTaskScheduler robotTaskScheduler = robotTaskSchedulerProvider.getIfAvailable();
-            if (robotTaskScheduler == null) {
-                log.warn("RobotTaskScheduler 未就绪，跳过内存队列加载: taskId={}", task.getId());
-            } else {
-                int loaded = robotTaskScheduler.loadTasks(Collections.singletonList(task));
-                if (loaded == 0) {
-                    log.warn("任务加载失败，队列已满: taskId={}", task.getId());
-                } else {
-                    log.info("任务创建并加载成功: taskId={}, receiverId={}", task.getId(), request.getReceiverId());
-                }
-            }
+        RobotTaskScheduler robotTaskScheduler = robotTaskSchedulerProvider.getIfAvailable();
+        if (robotTaskScheduler == null) {
+            log.warn("RobotTaskScheduler not ready, skip queue load: taskId={}", task.getId());
+            return;
+        }
+
+        int loaded = robotTaskScheduler.loadTasks(Collections.singletonList(task));
+        if (loaded == 0) {
+            log.warn("task load failed, queue full: taskId={}", task.getId());
         } else {
-            log.error("非法的AI用户消息发送请求，receiverId={}", request.getReceiverId());
+            log.info("task created and loaded: taskId={}, receiverId={}, aiCharacterId={}",
+                    task.getId(), receiver.aiUserId(), receiver.aiCharacterId());
         }
     }
 
-    /**
-     * 判断用户是否为AI用户
-     *
-     * @param userId 用户ID
-     * @return true表示AI用户，false表示普通用户
-     */
     private boolean isAiUser(Long userId) {
         User user = userMapper.findById(userId);
         return user != null && "AI".equals(user.getUserType());
     }
 
-    /**
-     * 创建RobotTask任务
-     *
-     * @param msg 消息对象
-     * @param robotId AI用户ID
-     * @return 创建的RobotTask对象
-     */
-    private RobotTask createRobotTask(Message msg, Long robotId) {
-        // 构建action_payload
+    private RobotTask createRobotTask(Message msg, Long robotId, Long aiCharacterId) {
         SendMessagePayload payload = SendMessagePayload.builder()
                 .messageId(msg.getId())
                 .senderId(msg.getSenderId())
-                .receiverId(msg.getReceiverId())
+                .receiverId(aiCharacterId)
                 .content(msg.getContent())
                 .build();
 
-        // 创建RobotTask
         RobotTask task = new RobotTask();
-        // TODO 加个xxx_id字段做索引
         task.setUserId(msg.getSenderId());
         task.setRobotId(robotId);
         task.setTaskType("SHORT_DELAY");
@@ -194,5 +172,22 @@ public class MessageService {
         task.setMaxRetryCount(3);
 
         return task;
+    }
+
+    private ReceiverResolution resolveReceiver(Long receiverId) {
+        AiCharacter character = aiCharacterMapper.findById(receiverId);
+        if (character != null && character.getAssociatedUserId() != null) {
+            return new ReceiverResolution(character.getAssociatedUserId(), character.getId());
+        }
+
+        AiCharacter byAiUser = aiCharacterMapper.findByAssociatedUserId(receiverId);
+        if (byAiUser != null) {
+            return new ReceiverResolution(receiverId, byAiUser.getId());
+        }
+
+        return new ReceiverResolution(receiverId, receiverId);
+    }
+
+    private record ReceiverResolution(Long aiUserId, Long aiCharacterId) {
     }
 }

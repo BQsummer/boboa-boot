@@ -107,6 +107,10 @@ export default function CharactersPage() {
     router.push(`/dashboard/business/characters/${id}`);
   };
 
+  const handleTestChat = (id: number) => {
+    router.push(`/dashboard/business/characters/${id}/test`);
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -160,6 +164,14 @@ export default function CharactersPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleTestChat(character.id)}
+                  className="flex-1"
+                >
+                  测试
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

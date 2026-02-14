@@ -49,7 +49,6 @@ public class ModelRegisterRequest {
     /**
      * API 密钥
      */
-    @NotBlank(message = "API密钥不能为空")
     private String apiKey;
     
     /**

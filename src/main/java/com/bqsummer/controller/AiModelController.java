@@ -98,6 +98,23 @@ public class AiModelController {
 
         return ResponseEntity.ok(result);
     }
+
+    /**
+     * 查询可用模型提供商下拉选项
+     * GET /api/v1/models/providers
+     */
+    @GetMapping("/providers")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> listModelProviders() {
+        List<String> providers = aiModelService.listModelProviders();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("code", 0);
+        result.put("message", "success");
+        result.put("data", providers);
+
+        return ResponseEntity.ok(result);
+    }
     
     /**
      * 查询模型详情

@@ -18,7 +18,7 @@ public class Configs {
      * 任务队列大小
      */
     @ConfigEle(name = "queueSize")
-    public Integer queueSize;
+    public Integer queueSize = 1000;
 
     /**
      * 并发延迟时间，单位秒

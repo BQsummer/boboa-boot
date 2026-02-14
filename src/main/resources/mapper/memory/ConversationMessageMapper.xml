@@ -1,15 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.bqsummer.mapper.memory.ConversationMessageMapper">
-    
-    <!-- 查询最近的消息 -->
+
+    <sql id="pairWhere">
+        is_deleted = FALSE
+        AND (
+            (sender_id = #{userId} AND receiver_id = #{aiCharacterId})
+            OR
+            (sender_id = #{aiCharacterId} AND receiver_id = #{userId})
+        )
+    </sql>
+
     <select id="findRecentMessages" resultType="com.bqsummer.common.dto.memory.ConversationMessage">
-        SELECT id, user_id, ai_character_id, session_id, sender_type, content, created_at, metadata
-        FROM conversation_message
-        WHERE user_id = #{userId}
-          AND ai_character_id = #{aiCharacterId}
-        ORDER BY created_at DESC
+        SELECT id,
+               #{userId} AS user_id,
+               #{aiCharacterId} AS ai_character_id,
+               CASE WHEN sender_id = #{userId} THEN 'USER' ELSE 'AI' END AS sender_type,
+               content,
+               created_at
+        FROM message
+        WHERE <include refid="pairWhere"/>
+        ORDER BY created_at DESC, id DESC
         LIMIT #{limit}
     </select>
-    
+
+    <select id="countMessages" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        FROM message
+        WHERE <include refid="pairWhere"/>
+    </select>
+
+    <select id="countMessagesAfterId" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        FROM message
+        WHERE <include refid="pairWhere"/>
+          AND id &gt; #{startMessageId}
+    </select>
+
+    <select id="findMessagesForSummary" resultType="com.bqsummer.common.dto.memory.ConversationMessage">
+        SELECT id,
+               #{userId} AS user_id,
+               #{aiCharacterId} AS ai_character_id,
+               CASE WHEN sender_id = #{userId} THEN 'USER' ELSE 'AI' END AS sender_type,
+               content,
+               created_at
+        FROM message
+        WHERE <include refid="pairWhere"/>
+          AND (#{startMessageId} IS NULL OR id &gt; #{startMessageId})
+        ORDER BY created_at ASC, id ASC
+    </select>
+
 </mapper>

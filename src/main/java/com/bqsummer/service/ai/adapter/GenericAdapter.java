@@ -21,8 +21,8 @@ public class GenericAdapter implements ModelAdapter {
     
     @Override
     public boolean supports(AiModel model) {
-        // 通用适配器作为兜底，支持所有模型
-        return true;
+        // 通用适配器不参与常规匹配，避免抢占专用适配器
+        return false;
     }
     
     @Override

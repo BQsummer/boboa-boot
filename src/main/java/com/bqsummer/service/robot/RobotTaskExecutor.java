@@ -193,7 +193,7 @@ public class RobotTaskExecutor {
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", task.getId())
                     .eq("status", TaskStatus.PENDING.name())  // 只有PENDING任务可以被领取
-                    .eq("locked_by", null)  // 确保任务未被其他实例领取
+                    .isNull("locked_by")  // 确保任务未被其他实例领取
                     .set("status", TaskStatus.RUNNING.name())
                     .set("locked_by", instanceId)  // 设置所有权
                     .set("started_at", now)

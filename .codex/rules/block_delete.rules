@@ -1,0 +1,19 @@
+# ~/.codex/rules/require_confirm_for_delete.rules
+
+prefix_rule(
+    pattern = ["rm"],
+    decision = "prompt",
+    justification = "该操作会删除文件，是否确认执行？"
+)
+
+prefix_rule(
+    pattern = ["delete"],
+    decision = "prompt",
+    justification = "该操作涉及删除，请确认是否允许"
+)
+
+prefix_rule(
+    pattern = ["del"],
+    decision = "prompt",
+    justification = "删除操作需要用户确认"
+)

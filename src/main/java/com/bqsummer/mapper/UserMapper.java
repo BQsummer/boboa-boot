@@ -63,6 +63,56 @@ public interface UserMapper {
     @Select("SELECT COUNT(*) FROM users WHERE email = #{email}")
     boolean existsByEmail(@Param("email") String email);
 
+    @Select({
+            "<script>",
+            "SELECT * FROM users",
+            "WHERE is_deleted = 0",
+            "AND (user_type = 'REAL' OR user_type IS NULL OR user_type = '')",
+            "<if test='keyword != null and keyword != \"\"'>",
+            "  AND (username LIKE CONCAT('%', #{keyword}, '%')",
+            "       OR COALESCE(nick_name, '') LIKE CONCAT('%', #{keyword}, '%')",
+            "       OR COALESCE(email, '') LIKE CONCAT('%', #{keyword}, '%')",
+            "       OR COALESCE(phone, '') LIKE CONCAT('%', #{keyword}, '%'))",
+            "</if>",
+            "ORDER BY id DESC",
+            "LIMIT #{limit} OFFSET #{offset}",
+            "</script>"
+    })
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "username", column = "username"),
+            @Result(property = "email", column = "email"),
+            @Result(property = "phone", column = "phone"),
+            @Result(property = "password", column = "password"),
+            @Result(property = "avatar", column = "avatar"),
+            @Result(property = "status", column = "status"),
+            @Result(property = "nickName", column = "nick_name"),
+            @Result(property = "isDeleted", column = "is_deleted"),
+            @Result(property = "lastLoginTime", column = "last_login_time"),
+            @Result(property = "createdTime", column = "created_time"),
+            @Result(property = "updatedTime", column = "updated_time"),
+            @Result(property = "userType", column = "user_type"),
+            @Result(property = "roles", column = "id", many = @Many(select = "findRolesByUserId"))
+    })
+    List<User> findPageForAdmin(@Param("keyword") String keyword,
+                                @Param("offset") int offset,
+                                @Param("limit") int limit);
+
+    @Select({
+            "<script>",
+            "SELECT COUNT(*) FROM users",
+            "WHERE is_deleted = 0",
+            "AND (user_type = 'REAL' OR user_type IS NULL OR user_type = '')",
+            "<if test='keyword != null and keyword != \"\"'>",
+            "  AND (username LIKE CONCAT('%', #{keyword}, '%')",
+            "       OR COALESCE(nick_name, '') LIKE CONCAT('%', #{keyword}, '%')",
+            "       OR COALESCE(email, '') LIKE CONCAT('%', #{keyword}, '%')",
+            "       OR COALESCE(phone, '') LIKE CONCAT('%', #{keyword}, '%'))",
+            "</if>",
+            "</script>"
+    })
+    long countForAdmin(@Param("keyword") String keyword);
+
     @Insert("INSERT INTO users (username, email, phone, password, nick_name, status, user_type) " +
             "VALUES (#{username}, #{email}, #{phone}, #{password}, #{nickName}, #{status}, #{userType})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

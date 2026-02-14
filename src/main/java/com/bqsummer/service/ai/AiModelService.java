@@ -11,6 +11,7 @@ import com.bqsummer.exception.ModelNotFoundException;
 import com.bqsummer.exception.ModelValidationException;
 import com.bqsummer.mapper.AiModelMapper;
 import com.bqsummer.mapper.StrategyModelRelationMapper;
+import com.bqsummer.service.ai.adapter.ModelAdapter;
 import com.bqsummer.util.EncryptionUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +37,7 @@ public class AiModelService {
     private final AiModelMapper aiModelMapper;
     private final StrategyModelRelationMapper strategyModelRelationMapper;
     private final EncryptionUtil encryptionUtil;
+    private final List<ModelAdapter> adapters;
     
     @Transactional(rollbackFor = Exception.class)
     public ModelResponse registerModel(ModelRegisterRequest request, Long userId) {
@@ -42,7 +45,7 @@ public class AiModelService {
                 request.getName(), request.getVersion(), request.getProvider());
         
         // 1. 验证必填字段
-        validateRequiredFields(request);
+        validateRequiredFields(request, true);
         
         // 2. 检查唯一性约束（name + version）
         checkUniqueness(request.getName(), request.getVersion());
@@ -126,6 +129,21 @@ public class AiModelService {
                 .sorted(Comparator.naturalOrder())
                 .collect(Collectors.toList());
     }
+
+    public List<String> listModelProviders() {
+        return adapters.stream()
+                .flatMap(adapter -> {
+                    if (adapter.supportedProviders() == null) {
+                        return Stream.empty();
+                    }
+                    return adapter.supportedProviders().stream();
+                })
+                .filter(code -> code != null && !code.trim().isEmpty())
+                .map(String::trim)
+                .distinct()
+                .sorted(Comparator.naturalOrder())
+                .collect(Collectors.toList());
+    }
     
     public ModelResponse getModelById(Long id) {
         log.info("查询模型详情: id={}", id);
@@ -149,7 +167,7 @@ public class AiModelService {
         }
         
         // 2. 验证必填字段
-        validateRequiredFields(request);
+        validateRequiredFields(request, false);
         
         // 3. 如果修改了 name 或 version，检查唯一性
         if (!existingModel.getName().equals(request.getName()) 
@@ -158,10 +176,10 @@ public class AiModelService {
         }
         
         // 4. 更新字段
-        BeanUtils.copyProperties(request, existingModel, "id", "createdBy", "createdAt");
+        BeanUtils.copyProperties(request, existingModel, "id", "createdBy", "createdAt", "apiKey");
         
         // 如果 API Key 发生变化，重新加密
-        if (request.getApiKey() != null && !request.getApiKey().isEmpty()) {
+        if (request.getApiKey() != null && !request.getApiKey().trim().isEmpty()) {
             String encryptedApiKey = encryptionUtil.encrypt(request.getApiKey());
             existingModel.setApiKey(encryptedApiKey);
         }
@@ -205,7 +223,7 @@ public class AiModelService {
     /**
      * 验证必填字段
      */
-    private void validateRequiredFields(ModelRegisterRequest request) {
+    private void validateRequiredFields(ModelRegisterRequest request, boolean requireApiKey) {
         if (request.getName() == null || request.getName().trim().isEmpty()) {
             throw new ModelValidationException("模型名称不能为空");
         }
@@ -221,7 +239,7 @@ public class AiModelService {
         if (request.getApiEndpoint() == null || request.getApiEndpoint().trim().isEmpty()) {
             throw new ModelValidationException("API端点不能为空");
         }
-        if (request.getApiKey() == null || request.getApiKey().trim().isEmpty()) {
+        if (requireApiKey && (request.getApiKey() == null || request.getApiKey().trim().isEmpty())) {
             throw new ModelValidationException("API密钥不能为空");
         }
     }

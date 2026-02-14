@@ -1,36 +1,47 @@
 package com.bqsummer.service.ai.adapter;
 
+import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
-import com.bqsummer.common.dto.ai.AiModel;
+
+import java.util.Collections;
+import java.util.Set;
 
 /**
- * 模型适配器接口
- * 定义统一的模型调用规范
+ * Model adapter abstraction.
  */
 public interface ModelAdapter {
-    
+
     /**
-     * 判断是否支持该模型
-     * 
-     * @param model 模型实例
-     * @return 是否支持
+     * Whether this adapter supports the given model.
      */
-    boolean supports(AiModel model);
-    
+    default boolean supports(AiModel model) {
+        if (model == null || model.getProvider() == null) {
+            return false;
+        }
+
+        String provider = model.getProvider().trim();
+        if (provider.isEmpty()) {
+            return false;
+        }
+
+        return supportedProviders().stream().anyMatch(code -> code.equalsIgnoreCase(provider));
+    }
+
     /**
-     * 执行聊天推理
-     * 
-     * @param model 模型实例
-     * @param request 推理请求
-     * @return 推理响应
+     * Provider codes supported by this adapter.
+     */
+    default Set<String> supportedProviders() {
+        return Collections.emptySet();
+    }
+
+    /**
+     * Execute chat inference.
      */
     InferenceResponse chat(AiModel model, InferenceRequest request);
-    
+
     /**
-     * 获取适配器名称
-     * 
-     * @return 适配器名称
+     * Adapter display name.
      */
     String getName();
 }

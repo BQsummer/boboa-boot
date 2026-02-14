@@ -15,7 +15,7 @@ public interface ConversationMapper extends BaseMapper<Conversation> {
             "m.type AS last_message_type, m.content AS last_message_content, " +
             "u.username AS peer_username, u.nick_name AS peer_nick_name, u.avatar AS peer_avatar " +
             "FROM conversations c " +
-            "LEFT JOIN `message` m ON c.last_message_id = m.id " +
+            "LEFT JOIN message m ON c.last_message_id = m.id " +
             "JOIN users u ON c.peer_id = u.id " +
             "WHERE c.user_id = #{userId} AND c.is_deleted = FALSE " +
             "ORDER BY c.updated_time DESC")

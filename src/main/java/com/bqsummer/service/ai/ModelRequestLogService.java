@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * 模型请求日志服务
@@ -43,6 +44,7 @@ public class ModelRequestLogService {
                     response.getErrorMessage()
             );
             ModelRequestLog logEntry = new ModelRequestLog();
+            logEntry.setRequestId(resolveRequestId(response));
             logEntry.setModelId(model.getId());
             logEntry.setModelName(model.getName());
             logEntry.setRequestType(RequestType.CHAT);
@@ -62,5 +64,13 @@ public class ModelRequestLogService {
             // 日志记录失败不影响推理结果
             log.error("记录请求日志失败: modelId={}, error={}", model.getId(), e.getMessage(), e);
         }
+    }
+
+    private String resolveRequestId(InferenceResponse response) {
+        String requestId = response != null ? response.getRequestId() : null;
+        if (requestId == null || requestId.isBlank()) {
+            requestId = UUID.randomUUID().toString();
+        }
+        return requestId.length() > 64 ? requestId.substring(0, 64) : requestId;
     }
 }
