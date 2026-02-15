@@ -36,9 +36,12 @@ export default function CharacterTestChatPage() {
   const loadHistory = useCallback(async () => {
     const history = await getMessageHistory(characterId, undefined, 100);
     const ordered = [...history].sort((a, b) => a.id - b.id);
-    setMessages(ordered);
-    const maxId = ordered.length > 0 ? ordered[ordered.length - 1].id : 0;
-    lastSyncIdRef.current = maxId;
+    setMessages((prev) => {
+      const merged = mergeMessages(prev, ordered);
+      const maxId = merged.length > 0 ? merged[merged.length - 1].id : 0;
+      lastSyncIdRef.current = Math.max(lastSyncIdRef.current, maxId);
+      return merged;
+    });
   }, [characterId]);
 
   useEffect(() => {
@@ -50,6 +53,8 @@ export default function CharacterTestChatPage() {
       }
       try {
         setLoading(true);
+        setMessages([]);
+        lastSyncIdRef.current = 0;
         const character = await getCharacter(characterId);
         setCharacterName(character.name);
         await loadHistory();
