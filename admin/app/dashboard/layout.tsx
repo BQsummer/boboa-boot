@@ -23,6 +23,7 @@ import {
   UserPlus,
   Mic,
   CalendarClock,
+  FileText,
 } from 'lucide-react';
 
 const menuItems: MenuItem[] = [
@@ -163,6 +164,11 @@ const menuItems: MenuItem[] = [
         title: '用户管理',
         href: '/dashboard/system/users',
         icon: <Users />,
+      },
+      {
+        title: '文件管理',
+        href: '/dashboard/system/files',
+        icon: <FileText />,
       },
     ],
   },
