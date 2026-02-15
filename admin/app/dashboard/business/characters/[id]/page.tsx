@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PromptTemplate, listPromptTemplates } from '@/lib/api/prompt-templates';
 import {
   AiCharacter,
   AiCharacterSetting,
@@ -32,6 +33,12 @@ const EMPTY_FORM: UpsertCharacterSettingReq = {
   background: '',
   language: '',
   customParams: '',
+};
+
+const PROMPT_STATUS_MAP: Record<number, string> = {
+  0: '草稿',
+  1: '启用',
+  2: '停用',
 };
 
 function toForm(setting: AiCharacterSetting | null): UpsertCharacterSettingReq {
@@ -63,6 +70,8 @@ export default function CharacterDetailPage() {
   const [settingsForm, setSettingsForm] = useState<UpsertCharacterSettingReq>({ ...EMPTY_FORM });
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
+  const [promptLoading, setPromptLoading] = useState(true);
 
   const showNotice = (type: Notice['type'], message: string) => setNotice({ type, message });
 
@@ -74,6 +83,7 @@ export default function CharacterDetailPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setPromptLoading(true);
     try {
       const [charData, allSettings] = await Promise.all([
         getCharacter(characterId),
@@ -89,11 +99,19 @@ export default function CharacterDetailPage() {
         const selected = allSettings.find((s) => s.userId === selectedUserId) || null;
         setUserSetting(selected);
       }
+
+      const promptResult = await listPromptTemplates({
+        charId: characterId,
+        page: 1,
+        pageSize: 100,
+      });
+      setPromptTemplates(promptResult.records || []);
     } catch (error) {
       console.error('load character detail failed:', error);
       showNotice('error', '加载失败');
     } finally {
       setLoading(false);
+      setPromptLoading(false);
     }
   }, [characterId, selectedUserId]);
 
@@ -237,6 +255,57 @@ export default function CharacterDetailPage() {
             <div className="text-sm text-gray-600">角色ID: {character.id}</div>
           </div>
         </div>
+      </Card>
+
+      <Card className="p-6 mb-6">
+        <div className="flex items-center justify-between mb-4 gap-4">
+          <h2 className="text-xl font-semibold">关联提示词模板</h2>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/dashboard/ai/prompts?charId=${characterId}`)}
+          >
+            前往模板管理
+          </Button>
+        </div>
+
+        {promptLoading ? (
+          <div className="text-sm text-gray-500">加载中...</div>
+        ) : promptTemplates.length === 0 ? (
+          <div className="text-sm text-gray-500">当前角色暂无关联提示词模板</div>
+        ) : (
+          <div className="space-y-3">
+            <div className="text-sm text-gray-600">共 {promptTemplates.length} 条模板</div>
+            <div className="space-y-2">
+              {promptTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className="border rounded-md p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium">
+                      模板 #{template.id} · V{template.version} · {template.lang}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {template.description?.trim() || '无描述'}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-600 flex gap-2 flex-wrap">
+                    <span className="px-2 py-1 rounded bg-gray-100">
+                      {PROMPT_STATUS_MAP[template.status] || `状态${template.status}`}
+                    </span>
+                    {template.isLatest && (
+                      <span className="px-2 py-1 rounded bg-blue-100 text-blue-700">最新</span>
+                    )}
+                    {template.isStable && (
+                      <span className="px-2 py-1 rounded bg-green-100 text-green-700">稳定</span>
+                    )}
+                    <span>更新: {new Date(template.updatedTime).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card className="p-6">

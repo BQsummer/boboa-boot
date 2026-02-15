@@ -324,7 +324,7 @@ public class RobotTaskExecutor {
                     }
                 } else {
                     // 模板不存在，使用原始消息
-                    log.debug("角色未配置模板，使用原始消息: charId={}", aiCharacterId);
+                    log.error("角色未配置模板，使用原始消息: charId={}", aiCharacterId);
                 }
             } catch (Exception e) {
                 // 查询模板异常，降级到原始消息
