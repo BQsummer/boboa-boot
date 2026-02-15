@@ -493,7 +493,7 @@ COMMENT ON COLUMN long_term_memory.last_accessed_at IS '最后访问时间，用
 **初始化数据**（可选）:
 ```sql
 -- 插入示例 Prompt 模板（用于总结和记忆提取）
-INSERT INTO prompt_template (char_id, description, model_code, lang, content, version, is_latest, is_stable, status)
+INSERT INTO prompt_template (char_id, description, model_code, lang, content, version, is_latest, status)
 VALUES 
 (NULL, '对话总结生成模板', 'gpt-4.1', 'zh-CN', 
  '你是一个对话历史总结助手...', -- (完整 Prompt 见 research.md)

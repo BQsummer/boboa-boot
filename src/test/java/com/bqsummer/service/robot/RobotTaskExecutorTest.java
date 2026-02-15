@@ -622,7 +622,7 @@ class RobotTaskExecutorTest extends BaseTest {
         selectedModel.setName("gpt-4");
         
         when(modelRoutingService.selectModelByDefault(any(InferenceRequest.class))).thenReturn(selectedModel);
-        when(promptTemplateService.getLatestStableByCharId(any())).thenReturn(null);
+        when(promptTemplateService.getLatestByCharId(any())).thenReturn(null);
         
         InferenceResponse mockResponse = new InferenceResponse();
         mockResponse.setSuccess(true);
@@ -669,7 +669,7 @@ class RobotTaskExecutorTest extends BaseTest {
         
         when(modelRoutingService.selectModelByDefault(any(InferenceRequest.class)))
                 .thenThrow(new com.bqsummer.exception.RoutingException("默认路由策略不存在"));
-        when(promptTemplateService.getLatestStableByCharId(any())).thenReturn(null);
+        when(promptTemplateService.getLatestByCharId(any())).thenReturn(null);
         
         InferenceResponse mockResponse = new InferenceResponse();
         mockResponse.setSuccess(true);
@@ -724,7 +724,7 @@ class RobotTaskExecutorTest extends BaseTest {
         AiCharacter mockCharacter = AiCharacter.builder().id(2001L).name("小爱").build();
         
         when(modelRoutingService.selectModelByDefault(any(InferenceRequest.class))).thenReturn(selectedModel);
-        when(promptTemplateService.getLatestStableByCharId(2001L)).thenReturn(template);
+        when(promptTemplateService.getLatestByCharId(2001L)).thenReturn(template);
         when(beetlTemplateService.render(any(String.class), any(Map.class)))
                 .thenReturn("你好张三，欢迎来到小爱的世界！你说：你好");
         when(userMapper.findById(1001L)).thenReturn(mockUser);
@@ -759,7 +759,7 @@ class RobotTaskExecutorTest extends BaseTest {
         InferenceRequest capturedRequest = requestCaptor.getValue();
         assertEquals("你好张三，欢迎来到小爱的世界！你说：你好", capturedRequest.getPrompt(), 
                 "应该使用模板渲染后的提示词");
-        verify(promptTemplateService).getLatestStableByCharId(2001L);
+        verify(promptTemplateService).getLatestByCharId(2001L);
         verify(beetlTemplateService).render(any(String.class), any(Map.class));
     }
     
@@ -779,7 +779,7 @@ class RobotTaskExecutorTest extends BaseTest {
         selectedModel.setId(100L);
         
         when(modelRoutingService.selectModelByDefault(any(InferenceRequest.class))).thenReturn(selectedModel);
-        when(promptTemplateService.getLatestStableByCharId(2001L)).thenReturn(null);  // 模板不存在
+        when(promptTemplateService.getLatestByCharId(2001L)).thenReturn(null);  // 模板不存在
         
         InferenceResponse mockResponse = new InferenceResponse();
         mockResponse.setSuccess(true);
@@ -809,7 +809,7 @@ class RobotTaskExecutorTest extends BaseTest {
         
         InferenceRequest capturedRequest = requestCaptor.getValue();
         assertEquals("原始消息内容", capturedRequest.getPrompt(), "模板不存在时应该使用原始消息内容");
-        verify(promptTemplateService).getLatestStableByCharId(2001L);
+        verify(promptTemplateService).getLatestByCharId(2001L);
         verify(beetlTemplateService, never()).render(any(), any());  // 不应调用渲染
     }
     
@@ -833,7 +833,7 @@ class RobotTaskExecutorTest extends BaseTest {
         template.setContent("错误的模板${invalidSyntax");
         
         when(modelRoutingService.selectModelByDefault(any(InferenceRequest.class))).thenReturn(selectedModel);
-        when(promptTemplateService.getLatestStableByCharId(2001L)).thenReturn(template);
+        when(promptTemplateService.getLatestByCharId(2001L)).thenReturn(template);
         when(beetlTemplateService.render(any(String.class), any(Map.class)))
                 .thenThrow(new RuntimeException("模板语法错误"));
         when(userMapper.findById(any())).thenReturn(User.builder().id(1001L).nickName("测试").build());

@@ -391,8 +391,8 @@ class PromptTemplateServiceTest {
     class GetLatestStableByCharIdTests {
 
         @Test
-        @DisplayName("getLatestStableByCharId - 存在最新稳定模板")
-        void getLatestStableByCharId_TemplateExists_ShouldReturnTemplate() {
+        @DisplayName("getLatestByCharId - 存在最新稳定模板")
+        void getLatestByCharId_TemplateExists_ShouldReturnTemplate() {
             // Given
             Long charId = 1L;
             PromptTemplate mockTemplate = new PromptTemplate();
@@ -401,35 +401,33 @@ class PromptTemplateServiceTest {
             mockTemplate.setContent("你好，${userName}！");
             mockTemplate.setVersion(3);
             mockTemplate.setIsLatest(true);
-            mockTemplate.setIsStable(true);
             mockTemplate.setIsDeleted(false);
             mockTemplate.setStatus(TemplateStatus.ENABLED.getCode());
             
             when(promptTemplateMapper.selectOne(any())).thenReturn(mockTemplate);
 
             // When
-            PromptTemplate result = promptTemplateService.getLatestStableByCharId(charId);
+            PromptTemplate result = promptTemplateService.getLatestByCharId(charId);
 
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(100L);
             assertThat(result.getCharId()).isEqualTo(charId);
             assertThat(result.getIsLatest()).isTrue();
-            assertThat(result.getIsStable()).isTrue();
             assertThat(result.getVersion()).isEqualTo(3);
             
             verify(promptTemplateMapper).selectOne(any());
         }
 
         @Test
-        @DisplayName("getLatestStableByCharId - 模板不存在")
-        void getLatestStableByCharId_TemplateNotExists_ShouldReturnNull() {
+        @DisplayName("getLatestByCharId - 模板不存在")
+        void getLatestByCharId_TemplateNotExists_ShouldReturnNull() {
             // Given
             Long charId = 999L;
             when(promptTemplateMapper.selectOne(any())).thenReturn(null);
 
             // When
-            PromptTemplate result = promptTemplateService.getLatestStableByCharId(charId);
+            PromptTemplate result = promptTemplateService.getLatestByCharId(charId);
 
             // Then
             assertThat(result).isNull();
@@ -437,8 +435,8 @@ class PromptTemplateServiceTest {
         }
 
         @Test
-        @DisplayName("getLatestStableByCharId - 只查询is_latest=1且is_stable=1的模板")
-        void getLatestStableByCharId_OnlyLatestAndStable() {
+        @DisplayName("getLatestByCharId - 只查询is_latest=1且is_stable=1的模板")
+        void getLatestByCharId_OnlyLatestAndStable() {
             // Given: 准备多个版本模板，但只有最新稳定版本应该被返回
             Long charId = 1L;
             PromptTemplate latestStableTemplate = new PromptTemplate();
@@ -446,19 +444,17 @@ class PromptTemplateServiceTest {
             latestStableTemplate.setCharId(charId);
             latestStableTemplate.setVersion(3);
             latestStableTemplate.setIsLatest(true);
-            latestStableTemplate.setIsStable(true);
             latestStableTemplate.setIsDeleted(false);
             
             when(promptTemplateMapper.selectOne(any())).thenReturn(latestStableTemplate);
 
             // When
-            PromptTemplate result = promptTemplateService.getLatestStableByCharId(charId);
+            PromptTemplate result = promptTemplateService.getLatestByCharId(charId);
 
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(103L);
             assertThat(result.getIsLatest()).isTrue();
-            assertThat(result.getIsStable()).isTrue();
         }
     }
 

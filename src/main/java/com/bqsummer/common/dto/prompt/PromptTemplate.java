@@ -87,8 +87,6 @@ public class PromptTemplate {
     /**
      * 是否稳定模板：true=是，false=否（生产默认走稳定版）
      */
-    @TableField("is_stable")
-    private Boolean isStable;
 
     /**
      * 状态：0=草稿，1=启用，2=停用

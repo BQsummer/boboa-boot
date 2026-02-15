@@ -807,7 +807,6 @@ CREATE TABLE prompt_template (
 
                                    version INT NOT NULL DEFAULT 1,
                                    is_latest BOOLEAN NOT NULL DEFAULT TRUE,
-                                   is_stable BOOLEAN NOT NULL DEFAULT FALSE,
                                    status SMALLINT NOT NULL DEFAULT 0,
 
 

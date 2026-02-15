@@ -63,7 +63,6 @@ public class PromptTemplateResponse {
     /**
      * 是否稳定版本
      */
-    private Boolean isStable;
 
     /**
      * 状态

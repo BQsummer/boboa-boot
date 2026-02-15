@@ -308,7 +308,7 @@ public class RobotTaskExecutor {
             String finalPrompt = payload.getContent();  // 默认使用原始消息
             Long aiCharacterId = resolveAiCharacterId(payload);
             try {
-                PromptTemplate template = promptTemplateService.getLatestStableByCharId(aiCharacterId);
+                PromptTemplate template = promptTemplateService.getLatestByCharId(aiCharacterId);
                 if (template != null) {
                     // 模板存在，进行渲染
                     Map<String, Object> templateParams = buildTemplateParams(payload, aiCharacterId);

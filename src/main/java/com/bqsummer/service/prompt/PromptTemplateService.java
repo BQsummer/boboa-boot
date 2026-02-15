@@ -67,7 +67,6 @@ public class PromptTemplateService {
         template.setGrayUserList(request.getGrayUserList());
         template.setPriority(request.getPriority());
         template.setTags(request.getTags());
-        template.setIsStable(false);
         template.setIsDeleted(false);
         template.setCreatedBy(String.valueOf(createdBy));
         template.setCreatedAt(LocalDateTime.now());
@@ -166,9 +165,6 @@ public class PromptTemplateService {
         if (request.getTags() != null) {
             template.setTags(request.getTags());
         }
-        if (request.getIsStable() != null) {
-            template.setIsStable(request.getIsStable());
-        }
 
         // 记录更新信息
         template.setUpdatedBy(String.valueOf(updatedBy));
@@ -245,11 +241,10 @@ public class PromptTemplateService {
      * @param charId 角色ID
      * @return 最新稳定版本模板，不存在则返回null
      */
-    public PromptTemplate getLatestStableByCharId(Long charId) {
+    public PromptTemplate getLatestByCharId(Long charId) {
         LambdaQueryWrapper<PromptTemplate> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(PromptTemplate::getCharId, charId)
                 .eq(PromptTemplate::getIsLatest, true)
-                .eq(PromptTemplate::getIsStable, true)
                 .eq(PromptTemplate::getIsDeleted, false);
         
         PromptTemplate template = promptTemplateMapper.selectOne(queryWrapper);
@@ -278,7 +273,6 @@ public class PromptTemplateService {
         response.setParamSchema(template.getParamSchema());
         response.setVersion(template.getVersion());
         response.setIsLatest(template.getIsLatest());
-        response.setIsStable(template.getIsStable());
         response.setStatus(template.getStatus());
         response.setGrayStrategy(template.getGrayStrategy());
         response.setGrayRatio(template.getGrayRatio());

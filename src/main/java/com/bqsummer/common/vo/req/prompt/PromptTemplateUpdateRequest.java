@@ -55,7 +55,6 @@ public class PromptTemplateUpdateRequest {
     /**
      * 是否稳定版本
      */
-    private Boolean isStable;
 
     /**
      * 灰度策略：0=无灰度，1=按比例，2=按用户白名单

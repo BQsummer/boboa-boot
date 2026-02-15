@@ -296,9 +296,6 @@ export default function CharacterDetailPage() {
                     {template.isLatest && (
                       <span className="px-2 py-1 rounded bg-blue-100 text-blue-700">最新</span>
                     )}
-                    {template.isStable && (
-                      <span className="px-2 py-1 rounded bg-green-100 text-green-700">稳定</span>
-                    )}
                     <span>更新: {new Date(template.updatedTime).toLocaleString()}</span>
                   </div>
                 </div>

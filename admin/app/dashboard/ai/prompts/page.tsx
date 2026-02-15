@@ -305,9 +305,6 @@ export default function PromptsPage() {
                       {template.isLatest && (
                         <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">最新</span>
                       )}
-                      {template.isStable && (
-                        <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800">稳定</span>
-                      )}
                       <span className="text-xs text-gray-500">v{template.version}</span>
                     </div>
                     {template.description && (

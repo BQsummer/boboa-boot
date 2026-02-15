@@ -14,7 +14,6 @@ export interface PromptTemplate {
   paramSchema?: Record<string, any>;
   version: number;
   isLatest: boolean;
-  isStable?: boolean;
   status: number; // 0=草稿，1=启用，2=停用
   grayStrategy: number; // 0=无灰度，1=按比例，2=按用户白名单
   grayRatio?: number;
@@ -51,7 +50,6 @@ export interface UpdatePromptTemplateReq {
   content?: string;
   paramSchema?: Record<string, any>;
   status?: number;
-  isStable?: boolean;
   grayStrategy?: number;
   grayRatio?: number;
   grayUserList?: number[];
