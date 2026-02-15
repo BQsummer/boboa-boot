@@ -76,9 +76,16 @@ public class MessageService {
         getNotifier(userId).tryEmitNext("notify");
     }
 
-    public Mono<List<Message>> pollMessages(Long userId, long lastSyncId, int limit) {
+    public Mono<List<Message>> pollMessages(Long userId, Long peerId, long lastSyncId, int limit) {
         Mono<List<Message>> dbQuery = Mono.fromSupplier(
-                () -> messageRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(userId, lastSyncId, limit)
+                () -> {
+                    if (peerId == null) {
+                        return messageRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(userId, lastSyncId, limit);
+                    }
+                    ReceiverResolution receiver = resolveReceiver(peerId);
+                    return messageRepository.findDialogByUsersAndIdGreaterThanOrderByIdAsc(
+                            userId, receiver.aiUserId(), lastSyncId, limit);
+                }
         );
 
         return getNotifier(userId).asFlux().next()
@@ -130,6 +137,7 @@ public class MessageService {
         }
 
         notifyUser(receiver.aiUserId());
+        notifyUser(uid);
 
         RobotTask task = createRobotTask(msg, receiver.aiUserId(), receiver.aiCharacterId());
         robotTaskMapper.insert(task);

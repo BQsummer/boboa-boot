@@ -69,7 +69,7 @@ export default function CharacterTestChatPage() {
     const loopPoll = async () => {
       while (!cancelled) {
         try {
-          const incoming = await pollMessages(lastSyncIdRef.current, 50);
+          const incoming = await pollMessages(characterId, lastSyncIdRef.current, 50);
           if (cancelled) break;
           if (incoming.length > 0) {
             setMessages((prev) => mergeMessages(prev, incoming));

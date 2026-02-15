@@ -46,8 +46,9 @@ export async function getMessageHistory(
   });
 }
 
-export async function pollMessages(lastSyncId = 0, limit = 50): Promise<ImMessage[]> {
+export async function pollMessages(peerId: number, lastSyncId = 0, limit = 50): Promise<ImMessage[]> {
   const params = new URLSearchParams({
+    peer_id: String(peerId),
     last_sync_id: String(lastSyncId),
     limit: String(limit),
   });

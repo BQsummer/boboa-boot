@@ -28,6 +28,28 @@ public class MessageRepository {
         return messageMapper.selectList(queryWrapper);
     }
 
+    public List<Message> findByUserIdAndIdGreaterThanOrderByIdAsc(Long userId, long lastSyncId, int limit) {
+        QueryWrapper<Message> queryWrapper = new QueryWrapper<>();
+        queryWrapper
+                .nested(n -> n.eq("sender_id", userId).or().eq("receiver_id", userId))
+                .gt("id", lastSyncId)
+                .orderByAsc("id")
+                .last("LIMIT " + limit);
+        return messageMapper.selectList(queryWrapper);
+    }
+
+    public List<Message> findDialogByUsersAndIdGreaterThanOrderByIdAsc(Long userId, Long peerId, long lastSyncId, int limit) {
+        QueryWrapper<Message> queryWrapper = new QueryWrapper<>();
+        queryWrapper
+                .nested(n -> n.nested(m -> m.eq("sender_id", userId).eq("receiver_id", peerId))
+                        .or()
+                        .nested(m -> m.eq("sender_id", peerId).eq("receiver_id", userId)))
+                .gt("id", lastSyncId)
+                .orderByAsc("id")
+                .last("LIMIT " + limit);
+        return messageMapper.selectList(queryWrapper);
+    }
+
     // save
     public Message save(Message msg) {
         String originalContent = msg.getContent();

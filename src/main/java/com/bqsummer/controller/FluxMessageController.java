@@ -29,6 +29,8 @@ public class FluxMessageController {
 
     @GetMapping("/api/v1/messages/poll")
     public Mono<ResponseEntity<Map<String, List<Message>>>> pollMessages(
+            @RequestParam(name = "peer_id", required = false) Long peerId,
+            @RequestParam(name = "peerId", required = false) Long peerIdCamel,
             @RequestParam(defaultValue = "0") long last_sync_id,
             @RequestParam(defaultValue = "50", required = false) int limit,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
@@ -43,7 +45,8 @@ public class FluxMessageController {
         }
         Long userId = jwtUtil.getUserIdFromToken(token);
         // 可将userId传递给messageService
-        return messageService.pollMessages(userId, last_sync_id, limit)
+        Long effectivePeerId = peerId != null ? peerId : peerIdCamel;
+        return messageService.pollMessages(userId, effectivePeerId, last_sync_id, limit)
                 .map(messages -> {
                     Map<String, List<Message>> response = new HashMap<>();
                     response.put("messages", messages);
