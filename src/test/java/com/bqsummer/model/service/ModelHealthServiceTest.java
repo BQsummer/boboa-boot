@@ -51,7 +51,6 @@ class ModelHealthServiceTest {
         testModel.setApiKey("test-key");
         testModel.setModelType(ModelType.CHAT);
         testModel.setEnabled(true);
-        testModel.setWeight(1);
         testModel.setCreatedBy(1L);
         testModel.setUpdatedBy(1L);
         
@@ -154,7 +153,6 @@ class ModelHealthServiceTest {
         model2.setApiKey("key2");
         model2.setModelType(ModelType.CHAT);
         model2.setEnabled(true);
-        model2.setWeight(1);
         model2.setCreatedBy(1L);
         model2.setUpdatedBy(1L);
         aiModelMapper.insert(model2);

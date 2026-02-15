@@ -1,5 +1,6 @@
 package com.bqsummer.model.service;
 
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.dto.ai.ModelType;
 import com.bqsummer.common.dto.ai.RoutingStrategy;
@@ -16,6 +17,7 @@ import com.bqsummer.exception.RoutingException;
 import com.bqsummer.mapper.AiModelMapper;
 import com.bqsummer.mapper.RoutingStrategyMapper;
 import com.bqsummer.mapper.StrategyModelRelationMapper;
+import com.bqsummer.mapstruct.ai.AiModelStructMapper;
 import com.bqsummer.service.ai.ModelRoutingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +47,9 @@ class ModelRoutingServiceTest {
     @Mock
     private AiModelMapper aiModelMapper;
 
+    @Mock
+    private AiModelStructMapper aiModelStructMapper;
+
     private ModelRoutingService routingService;
 
     @BeforeEach
@@ -57,7 +62,8 @@ class ModelRoutingServiceTest {
                 new WeightedRoutingAlgorithm()
         );
 
-        routingService = new ModelRoutingService(routingStrategyMapper, relationMapper, aiModelMapper, algorithms);
+        when(aiModelStructMapper.toBo(any(AiModel.class))).thenAnswer(invocation -> toBo(invocation.getArgument(0)));
+        routingService = new ModelRoutingService(routingStrategyMapper, relationMapper, aiModelMapper, algorithms, aiModelStructMapper);
     }
 
     @Test
@@ -79,9 +85,9 @@ class ModelRoutingServiceTest {
 
         InferenceRequest request = request();
 
-        AiModel first = routingService.selectModel(strategyId, request);
-        AiModel second = routingService.selectModel(strategyId, request);
-        AiModel third = routingService.selectModel(strategyId, request);
+        AiModelBo first = routingService.selectModel(strategyId, request);
+        AiModelBo second = routingService.selectModel(strategyId, request);
+        AiModelBo third = routingService.selectModel(strategyId, request);
 
         assertEquals(m2.getId(), first.getId());
         assertEquals(m3.getId(), second.getId());
@@ -103,7 +109,7 @@ class ModelRoutingServiceTest {
         ));
         when(aiModelMapper.selectList(any())).thenReturn(List.of(low, high));
 
-        AiModel selected = routingService.selectModel(strategyId, request());
+        AiModelBo selected = routingService.selectModel(strategyId, request());
         assertEquals(high.getId(), selected.getId());
     }
 
@@ -122,11 +128,10 @@ class ModelRoutingServiceTest {
         ));
         when(aiModelMapper.selectList(any())).thenReturn(List.of(m1, m2));
 
-        AiModel selected = routingService.selectModel(strategyId, request());
+        AiModelBo selected = routingService.selectModel(strategyId, request());
 
         assertTrue(selected.getId().equals(m1.getId()) || selected.getId().equals(m2.getId()));
-        assertEquals(80, m1.getWeight());
-        assertEquals(20, m2.getWeight());
+        assertTrue(selected.getWeight() == 80 || selected.getWeight() == 20);
     }
 
     @Test
@@ -145,7 +150,7 @@ class ModelRoutingServiceTest {
         ));
         when(aiModelMapper.selectList(any())).thenReturn(List.of(m1, m2));
 
-        AiModel selected = routingService.selectModel(strategyId, request());
+        AiModelBo selected = routingService.selectModel(strategyId, request());
         assertEquals(m2.getId(), selected.getId());
     }
 
@@ -164,7 +169,7 @@ class ModelRoutingServiceTest {
         ));
         when(aiModelMapper.selectList(any())).thenReturn(List.of(m1, m2));
 
-        AiModel selected = routingService.selectModel(strategyId, request());
+        AiModelBo selected = routingService.selectModel(strategyId, request());
         assertEquals(m2.getId(), selected.getId());
     }
 
@@ -215,9 +220,22 @@ class ModelRoutingServiceTest {
         model.setApiEndpoint("http://localhost");
         model.setApiKey("test");
         model.setEnabled(true);
-        model.setWeight(weight);
         model.setTags(tags);
         return model;
+    }
+
+    private static AiModelBo toBo(AiModel model) {
+        AiModelBo bo = new AiModelBo();
+        bo.setId(model.getId());
+        bo.setName(model.getName());
+        bo.setVersion(model.getVersion());
+        bo.setProvider(model.getProvider());
+        bo.setModelType(model.getModelType());
+        bo.setApiEndpoint(model.getApiEndpoint());
+        bo.setApiKey(model.getApiKey());
+        bo.setEnabled(model.getEnabled());
+        bo.setTags(model.getTags());
+        return bo;
     }
 
     private static InferenceRequest request() {

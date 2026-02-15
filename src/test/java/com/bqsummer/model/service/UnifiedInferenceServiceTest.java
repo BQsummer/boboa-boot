@@ -47,7 +47,6 @@ class UnifiedInferenceServiceTest {
         testModel.setApiKey("test-key");
         testModel.setModelType(ModelType.CHAT);
         testModel.setEnabled(true);
-        testModel.setWeight(1);
         testModel.setCreatedBy(1L);
         testModel.setUpdatedBy(1L);
         

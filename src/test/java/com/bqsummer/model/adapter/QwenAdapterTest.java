@@ -1,7 +1,7 @@
 package com.bqsummer.model.adapter;
 
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
-import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.ModelType;
 import com.bqsummer.service.ai.adapter.QwenAdapter;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,14 +21,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class QwenAdapterTest {
 
     private QwenAdapter adapter;
-    private AiModel testModel;
+    private AiModelBo testModel;
 
     @BeforeEach
     void setUp() {
         adapter = new QwenAdapter();
 
         // 创建 Qwen 测试模型
-        testModel = new AiModel();
+        testModel = new AiModelBo();
         testModel.setId(2L);
         testModel.setName("Qwen");
         testModel.setVersion("qwen-turbo");
@@ -45,7 +45,7 @@ class QwenAdapterTest {
         assertTrue(adapter.supports(testModel));
 
         // 测试不支持的提供商
-        AiModel unsupportedModel = new AiModel();
+        AiModelBo unsupportedModel = new AiModelBo();
         unsupportedModel.setProvider("openai");
         assertFalse(adapter.supports(unsupportedModel));
     }

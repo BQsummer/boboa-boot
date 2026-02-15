@@ -617,7 +617,7 @@ class RobotTaskExecutorTest extends BaseTest {
                 .modelId(999L)  // 原始modelId，不应被使用
                 .build();
         
-        com.bqsummer.common.dto.ai.AiModel selectedModel = new com.bqsummer.common.dto.ai.AiModel();
+        com.bqsummer.common.bo.ai.AiModelBo selectedModel = new com.bqsummer.common.bo.ai.AiModelBo();
         selectedModel.setId(100L);
         selectedModel.setName("gpt-4");
         
@@ -713,7 +713,7 @@ class RobotTaskExecutorTest extends BaseTest {
                 .modelId(100L)
                 .build();
         
-        com.bqsummer.common.dto.ai.AiModel selectedModel = new com.bqsummer.common.dto.ai.AiModel();
+        com.bqsummer.common.bo.ai.AiModelBo selectedModel = new com.bqsummer.common.bo.ai.AiModelBo();
         selectedModel.setId(100L);
         
         com.bqsummer.common.dto.prompt.PromptTemplate template = new com.bqsummer.common.dto.prompt.PromptTemplate();
@@ -775,7 +775,7 @@ class RobotTaskExecutorTest extends BaseTest {
                 .modelId(100L)
                 .build();
         
-        com.bqsummer.common.dto.ai.AiModel selectedModel = new com.bqsummer.common.dto.ai.AiModel();
+        com.bqsummer.common.bo.ai.AiModelBo selectedModel = new com.bqsummer.common.bo.ai.AiModelBo();
         selectedModel.setId(100L);
         
         when(modelRoutingService.selectModelByDefault(any(InferenceRequest.class))).thenReturn(selectedModel);
@@ -825,7 +825,7 @@ class RobotTaskExecutorTest extends BaseTest {
                 .modelId(100L)
                 .build();
         
-        com.bqsummer.common.dto.ai.AiModel selectedModel = new com.bqsummer.common.dto.ai.AiModel();
+        com.bqsummer.common.bo.ai.AiModelBo selectedModel = new com.bqsummer.common.bo.ai.AiModelBo();
         selectedModel.setId(100L);
         
         com.bqsummer.common.dto.prompt.PromptTemplate template = new com.bqsummer.common.dto.prompt.PromptTemplate();

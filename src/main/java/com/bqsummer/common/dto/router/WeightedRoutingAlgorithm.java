@@ -35,7 +35,7 @@ public class WeightedRoutingAlgorithm implements RoutingAlgorithm {
 
         for (AiModelBo model : models) {
             Integer weight = model.getWeight();
-            if (weight == null || weight < 1 || weight > 100) {
+            if (weight == null || weight < 0 || weight > 100) {
                 throw new RoutingException("模型权重必须在1到100之间: modelId=" + model.getId() + "，权重：" + weight);
             }
         }

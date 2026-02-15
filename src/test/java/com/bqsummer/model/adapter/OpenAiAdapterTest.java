@@ -2,7 +2,7 @@ package com.bqsummer.model.adapter;
 
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
-import com.bqsummer.common.dto.ai.AiModel;
+import com.bqsummer.common.bo.ai.AiModelBo;
 import com.bqsummer.common.dto.ai.ModelType;
 import com.bqsummer.service.ai.adapter.OpenAiAdapter;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,12 +22,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class OpenAiAdapterTest {
 
     private OpenAiAdapter adapter;
-    private AiModel testModel;
+    private AiModelBo testModel;
 
     @BeforeEach
     void setUp() {
         // 创建测试模型
-        testModel = new AiModel();
+        testModel = new AiModelBo();
         testModel.setId(1L);
         testModel.setName("GPT-4");
         testModel.setVersion("gpt-4-turbo");
@@ -54,7 +54,7 @@ class OpenAiAdapterTest {
             assertTrue(adapter.supports(testModel));
             
             // 测试不支持的提供商
-            AiModel unsupportedModel = new AiModel();
+            AiModelBo unsupportedModel = new AiModelBo();
             unsupportedModel.setProvider("qwen");
             assertFalse(adapter.supports(unsupportedModel));
         }
