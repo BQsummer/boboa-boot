@@ -96,16 +96,25 @@ export async function updateConfig(req: UpdateConfigReq): Promise<void> {
   });
 }
 
-export async function getIpBlacklistConfig(): Promise<string> {
-  const result = await fetchApi<ApiResult<string> | string>('/api/v1/system/ip-blacklist', {
-    method: 'GET',
-  });
-  return unwrap(result) || '';
+export interface IpManageConfig {
+  ipWhiteList: string;
+  ipBlackList: string;
 }
 
-export async function saveIpBlacklistConfig(value: string): Promise<void> {
-  await fetchApi<ApiResult<null> | null>('/api/v1/system/ip-blacklist', {
+export async function getIpManageConfig(): Promise<IpManageConfig> {
+  const result = await fetchApi<ApiResult<IpManageConfig> | IpManageConfig>('/api/v1/system/ip-manage', {
+    method: 'GET',
+  });
+  const data = unwrap(result);
+  return {
+    ipWhiteList: data?.ipWhiteList || '',
+    ipBlackList: data?.ipBlackList || '',
+  };
+}
+
+export async function saveIpManageConfig(config: IpManageConfig): Promise<void> {
+  await fetchApi<ApiResult<null> | null>('/api/v1/system/ip-manage', {
     method: 'PUT',
-    body: JSON.stringify({ value }),
+    body: JSON.stringify(config),
   });
 }

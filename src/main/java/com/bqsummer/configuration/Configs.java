@@ -15,6 +15,12 @@ public class Configs {
     public String ipWhiteList;
 
     /**
+     * 限流黑名单，多个ip用逗号分隔
+     */
+    @ConfigEle(name = "ipBlackList")
+    public String ipBlackList;
+
+    /**
      * 任务队列大小
      */
     @ConfigEle(name = "queueSize")

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -40,15 +41,13 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
     private final Cache<String, RateLimiter> perIpLimiter;
     private final double permitsPerSecond;
     private final int tryAcquireTimeoutMillis;
-    private final Set<String> ipBlacklist;
 
     @Autowired
     public IpRateLimitFilter(
             @Value("${ip.rate.limit.permits-per-second:10}") double permitsPerSecond,
             @Value("${ip.rate.limit.timeout-millis:0}") int tryAcquireTimeoutMillis,
             @Value("${ip.rate.limit.cache-expire-minutes:30}") long expireMinutes,
-            @Value("${ip.rate.limit.cache-max-size:10000}") long maxSize,
-            @Value("${ip.rate.limit.blacklist:}") String blacklistCsv
+            @Value("${ip.rate.limit.cache-max-size:10000}") long maxSize
     ) {
         this.permitsPerSecond = Math.max(permitsPerSecond, 0.0001d);
         this.tryAcquireTimeoutMillis = Math.max(tryAcquireTimeoutMillis, 0);
@@ -56,7 +55,6 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
                 .maximumSize(Math.max(maxSize, 100))
                 .expireAfterAccess(Math.max(expireMinutes, 1), TimeUnit.MINUTES)
                 .build();
-        this.ipBlacklist = parseBlacklist(blacklistCsv);
     }
 
 
@@ -65,15 +63,21 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String clientIp = extractClientIp(request);
+        Set<String> ipBlackSet = parseIpSet(configs.getIpBlackList());
 
         // Blacklist check first
-        if (isBlacklisted(clientIp)) {
+        if (isBlacklisted(clientIp, ipBlackSet)) {
             respondForbidden(response, clientIp);
             return;
         }
+        String blacklistedParamIp = findBlacklistedRequestParamIp(request, ipBlackSet);
+        if (blacklistedParamIp != null) {
+            respondForbidden(response, blacklistedParamIp);
+            return;
+        }
         if(StringUtils.isNotBlank(configs.getIpWhiteList())) {
-            String[] ipArray = configs.getIpWhiteList().split(",");
-            boolean isWhite = Arrays.asList(ipArray).contains(clientIp);
+            Set<String> ipWhiteSet = parseIpSet(configs.getIpWhiteList());
+            boolean isWhite = ipWhiteSet.contains(clientIp);
             if(!isWhite) {
                 RateLimiter limiter = perIpLimiter.get(clientIp, ip -> RateLimiter.create(permitsPerSecond));
 
@@ -98,11 +102,36 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private boolean isBlacklisted(String ip) {
-        return ipBlacklist.contains(ip);
+    private boolean isBlacklisted(String ip, Set<String> ipBlackSet) {
+        if (StringUtils.isBlank(ip) || ipBlackSet.isEmpty()) {
+            return false;
+        }
+        return ipBlackSet.contains(ip);
     }
 
-    private Set<String> parseBlacklist(String csv) {
+    private String findBlacklistedRequestParamIp(HttpServletRequest request, Set<String> ipBlackSet) {
+        if (request == null || ipBlackSet.isEmpty()) {
+            return null;
+        }
+        for (Map.Entry<String, String[]> entry : request.getParameterMap().entrySet()) {
+            String[] values = entry.getValue();
+            if (values == null || values.length == 0) {
+                continue;
+            }
+            for (String value : values) {
+                if (StringUtils.isBlank(value)) {
+                    continue;
+                }
+                String trimmedValue = value.trim();
+                if (ipBlackSet.contains(trimmedValue)) {
+                    return trimmedValue;
+                }
+            }
+        }
+        return null;
+    }
+
+    private Set<String> parseIpSet(String csv) {
         if (csv == null || csv.trim().isEmpty()) return Collections.emptySet();
         return Arrays.stream(csv.split(","))
                 .map(String::trim)

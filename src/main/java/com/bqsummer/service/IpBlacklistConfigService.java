@@ -1,6 +1,8 @@
 package com.bqsummer.service;
 
 import com.bqsummer.common.dto.config.Config;
+import com.bqsummer.common.vo.req.config.SaveIpManageReq;
+import com.bqsummer.common.vo.resp.config.IpManageConfigResp;
 import com.bqsummer.framework.configplus.proxy.ConfigService;
 import com.bqsummer.mapper.ConfigMapper;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -20,7 +22,8 @@ import java.util.stream.Collectors;
 public class IpBlacklistConfigService {
 
     private static final String CONFIG_TYPE_NAME = "con";
-    private static final String CONFIG_NAME = "ipWhiteList";
+    private static final String IP_WHITE_LIST_NAME = "ipWhiteList";
+    private static final String IP_BLACK_LIST_NAME = "ipBlackList";
 
     @Value("${spring.profiles.active}")
     private String env;
@@ -32,22 +35,32 @@ public class IpBlacklistConfigService {
 
     private final Cache<String, Object> configCache;
 
-    public String getIpBlacklistValue() {
-        Config config = findCurrentConfig();
-        return config == null || config.getValue() == null ? "" : config.getValue();
+    public IpManageConfigResp getIpManageConfig() {
+        return new IpManageConfigResp(readConfigValue(IP_WHITE_LIST_NAME), readConfigValue(IP_BLACK_LIST_NAME));
     }
 
     @Transactional(rollbackFor = Throwable.class)
-    public void saveIpBlacklistValue(String rawValue) {
+    public void saveIpManageConfig(SaveIpManageReq req) {
+        if (req == null) {
+            saveConfigValue(IP_WHITE_LIST_NAME, "");
+            saveConfigValue(IP_BLACK_LIST_NAME, "");
+            return;
+        }
+
+        saveConfigValue(IP_WHITE_LIST_NAME, req.getIpWhiteList());
+        saveConfigValue(IP_BLACK_LIST_NAME, req.getIpBlackList());
+    }
+
+    private void saveConfigValue(String configName, String rawValue) {
         String normalizedValue = normalize(rawValue);
-        Config existing = findCurrentConfig();
+        Config existing = findCurrentConfig(configName);
         LocalDateTime now = LocalDateTime.now();
 
         if (existing == null) {
             configMapper.insertConfigForPostgres(
                     env,
                     appName,
-                    CONFIG_NAME,
+                    configName,
                     normalizedValue,
                     "STRING",
                     "false",
@@ -62,12 +75,17 @@ public class IpBlacklistConfigService {
             configMapper.updateConfigValueById(existing.getId(), normalizedValue, now, "");
         }
 
-        String cacheKey = ConfigService.buildMapKey(CONFIG_TYPE_NAME, CONFIG_NAME);
+        String cacheKey = ConfigService.buildMapKey(CONFIG_TYPE_NAME, configName);
         configCache.invalidate(cacheKey);
     }
 
-    private Config findCurrentConfig() {
-        return configMapper.findConfigIdAndValue(env, appName, CONFIG_NAME);
+    private String readConfigValue(String configName) {
+        Config config = findCurrentConfig(configName);
+        return config == null || config.getValue() == null ? "" : config.getValue();
+    }
+
+    private Config findCurrentConfig(String configName) {
+        return configMapper.findConfigIdAndValue(env, appName, configName);
     }
 
     private String normalize(String rawValue) {

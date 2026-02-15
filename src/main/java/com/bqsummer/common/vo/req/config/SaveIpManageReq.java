@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SaveIpBlacklistReq {
-    private String value;
+public class SaveIpManageReq {
+    private String ipWhiteList;
+    private String ipBlackList;
 }

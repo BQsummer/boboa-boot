@@ -149,7 +149,7 @@ const menuItems: MenuItem[] = [
         icon: <Settings />,
       },
       {
-        title: 'IP黑名单',
+        title: 'IP管理',
         href: '/dashboard/system/ip-blacklist',
         icon: <Settings />,
       },
