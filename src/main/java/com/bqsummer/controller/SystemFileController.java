@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,10 +36,12 @@ public class SystemFileController {
     private final JwtUtil jwtUtil;
 
     @PostMapping(path = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Response<SystemFileResp> upload(@RequestPart("file") MultipartFile file,
+    public Response<SystemFileResp> upload(@RequestParam(value = "file", required = false) MultipartFile file,
+                                           @RequestParam(value = "uploadFile", required = false) MultipartFile uploadFile,
                                            @RequestHeader("Authorization") String authHeader,
                                            @RequestParam(required = false) String category) {
-        String key = systemFileService.upload(currentUserId(authHeader), file, category);
+        MultipartFile target = pickUploadFile(file, uploadFile);
+        String key = systemFileService.upload(currentUserId(authHeader), target, category);
         return Response.success(toResp(key));
     }
 
@@ -104,5 +105,15 @@ public class SystemFileController {
         URL accessUrl = systemFileService.resolveAccessUrl(key);
         resp.setAccessUrl(accessUrl == null ? null : accessUrl.toString());
         return resp;
+    }
+
+    private MultipartFile pickUploadFile(MultipartFile file, MultipartFile uploadFile) {
+        if (file != null && !file.isEmpty()) {
+            return file;
+        }
+        if (uploadFile != null && !uploadFile.isEmpty()) {
+            return uploadFile;
+        }
+        throw new SnorlaxClientException(400, "file is required");
     }
 }
