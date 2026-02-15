@@ -1,9 +1,13 @@
 package com.bqsummer.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.bqsummer.common.dto.invite.InviteCode;
+import com.bqsummer.common.vo.req.invite.AdminCreateInviteCodeRequest;
 import com.bqsummer.common.vo.req.invite.CreateInviteCodeRequest;
 import com.bqsummer.common.vo.req.invite.RedeemInviteRequest;
+import com.bqsummer.common.vo.req.invite.UpdateInviteCodeRequest;
 import com.bqsummer.common.vo.resp.invite.CreateInviteCodeResponse;
+import com.bqsummer.common.vo.resp.invite.InviteCodeAdminResponse;
 import com.bqsummer.common.vo.resp.invite.MyInviteStatsResponse;
 import com.bqsummer.common.vo.resp.invite.RedeemInviteResponse;
 import com.bqsummer.common.vo.resp.invite.ValidateInviteResponse;
@@ -13,6 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,29 +36,58 @@ public class InviteController {
                                                            HttpServletRequest http) {
         Long userId = currentUserId(http);
         InviteCode ic = inviteService.createCode(userId, request);
-        CreateInviteCodeResponse resp = CreateInviteCodeResponse.builder()
-                .id(ic.getId())
-                .code(ic.getCode())
-                .maxUses(ic.getMaxUses())
-                .usedCount(ic.getUsedCount())
-                .status(ic.getStatus())
-                .expireAt(ic.getExpireAt())
-                .build();
-        return ResponseEntity.ok(resp);
+        return ResponseEntity.ok(toCreateResponse(ic));
+    }
+
+    @PostMapping("/codes/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<InviteCodeAdminResponse> adminCreate(@Valid @RequestBody AdminCreateInviteCodeRequest request,
+                                                               HttpServletRequest http) {
+        Long currentUserId = currentUserId(http);
+        InviteCode ic = inviteService.adminCreateCode(request, currentUserId);
+        return ResponseEntity.ok(toAdminResponse(ic));
+    }
+
+    @GetMapping("/codes")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<InviteCodeAdminResponse>> listCodes(@RequestParam(required = false) String code,
+                                                                    @RequestParam(required = false) String status,
+                                                                    @RequestParam(required = false) Long creatorUserId,
+                                                                    @RequestParam(defaultValue = "1") long page,
+                                                                    @RequestParam(defaultValue = "20") long size) {
+        Page<InviteCode> result = inviteService.listCodes(code, status, creatorUserId, page, size);
+        Page<InviteCodeAdminResponse> responsePage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        responsePage.setRecords(result.getRecords().stream().map(this::toAdminResponse).collect(Collectors.toList()));
+        return ResponseEntity.ok(responsePage);
+    }
+
+    @GetMapping("/codes/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<InviteCodeAdminResponse> detail(@PathVariable Long id) {
+        InviteCode code = inviteService.getCodeById(id);
+        return ResponseEntity.ok(toAdminResponse(code));
+    }
+
+    @PutMapping("/codes/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<InviteCodeAdminResponse> update(@PathVariable Long id,
+                                                          @Valid @RequestBody UpdateInviteCodeRequest request) {
+        InviteCode updated = inviteService.updateCode(id, request);
+        return ResponseEntity.ok(toAdminResponse(updated));
+    }
+
+    @DeleteMapping("/codes/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        inviteService.deleteCode(id);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/codes/my")
     public ResponseEntity<List<CreateInviteCodeResponse>> myCodes(HttpServletRequest http) {
         Long userId = currentUserId(http);
-        List<CreateInviteCodeResponse> list = inviteService.listMyCodes(userId).stream().map(ic ->
-                CreateInviteCodeResponse.builder()
-                        .id(ic.getId())
-                        .code(ic.getCode())
-                        .maxUses(ic.getMaxUses())
-                        .usedCount(ic.getUsedCount())
-                        .status(ic.getStatus())
-                        .expireAt(ic.getExpireAt())
-                        .build()
+        List<CreateInviteCodeResponse> list = inviteService.listMyCodesOrCreateDefault(userId).stream().map(ic ->
+                toCreateResponse(ic)
         ).collect(Collectors.toList());
         return ResponseEntity.ok(list);
     }
@@ -120,6 +154,35 @@ public class InviteController {
         String xri = request.getHeader("X-Real-IP");
         if (xri != null && !xri.isBlank()) return xri.trim();
         return request.getRemoteAddr();
+    }
+
+    private CreateInviteCodeResponse toCreateResponse(InviteCode ic) {
+        return CreateInviteCodeResponse.builder()
+                .id(ic.getId())
+                .code(ic.getCode())
+                .maxUses(ic.getMaxUses())
+                .usedCount(ic.getUsedCount())
+                .status(ic.getStatus())
+                .expireAt(ic.getExpireAt())
+                .build();
+    }
+
+    private InviteCodeAdminResponse toAdminResponse(InviteCode ic) {
+        int maxUses = ic.getMaxUses() == null ? 0 : ic.getMaxUses();
+        int usedCount = ic.getUsedCount() == null ? 0 : ic.getUsedCount();
+        return InviteCodeAdminResponse.builder()
+                .id(ic.getId())
+                .code(ic.getCode())
+                .creatorUserId(ic.getCreatorUserId())
+                .maxUses(maxUses)
+                .usedCount(usedCount)
+                .remainingUses(Math.max(0, maxUses - usedCount))
+                .status(ic.getStatus())
+                .expireAt(ic.getExpireAt())
+                .remark(ic.getRemark())
+                .createdTime(ic.getCreatedTime())
+                .updatedTime(ic.getUpdatedTime())
+                .build();
     }
 }
 

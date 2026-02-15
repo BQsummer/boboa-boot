@@ -44,4 +44,22 @@ public class Configs {
     @ConfigEle(name = "maxConsecutiveFailures")
     public Integer maxConsecutiveFailures = 3;
 
+    /**
+     * 邀请码长度
+     */
+    @ConfigEle(name = "inviteCodeLength")
+    public Integer inviteCodeLength = 10;
+
+    /**
+     * 自动创建邀请码时的默认可用次数
+     */
+    @ConfigEle(name = "inviteDefaultMaxUses")
+    public Integer inviteDefaultMaxUses = 1;
+
+    /**
+     * 自动创建邀请码时的默认有效天数
+     */
+    @ConfigEle(name = "inviteDefaultExpireDays")
+    public Integer inviteDefaultExpireDays = 30;
+
 }
