@@ -5,6 +5,8 @@ import com.bqsummer.common.dto.recharge.RechargeOrder;
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface RechargeOrderMapper extends BaseMapper<RechargeOrder> {
@@ -38,4 +40,20 @@ public interface RechargeOrderMapper extends BaseMapper<RechargeOrder> {
 
     @Select("SELECT COUNT(1) FROM recharge_order WHERE user_id = #{userId} AND created_time >= CURRENT_DATE")
     Integer countToday(@Param("userId") Long userId);
+
+    @Update("UPDATE recharge_order SET status = 'CLOSED', updated_time = NOW() WHERE order_no = #{orderNo} AND status = 'PENDING'")
+    int closePendingByOrderNo(@Param("orderNo") String orderNo);
+
+    @Select("SELECT status, COUNT(1) AS cnt, COALESCE(SUM(amount_cents), 0) AS amountCents " +
+            "FROM recharge_order GROUP BY status")
+    List<Map<String, Object>> groupByStatus();
+
+    @Select("SELECT COALESCE(SUM(amount_cents), 0) FROM recharge_order WHERE status = #{status}")
+    Long sumAmountByStatus(@Param("status") String status);
+
+    @Select("SELECT COALESCE(SUM(amount_cents), 0) FROM recharge_order " +
+            "WHERE status = #{status} AND created_time >= #{start} AND created_time <= #{end}")
+    Long sumAmountByStatusAndTime(@Param("status") String status,
+                                  @Param("start") LocalDateTime start,
+                                  @Param("end") LocalDateTime end);
 }
