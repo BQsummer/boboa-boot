@@ -54,10 +54,6 @@ public class MessageRepository {
     public Message save(Message msg) {
         String originalContent = msg.getContent();
         String truncatedContent = truncateByCodePoint(originalContent, MESSAGE_CONTENT_MAX_LENGTH);
-        if (originalContent != null && !originalContent.equals(truncatedContent)) {
-            log.warn("message content too long, truncated before insert: senderId={}, receiverId={}, originalLength={}",
-                    msg.getSenderId(), msg.getReceiverId(), originalContent.codePointCount(0, originalContent.length()));
-        }
         msg.setContent(truncatedContent);
         messageMapper.insert(msg);
         return msg;

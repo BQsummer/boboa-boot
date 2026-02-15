@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,12 +36,9 @@ public class UserController {
     private final UserProfileMapper userProfileMapper;
 
     @GetMapping("/profile")
-    public ResponseEntity<User> getCurrentUserProfile(HttpServletRequest request) {
-        String token = getTokenFromRequest(request);
-        if (token == null) {
-            return ResponseEntity.notFound().build();
-        }
-        Long userId = jwtUtil.getUserIdFromToken(token);
+    public ResponseEntity<User> getCurrentUserProfile() {
+
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
         User user = userMapper.findById(userId);
         if (user == null) {
             return ResponseEntity.notFound().build();
@@ -50,36 +49,36 @@ public class UserController {
 
     @GetMapping("/profile/ext")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<UserProfile> getCurrentUserExtProfile(HttpServletRequest request) {
-        String token = getTokenFromRequest(request);
-        if (token == null || !jwtUtil.validateToken(token)) {
-            return ResponseEntity.status(401).build();
+    public ResponseEntity<UserProfile> getCurrentUserExtProfile(@RequestParam(required = false) Long userId) {
+
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        Long targetUserId = resolveTargetUserId(userId, currentUserId);
+        if (targetUserId == null) {
+            return ResponseEntity.status(403).build();
         }
-        Long userId = jwtUtil.getUserIdFromToken(token);
-        if (userId == null) {
-            return ResponseEntity.status(401).build();
-        }
-        UserProfile profile = userProfileMapper.selectByUserId(userId);
+
+        UserProfile profile = userProfileMapper.selectByUserId(targetUserId);
         if (profile == null) {
-            profile = UserProfile.builder().userId(userId).build();
+            profile = UserProfile.builder().userId(targetUserId).build();
         }
         return ResponseEntity.ok(profile);
     }
 
     @PutMapping("/profile/ext")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<String> upsertCurrentUserExtProfile(@RequestBody UserProfile req,
-                                                              HttpServletRequest request) {
-        String token = getTokenFromRequest(request);
-        if (token == null || !jwtUtil.validateToken(token)) {
+    public ResponseEntity<String> upsertCurrentUserExtProfile(@RequestParam(required = false) Long userId,
+                                                              @RequestBody UserProfile req) {
+        Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        if (currentUserId == null) {
             return ResponseEntity.status(401).body("unauthorized");
         }
-        Long userId = jwtUtil.getUserIdFromToken(token);
-        if (userId == null) {
-            return ResponseEntity.status(401).body("unauthorized");
+        Long targetUserId = resolveTargetUserId(userId, currentUserId);
+        if (targetUserId == null) {
+            return ResponseEntity.status(403).body("forbidden");
         }
+
         UserProfile toSave = UserProfile.builder()
-                .userId(userId)
+                .userId(targetUserId)
                 .gender(req.getGender())
                 .birthday(req.getBirthday())
                 .heightCm(req.getHeightCm())
@@ -87,9 +86,30 @@ public class UserController {
                 .occupation(req.getOccupation())
                 .interests(req.getInterests())
                 .photos(req.getPhotos())
+                .desc(req.getDesc())
                 .build();
         userProfileMapper.upsert(toSave);
         return ResponseEntity.ok("saved");
+    }
+
+    @DeleteMapping("/profile/ext")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<String> deleteCurrentUserExtProfile(@RequestParam(required = false) Long userId,
+                                                              HttpServletRequest request) {
+        String token = getTokenFromRequest(request);
+        if (token == null || !jwtUtil.validateToken(token)) {
+            return ResponseEntity.status(401).body("unauthorized");
+        }
+        Long currentUserId = jwtUtil.getUserIdFromToken(token);
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).body("unauthorized");
+        }
+        Long targetUserId = resolveTargetUserId(userId, currentUserId);
+        if (targetUserId == null) {
+            return ResponseEntity.status(403).body("forbidden");
+        }
+        userProfileMapper.deleteByUserId(targetUserId);
+        return ResponseEntity.ok("deleted");
     }
 
     @PutMapping("/profile")
@@ -195,6 +215,29 @@ public class UserController {
         result.put("code", -1);
         result.put("message", message);
         return result;
+    }
+
+    private Long resolveTargetUserId(Long requestedUserId, Long currentUserId) {
+        Long targetUserId = requestedUserId != null ? requestedUserId : currentUserId;
+        if (targetUserId == null) {
+            return null;
+        }
+        if (targetUserId.equals(currentUserId)) {
+            return targetUserId;
+        }
+        if (hasAdminRole()) {
+            return targetUserId;
+        }
+        return null;
+    }
+
+    private boolean hasAdminRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 
     private String getTokenFromRequest(HttpServletRequest request) {

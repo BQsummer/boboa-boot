@@ -22,6 +22,7 @@ export interface UserProfileResponse {
   occupation?: string | null;
   interests?: string | null;
   photos?: string | null;
+  desc?: string | null;
   createdTime?: string | null;
   updatedTime?: string | null;
 }
@@ -34,6 +35,7 @@ export interface UserProfileUpsertReq {
   occupation?: string | null;
   interests?: string | null;
   photos?: string | null;
+  desc?: string | null;
 }
 
 export interface UserResponse {
@@ -110,17 +112,31 @@ export async function deleteCurrentUserProfile(): Promise<void> {
   });
 }
 
-export async function getCurrentUserExtProfile(): Promise<UserProfileResponse> {
-  const result = await fetchApi<ApiResult<UserProfileResponse> | UserProfileResponse>('/api/v1/user/profile/ext', {
+function buildUserProfileExtEndpoint(userId?: number): string {
+  if (!userId) {
+    return '/api/v1/user/profile/ext';
+  }
+  return `/api/v1/user/profile/ext?userId=${userId}`;
+}
+
+export async function getCurrentUserExtProfile(userId?: number): Promise<UserProfileResponse> {
+  const result = await fetchApi<ApiResult<UserProfileResponse> | UserProfileResponse>(buildUserProfileExtEndpoint(userId), {
     method: 'GET',
   });
   return unwrap(result);
 }
 
-export async function upsertCurrentUserExtProfile(data: UserProfileUpsertReq): Promise<string> {
-  const result = await fetchApi<ApiResult<string> | string>('/api/v1/user/profile/ext', {
+export async function upsertCurrentUserExtProfile(data: UserProfileUpsertReq, userId?: number): Promise<string> {
+  const result = await fetchApi<ApiResult<string> | string>(buildUserProfileExtEndpoint(userId), {
     method: 'PUT',
     body: JSON.stringify(data),
+  });
+  return unwrap(result);
+}
+
+export async function deleteUserExtProfile(userId?: number): Promise<string> {
+  const result = await fetchApi<ApiResult<string> | string>(buildUserProfileExtEndpoint(userId), {
+    method: 'DELETE',
   });
   return unwrap(result);
 }

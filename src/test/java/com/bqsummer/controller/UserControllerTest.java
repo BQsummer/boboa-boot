@@ -103,7 +103,8 @@ class UserControllerTest extends BaseTest {
                 "\"mbti\":\"INTJ\"," +
                 "\"occupation\":\"Engineer\"," +
                 "\"interests\":\"reading,coding\"," +
-                "\"photos\":\"[\\\"https://img.example.com/a.jpg\\\"]\"" +
+                "\"photos\":\"[\\\"https://img.example.com/a.jpg\\\"]\"," +
+                "\"desc\":\"desc-content\"" +
                 "}";
 
         given()
@@ -120,7 +121,8 @@ class UserControllerTest extends BaseTest {
                 () -> assertExists("user_profiles", "user_id = ?", user.id),
                 () -> assertValue("user_profiles", "gender", "female", "user_id = ?", user.id),
                 () -> assertValue("user_profiles", "mbti", "INTJ", "user_id = ?", user.id),
-                () -> assertValue("user_profiles", "height_cm", 168, "user_id = ?", user.id)
+                () -> assertValue("user_profiles", "height_cm", 168, "user_id = ?", user.id),
+                () -> assertValue("user_profiles", "desc", "desc-content", "user_id = ?", user.id)
         );
 
         given()
@@ -136,7 +138,8 @@ class UserControllerTest extends BaseTest {
                 .body("mbti", equalTo("INTJ"))
                 .body("occupation", equalTo("Engineer"))
                 .body("interests", equalTo("reading,coding"))
-                .body("photos", equalTo("[\"https://img.example.com/a.jpg\"]"));
+                .body("photos", equalTo("[\"https://img.example.com/a.jpg\"]"))
+                .body("desc", equalTo("desc-content"));
     }
 
     /**

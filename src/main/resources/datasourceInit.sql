@@ -584,6 +584,7 @@ CREATE TABLE user_profiles (
                                   occupation VARCHAR(128) NULL,
                                   interests VARCHAR(2048) NULL,
                                   photos VARCHAR(4096) NULL,
+                                  desc VARCHAR(2048) NULL,
                                   created_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                   updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                   CONSTRAINT uk_user_id UNIQUE (user_id)
