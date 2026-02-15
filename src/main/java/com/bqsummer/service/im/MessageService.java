@@ -158,7 +158,8 @@ public class MessageService {
         SendMessagePayload payload = SendMessagePayload.builder()
                 .messageId(msg.getId())
                 .senderId(msg.getSenderId())
-                .receiverId(aiCharacterId)
+                .receiverId(robotId)
+                .aiCharacterId(aiCharacterId)
                 .content(msg.getContent())
                 .build();
 

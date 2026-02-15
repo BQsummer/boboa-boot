@@ -13,6 +13,8 @@ import java.util.List;
 @Slf4j
 public class MessageRepository {
 
+    private static final int MESSAGE_CONTENT_MAX_LENGTH = 2048;
+
     @Autowired
     private MessageMapper messageMapper;
 
@@ -28,6 +30,13 @@ public class MessageRepository {
 
     // save
     public Message save(Message msg) {
+        String originalContent = msg.getContent();
+        String truncatedContent = truncateByCodePoint(originalContent, MESSAGE_CONTENT_MAX_LENGTH);
+        if (originalContent != null && !originalContent.equals(truncatedContent)) {
+            log.warn("message content too long, truncated before insert: senderId={}, receiverId={}, originalLength={}",
+                    msg.getSenderId(), msg.getReceiverId(), originalContent.codePointCount(0, originalContent.length()));
+        }
+        msg.setContent(truncatedContent);
         messageMapper.insert(msg);
         return msg;
     }
@@ -41,5 +50,17 @@ public class MessageRepository {
         }
         qw.orderByDesc("id").last("LIMIT " + limit);
         return messageMapper.selectList(qw);
+    }
+
+    private String truncateByCodePoint(String content, int maxCodePoints) {
+        if (content == null) {
+            return null;
+        }
+        int codePointLength = content.codePointCount(0, content.length());
+        if (codePointLength <= maxCodePoints) {
+            return content;
+        }
+        int endIndex = content.offsetByCodePoints(0, maxCodePoints);
+        return content.substring(0, endIndex);
     }
 }

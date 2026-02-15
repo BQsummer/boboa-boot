@@ -306,11 +306,12 @@ public class RobotTaskExecutor {
 
             // 3. US2: 使用模板渲染提示词
             String finalPrompt = payload.getContent();  // 默认使用原始消息
+            Long aiCharacterId = resolveAiCharacterId(payload);
             try {
-                PromptTemplate template = promptTemplateService.getLatestStableByCharId(payload.getReceiverId());
+                PromptTemplate template = promptTemplateService.getLatestStableByCharId(aiCharacterId);
                 if (template != null) {
                     // 模板存在，进行渲染
-                    Map<String, Object> templateParams = buildTemplateParams(payload);
+                    Map<String, Object> templateParams = buildTemplateParams(payload, aiCharacterId);
                     try {
                         finalPrompt = beetlTemplateService.render(template.getContent(), templateParams);
                         log.info("模板渲染成功: templateId={}, promptLength={}字符",
@@ -323,12 +324,12 @@ public class RobotTaskExecutor {
                     }
                 } else {
                     // 模板不存在，使用原始消息
-                    log.debug("角色未配置模板，使用原始消息: charId={}", payload.getReceiverId());
+                    log.debug("角色未配置模板，使用原始消息: charId={}", aiCharacterId);
                 }
             } catch (Exception e) {
                 // 查询模板异常，降级到原始消息
                 log.warn("查询模板失败，使用原始消息: charId={}, error={}",
-                        payload.getReceiverId(), e.getMessage());
+                        aiCharacterId, e.getMessage());
             }
 
             // 4. 调用LLM推理服务
@@ -338,8 +339,8 @@ public class RobotTaskExecutor {
             inferenceRequest.setTemperature(0.7);  // TODO: US3将从模板配置读取
             inferenceRequest.setMaxTokens(2000);   // TODO: US3将从模板配置读取
 
-            log.info("调用LLM推理服务: modelId={}, promptLength={}",
-                    selectedModel.getId(), finalPrompt.length());
+            log.info("调用LLM推理服务: modelId={}, prompt={}",
+                    selectedModel.getId(), finalPrompt);
 
             InferenceResponse inferenceResponse = inferenceService.chat(inferenceRequest);
 
@@ -484,7 +485,7 @@ public class RobotTaskExecutor {
                         task.getId(), durationMs, delayMs, task.getRetryCount() + 1);
 
                 // 性能告警：执行时间过长
-                if (durationMs > 5000) {
+                if (durationMs > 30000) {
                     log.warn("任务执行时间过长: taskId={}, duration={}ms (>5s)", task.getId(), durationMs);
                 }
 
@@ -543,7 +544,7 @@ public class RobotTaskExecutor {
      * @param payload 消息发送载荷
      * @return 模板参数Map，包含userName、userId、content、receiverId、characterName
      */
-    private Map<String, Object> buildTemplateParams(SendMessagePayload payload) {
+    private Map<String, Object> buildTemplateParams(SendMessagePayload payload, Long aiCharacterId) {
         Map<String, Object> params = new HashMap<>();
 
         try {
@@ -568,13 +569,13 @@ public class RobotTaskExecutor {
             // 3. 查询AI角色名称
             String characterName = "AI助手";  // 默认值
             try {
-                AiCharacter character = aiCharacterMapper.findById(payload.getReceiverId());
+                AiCharacter character = aiCharacterMapper.findById(aiCharacterId);
                 if (character != null && character.getName() != null && !character.getName().isEmpty()) {
                     characterName = character.getName();
                 }
             } catch (Exception e) {
                 log.warn("查询角色名失败，使用默认值: charId={}, error={}",
-                        payload.getReceiverId(), e.getMessage());
+                        aiCharacterId, e.getMessage());
             }
             params.put("characterName", characterName);
 
@@ -587,5 +588,18 @@ public class RobotTaskExecutor {
         }
 
         return params;
+    }
+
+    private Long resolveAiCharacterId(SendMessagePayload payload) {
+        if (payload.getAiCharacterId() != null) {
+            return payload.getAiCharacterId();
+        }
+
+        AiCharacter character = aiCharacterMapper.findByAssociatedUserId(payload.getReceiverId());
+        if (character != null) {
+            return character.getId();
+        }
+
+        return payload.getReceiverId();
     }
 }
