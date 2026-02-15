@@ -61,6 +61,10 @@ public class UserController {
         if (profile == null) {
             profile = UserProfile.builder().userId(targetUserId).build();
         }
+        User user = userMapper.findById(targetUserId);
+        if (user != null) {
+            profile.setNickname(user.getNickName());
+        }
         return ResponseEntity.ok(profile);
     }
 
@@ -89,6 +93,7 @@ public class UserController {
                 .desc(req.getDesc())
                 .build();
         userProfileMapper.upsert(toSave);
+        userMapper.updateNickName(targetUserId, req.getNickname());
         return ResponseEntity.ok("saved");
     }
 
@@ -109,6 +114,7 @@ public class UserController {
             return ResponseEntity.status(403).body("forbidden");
         }
         userProfileMapper.deleteByUserId(targetUserId);
+        userMapper.updateNickName(targetUserId, null);
         return ResponseEntity.ok("deleted");
     }
 

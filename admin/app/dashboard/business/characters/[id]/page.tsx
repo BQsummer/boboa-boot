@@ -41,6 +41,14 @@ const PROMPT_STATUS_MAP: Record<number, string> = {
   2: '停用',
 };
 
+function formatDateTime(value?: string | null): string {
+  if (!value) return '-';
+  const normalized = value.trim().replace(' ', 'T').replace(/(\.\d{3})\d+$/, '');
+  const parsed = new Date(normalized);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleString();
+  return value;
+}
+
 function toForm(setting: AiCharacterSetting | null): UpsertCharacterSettingReq {
   if (!setting) return { ...EMPTY_FORM };
   return {
@@ -281,13 +289,16 @@ export default function CharacterDetailPage() {
                   key={template.id}
                   className="border rounded-md p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <div className="text-sm font-medium">
                       模板 #{template.id} · V{template.version} · {template.lang}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {template.description?.trim() || '无描述'}
-                    </div>
+                    <details className="text-sm text-gray-600">
+                      <summary className="cursor-pointer select-none text-blue-600">查看模板内容</summary>
+                      <pre className="mt-2 whitespace-pre-wrap break-words rounded bg-gray-50 p-2 text-xs text-gray-700">
+                        {template.content?.trim() || '无内容'}
+                      </pre>
+                    </details>
                   </div>
                   <div className="text-xs text-gray-600 flex gap-2 flex-wrap">
                     <span className="px-2 py-1 rounded bg-gray-100">
@@ -296,7 +307,7 @@ export default function CharacterDetailPage() {
                     {template.isLatest && (
                       <span className="px-2 py-1 rounded bg-blue-100 text-blue-700">最新</span>
                     )}
-                    <span>更新: {new Date(template.updatedTime).toLocaleString()}</span>
+                    <span>更新: {formatDateTime(template.updatedAt || template.updatedTime)}</span>
                   </div>
                 </div>
               ))}

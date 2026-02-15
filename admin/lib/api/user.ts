@@ -22,6 +22,7 @@ export interface UserProfileResponse {
   occupation?: string | null;
   interests?: string | null;
   photos?: string | null;
+  nickname?: string | null;
   desc?: string | null;
   createdTime?: string | null;
   updatedTime?: string | null;
@@ -35,6 +36,7 @@ export interface UserProfileUpsertReq {
   occupation?: string | null;
   interests?: string | null;
   photos?: string | null;
+  nickname?: string | null;
   desc?: string | null;
 }
 

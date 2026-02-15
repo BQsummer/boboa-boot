@@ -35,6 +35,7 @@ interface CreateUserFormState {
 }
 
 interface UserProfileFormState {
+  nickname: string;
   gender: string;
   birthday: string;
   heightCm: string;
@@ -58,6 +59,7 @@ const EMPTY_CREATE_FORM: CreateUserFormState = {
 };
 
 const EMPTY_PROFILE_FORM: UserProfileFormState = {
+  nickname: '',
   gender: '',
   birthday: '',
   heightCm: '',
@@ -212,6 +214,7 @@ function UsersPageContent() {
       setProfileModalOpen(true);
       const profile = await getCurrentUserExtProfile(userId);
       setProfileForm({
+        nickname: profile.nickname ?? '',
         gender: profile.gender ?? 'unknown',
         birthday: profile.birthday ?? '',
         heightCm: profile.heightCm != null ? String(profile.heightCm) : '',
@@ -250,6 +253,7 @@ function UsersPageContent() {
         : Number.parseInt(trimmedHeight, 10);
 
     return {
+      nickname: normalize(profileForm.nickname),
       gender: normalize(profileForm.gender),
       birthday: normalize(profileForm.birthday),
       heightCm,
@@ -600,6 +604,14 @@ function UsersPageContent() {
                 <p className="text-sm">Loading profile...</p>
               ) : (
                 <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSaveProfile}>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Nickname</label>
+                    <Input
+                      value={profileForm.nickname}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, nickname: event.target.value }))}
+                      placeholder="Enter nickname"
+                    />
+                  </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium">Gender / 性别</label>
                     <select

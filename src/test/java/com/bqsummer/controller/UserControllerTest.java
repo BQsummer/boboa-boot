@@ -97,6 +97,7 @@ class UserControllerTest extends BaseTest {
         TestUser user = registerUser("profile_ext_upsert");
 
         String requestBody = "{" +
+                "\"nickname\":\"alice\"," +
                 "\"gender\":\"female\"," +
                 "\"birthday\":\"1995-08-15\"," +
                 "\"heightCm\":168," +
@@ -122,6 +123,7 @@ class UserControllerTest extends BaseTest {
                 () -> assertValue("user_profiles", "gender", "female", "user_id = ?", user.id),
                 () -> assertValue("user_profiles", "mbti", "INTJ", "user_id = ?", user.id),
                 () -> assertValue("user_profiles", "height_cm", 168, "user_id = ?", user.id),
+                () -> assertValue("users", "nick_name", "alice", "id = ?", user.id),
                 () -> assertValue("user_profiles", "desc", "desc-content", "user_id = ?", user.id)
         );
 
@@ -136,6 +138,7 @@ class UserControllerTest extends BaseTest {
                 .body("birthday", equalTo("1995-08-15"))
                 .body("heightCm", equalTo(168))
                 .body("mbti", equalTo("INTJ"))
+                .body("nickname", equalTo("alice"))
                 .body("occupation", equalTo("Engineer"))
                 .body("interests", equalTo("reading,coding"))
                 .body("photos", equalTo("[\"https://img.example.com/a.jpg\"]"))

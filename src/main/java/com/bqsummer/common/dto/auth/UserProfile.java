@@ -42,6 +42,8 @@ public class UserProfile {
     // 照片（逗号分隔的URL或JSON字符串）
     private String photos;
 
+    private String nickname;
+
     private String desc;
 
     private LocalDateTime createdTime;

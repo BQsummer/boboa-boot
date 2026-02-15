@@ -7,7 +7,7 @@ import { fetchApi } from './client';
 export interface PromptTemplate {
   id: number;
   charId: number;
-  description?: string;
+  description?: string | null;
   modelCode?: string;
   lang: string;
   content: string;
@@ -21,10 +21,15 @@ export interface PromptTemplate {
   priority: number;
   tags?: Record<string, any>;
   postProcessConfig?: Record<string, any>;
-  createdByUserId: number;
+  createdBy?: string | number;
+  updatedBy?: string | number;
+  createdByUserId?: number;
   updatedByUserId?: number;
-  createdTime: string;
-  updatedTime: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  // 兼容旧字段命名
+  createdTime?: string | null;
+  updatedTime?: string | null;
 }
 
 export interface CreatePromptTemplateReq {
