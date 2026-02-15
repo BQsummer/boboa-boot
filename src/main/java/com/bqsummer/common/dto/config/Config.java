@@ -23,11 +23,11 @@ public class Config {
     private String env;
     private String application;
     private String name;
-    @TableField("`desc`")
+    @TableField("\"desc\"")
     private String desc;
     private String value;
     private String type;
-    @TableField("`sensitive`")
+    @TableField("\"sensitive\"")
     private String sensitive;
     @EnumValue
     private ConfigStatus status;

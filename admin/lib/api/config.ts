@@ -6,6 +6,13 @@ interface ApiResult<T> {
   data: T;
 }
 
+function unwrap<T>(result: ApiResult<T> | T): T {
+  if (result && typeof result === 'object' && 'data' in result) {
+    return (result as ApiResult<T>).data;
+  }
+  return result as T;
+}
+
 export interface ConfigItem {
   id: number;
   env?: string | null;
@@ -86,5 +93,19 @@ export async function updateConfig(req: UpdateConfigReq): Promise<void> {
   await fetchApi<ApiResult<null> | null>('/plugin-manager/config', {
     method: 'PUT',
     body: JSON.stringify(req),
+  });
+}
+
+export async function getIpBlacklistConfig(): Promise<string> {
+  const result = await fetchApi<ApiResult<string> | string>('/api/v1/system/ip-blacklist', {
+    method: 'GET',
+  });
+  return unwrap(result) || '';
+}
+
+export async function saveIpBlacklistConfig(value: string): Promise<void> {
+  await fetchApi<ApiResult<null> | null>('/api/v1/system/ip-blacklist', {
+    method: 'PUT',
+    body: JSON.stringify({ value }),
   });
 }

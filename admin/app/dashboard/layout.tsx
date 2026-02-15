@@ -149,6 +149,11 @@ const menuItems: MenuItem[] = [
         icon: <Settings />,
       },
       {
+        title: 'IP黑名单',
+        href: '/dashboard/system/ip-blacklist',
+        icon: <Settings />,
+      },
+      {
         title: '用户管理',
         href: '/dashboard/system/users',
         icon: <Users />,
