@@ -19,7 +19,7 @@ public interface ScheduleSlotMapper {
 
     @Select("""
             <script>
-            SELECT id, rule_id, start_time, end_time, location_text, activity_text, detail
+            SELECT id, rule_id, start_time, end_time, location_text, activity_text, detail, created_at, updated_at
             FROM schedule_slots
             WHERE rule_id IN
             <foreach collection='ruleIds' item='id' open='(' separator=',' close=')'>

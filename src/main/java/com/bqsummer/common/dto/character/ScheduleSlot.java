@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -20,4 +21,6 @@ public class ScheduleSlot {
     private String locationText;
     private String activityText;
     private String detail;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

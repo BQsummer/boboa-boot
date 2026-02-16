@@ -107,7 +107,7 @@ public class ConfigService {
                 }
                 return dbValue;
             });
-            log.info("get config value of {} : {}", configName, value);
+            log.debug("get config value of {} : {}", configName, value);
             return value;
         }
         return null;

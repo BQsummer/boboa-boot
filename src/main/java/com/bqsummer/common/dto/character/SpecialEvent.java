@@ -23,4 +23,6 @@ public class SpecialEvent {
     private String overrideMode;
     private Integer priority;
     private String detail;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

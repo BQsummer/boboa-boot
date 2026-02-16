@@ -19,7 +19,7 @@ public interface ScheduleRulePatternMapper {
 
     @Select("""
             <script>
-            SELECT id, rule_id, weekday_mask, month_day, week_of_month, weekday
+            SELECT id, rule_id, weekday_mask, month_day, week_of_month, weekday, created_at, updated_at
             FROM schedule_rule_patterns
             WHERE rule_id IN
             <foreach collection='ruleIds' item='id' open='(' separator=',' close=')'>

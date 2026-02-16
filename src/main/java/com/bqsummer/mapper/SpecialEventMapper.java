@@ -22,7 +22,7 @@ public interface SpecialEventMapper {
     int insert(SpecialEvent event);
 
     @Select("""
-            SELECT id, character_key, title, start_at, end_at, location_text, activity_text, override_mode, priority, detail
+            SELECT id, character_key, title, start_at, end_at, location_text, activity_text, override_mode, priority, detail, created_at, updated_at
             FROM special_events
             WHERE character_key = #{characterKey}
               AND start_at <= #{at}
@@ -33,7 +33,7 @@ public interface SpecialEventMapper {
     SpecialEvent findTopActiveEvent(@Param("characterKey") String characterKey, @Param("at") OffsetDateTime at);
 
     @Select("""
-            SELECT id, character_key, title, start_at, end_at, location_text, activity_text, override_mode, priority, detail
+            SELECT id, character_key, title, start_at, end_at, location_text, activity_text, override_mode, priority, detail, created_at, updated_at
             FROM special_events
             WHERE character_key = #{characterKey}
             ORDER BY start_at DESC, priority DESC, id DESC

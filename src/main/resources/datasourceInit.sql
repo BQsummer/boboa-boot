@@ -915,7 +915,9 @@ CREATE TABLE schedule_rule_patterns (
                                        weekday_mask INT NULL,
                                        month_day INT NULL,
                                        week_of_month INT NULL,
-                                       weekday INT NULL
+                                       weekday INT NULL,
+                                       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_patterns_rule ON schedule_rule_patterns (rule_id);
 
@@ -926,7 +928,9 @@ CREATE TABLE schedule_slots (
                                 end_time TIME NOT NULL,
                                 location_text VARCHAR(255) NOT NULL,
                                 activity_text VARCHAR(512) NOT NULL,
-                                detail JSONB NULL
+                                detail JSONB NULL,
+                                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_slots_rule ON schedule_slots (rule_id);
 
@@ -940,7 +944,9 @@ CREATE TABLE special_events (
                                 activity_text VARCHAR(512) NOT NULL,
                                 override_mode VARCHAR(16) NOT NULL DEFAULT 'REPLACE',
                                 priority INT NOT NULL DEFAULT 100,
-                                detail JSONB NULL
+                                detail JSONB NULL,
+                                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_events_character_time ON special_events (character_key, start_at, end_at);
 
