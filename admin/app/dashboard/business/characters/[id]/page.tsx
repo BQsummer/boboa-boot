@@ -116,7 +116,7 @@ export default function CharacterDetailPage() {
       setPromptTemplates(promptResult.records || []);
     } catch (error) {
       console.error('load character detail failed:', error);
-      showNotice('error', '加载失败');
+      showNotice('error', '加载角色详情失败');
     } finally {
       setLoading(false);
       setPromptLoading(false);
@@ -157,7 +157,7 @@ export default function CharacterDetailPage() {
 
   const handleEdit = () => {
     if (mode === 'user' && !currentTargetUserId) {
-      showNotice('error', '请先选择目标用户');
+      showNotice('error', '请先选择用户');
       return;
     }
     setSettingsForm(toForm(currentSetting));
@@ -172,7 +172,7 @@ export default function CharacterDetailPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'user' && !currentTargetUserId) {
-      showNotice('error', '请先选择目标用户');
+      showNotice('error', '请先选择用户');
       return;
     }
     try {
@@ -192,10 +192,10 @@ export default function CharacterDetailPage() {
 
   const handleDelete = async () => {
     if (mode === 'user' && !currentTargetUserId) {
-      showNotice('error', '请先选择目标用户');
+      showNotice('error', '请先选择用户');
       return;
     }
-    if (!confirm('确认删除该设置吗？')) return;
+    if (!confirm('确认删除当前设定吗？')) return;
 
     try {
       if (mode === 'default') {
@@ -242,7 +242,7 @@ export default function CharacterDetailPage() {
           返回
         </Button>
         <Button onClick={() => router.push(`/dashboard/business/characters/${characterId}/test`)}>
-          测试对话
+          对话测试
         </Button>
         <h1 className="text-2xl font-bold">角色详情</h1>
       </div>
@@ -259,7 +259,7 @@ export default function CharacterDetailPage() {
           )}
           <div className="space-y-1">
             <div className="text-lg font-semibold">{character.name}</div>
-            <div className="text-sm text-gray-600">创建者用户ID: {character.createdByUserId}</div>
+            <div className="text-sm text-gray-600">创建者ID: {character.createdByUserId}</div>
             <div className="text-sm text-gray-600">角色ID: {character.id}</div>
           </div>
         </div>
@@ -267,22 +267,22 @@ export default function CharacterDetailPage() {
 
       <Card className="p-6 mb-6">
         <div className="flex items-center justify-between mb-4 gap-4">
-          <h2 className="text-xl font-semibold">关联提示词模板</h2>
+          <h2 className="text-xl font-semibold">Prompt模板</h2>
           <Button
             variant="outline"
             onClick={() => router.push(`/dashboard/ai/prompts?charId=${characterId}`)}
           >
-            前往模板管理
+            管理Prompt模板
           </Button>
         </div>
 
         {promptLoading ? (
           <div className="text-sm text-gray-500">加载中...</div>
         ) : promptTemplates.length === 0 ? (
-          <div className="text-sm text-gray-500">当前角色暂无关联提示词模板</div>
+          <div className="text-sm text-gray-500">暂无Prompt模板</div>
         ) : (
           <div className="space-y-3">
-            <div className="text-sm text-gray-600">共 {promptTemplates.length} 条模板</div>
+            <div className="text-sm text-gray-600">共 {promptTemplates.length} 条</div>
             <div className="space-y-2">
               {promptTemplates.map((template) => (
                 <div
@@ -291,7 +291,7 @@ export default function CharacterDetailPage() {
                 >
                   <div className="space-y-2">
                     <div className="text-sm font-medium">
-                      模板 #{template.id} · V{template.version} · {template.lang}
+                      模板 #{template.id} | V{template.version} | {template.lang}
                     </div>
                     <details className="text-sm text-gray-600">
                       <summary className="cursor-pointer select-none text-blue-600">查看模板内容</summary>
@@ -302,12 +302,12 @@ export default function CharacterDetailPage() {
                   </div>
                   <div className="text-xs text-gray-600 flex gap-2 flex-wrap">
                     <span className="px-2 py-1 rounded bg-gray-100">
-                      {PROMPT_STATUS_MAP[template.status] || `状态${template.status}`}
+                      {PROMPT_STATUS_MAP[template.status] || `状态 ${template.status}`}
                     </span>
                     {template.isLatest && (
                       <span className="px-2 py-1 rounded bg-blue-100 text-blue-700">最新</span>
                     )}
-                    <span>更新: {formatDateTime(template.updatedAt || template.updatedTime)}</span>
+                    <span>更新时间: {formatDateTime(template.updatedAt || template.updatedTime)}</span>
                   </div>
                 </div>
               ))}
@@ -318,7 +318,7 @@ export default function CharacterDetailPage() {
 
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4 gap-4">
-          <h2 className="text-xl font-semibold">角色设置管理</h2>
+          <h2 className="text-xl font-semibold">角色设定管理</h2>
           <div className="flex gap-2">
             <Button
               variant={mode === 'default' ? 'default' : 'outline'}
@@ -328,7 +328,7 @@ export default function CharacterDetailPage() {
                 setSettingsForm(toForm(defaultSetting));
               }}
             >
-              默认设置
+              默认设定
             </Button>
             <Button
               variant={mode === 'user' ? 'default' : 'outline'}
@@ -338,7 +338,7 @@ export default function CharacterDetailPage() {
                 setSettingsForm(toForm(userSetting));
               }}
             >
-              用户设置
+              用户设定
             </Button>
           </div>
         </div>
@@ -349,10 +349,10 @@ export default function CharacterDetailPage() {
               <Input
                 value={selectedUserIdInput}
                 onChange={(e) => setSelectedUserIdInput(e.target.value)}
-                placeholder="输入用户ID"
+                placeholder="请输入用户ID"
               />
               <Button type="button" onClick={handleLoadUserSetting}>
-                加载用户设置
+                加载用户设定
               </Button>
             </div>
             {userSettings.length > 0 && (
@@ -379,8 +379,8 @@ export default function CharacterDetailPage() {
         )}
 
         <div className="mb-4 text-sm text-gray-600">
-          目标用户ID: {mode === 'default' ? 'NULL' : currentTargetUserId || '-'}
-          {mode === 'default' ? '（默认设置）' : ''}
+          当前生效用户ID: {mode === 'default' ? 'NULL' : currentTargetUserId || '-'}
+          {mode === 'default' ? '（默认设定）' : ''}
         </div>
 
         {isEditing ? (
@@ -388,14 +388,14 @@ export default function CharacterDetailPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">个性化名称</label>
+                  <label className="block text-sm font-medium mb-1">名称</label>
                   <Input
                     value={settingsForm.name}
                     onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">头像 URL</label>
+                  <label className="block text-sm font-medium mb-1">头像URL</label>
                   <Input
                     value={settingsForm.avatarUrl}
                     onChange={(e) => setSettingsForm({ ...settingsForm, avatarUrl: e.target.value })}
@@ -422,7 +422,7 @@ export default function CharacterDetailPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">背景故事</label>
+                <label className="block text-sm font-medium mb-1">背景设定</label>
                 <textarea
                   className="w-full px-3 py-2 border rounded-md min-h-[90px]"
                   value={settingsForm.background}
@@ -431,7 +431,7 @@ export default function CharacterDetailPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">语言偏好</label>
+                <label className="block text-sm font-medium mb-1">语言</label>
                 <Input
                   value={settingsForm.language}
                   onChange={(e) => setSettingsForm({ ...settingsForm, language: e.target.value })}
@@ -439,7 +439,7 @@ export default function CharacterDetailPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">自定义参数（JSON）</label>
+                <label className="block text-sm font-medium mb-1">自定义参数(JSON)</label>
                 <textarea
                   className="w-full px-3 py-2 border rounded-md min-h-[80px] font-mono text-sm"
                   value={settingsForm.customParams}
@@ -451,16 +451,16 @@ export default function CharacterDetailPage() {
               <Button type="button" variant="outline" onClick={handleCancelEdit}>
                 取消
               </Button>
-              <Button type="submit">保存设置</Button>
+              <Button type="submit">保存设定</Button>
             </div>
           </form>
         ) : (
           <div className="space-y-4">
             <div className="flex gap-2">
-              <Button onClick={handleEdit}>{currentSetting ? '编辑设置' : '新增设置'}</Button>
+              <Button onClick={handleEdit}>{currentSetting ? '编辑当前设定' : '新建设定'}</Button>
               {currentSetting && (
                 <Button variant="destructive" onClick={handleDelete}>
-                  删除设置
+                  删除设定
                 </Button>
               )}
             </div>
@@ -481,7 +481,7 @@ export default function CharacterDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="text-gray-500 text-sm">当前目标用户暂无设置</div>
+              <div className="text-gray-500 text-sm">暂无设定，请先新建</div>
             )}
           </div>
         )}
@@ -489,3 +489,8 @@ export default function CharacterDetailPage() {
     </div>
   );
 }
+
+
+
+
+

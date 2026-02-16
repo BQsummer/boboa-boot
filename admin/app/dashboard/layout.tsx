@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
@@ -91,6 +91,11 @@ const menuItems: MenuItem[] = [
         title: '语音管理',
         href: '/dashboard/business/voice',
         icon: <Mic />,
+      },
+      {
+        title: '人物日程',
+        href: '/dashboard/business/schedules',
+        icon: <CalendarClock />,
       },
     ],
   },

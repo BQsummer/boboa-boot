@@ -3,8 +3,6 @@ package com.bqsummer.common.dto.ai;
 /**
  * 模型类型枚举
  * 
- * @author Boboa Boot Team
- * @date 2025-10-21
  */
 public enum ModelType {
     /**

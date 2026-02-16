@@ -28,7 +28,6 @@ export default function CharactersPage() {
     status: true,
   });
 
-  // 加载角色列表
   const loadCharacters = async () => {
     try {
       setLoading(true);
@@ -46,7 +45,6 @@ export default function CharactersPage() {
     loadCharacters();
   }, []);
 
-  // 打开创建对话框
   const handleCreate = () => {
     setEditingCharacter(null);
     setFormData({
@@ -59,7 +57,6 @@ export default function CharactersPage() {
     setIsDialogOpen(true);
   };
 
-  // 打开编辑对话框
   const handleEdit = (character: AiCharacter) => {
     setEditingCharacter(character);
     setFormData({
@@ -72,7 +69,6 @@ export default function CharactersPage() {
     setIsDialogOpen(true);
   };
 
-  // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -89,7 +85,6 @@ export default function CharactersPage() {
     }
   };
 
-  // 删除角色
   const handleDelete = async (id: number) => {
     if (!confirm('确定要删除此角色吗？')) return;
 
@@ -102,13 +97,16 @@ export default function CharactersPage() {
     }
   };
 
-  // 查看详情/设置
   const handleViewDetail = (id: number) => {
     router.push(`/dashboard/business/characters/${id}`);
   };
 
   const handleTestChat = (id: number) => {
     router.push(`/dashboard/business/characters/${id}/test`);
+  };
+
+  const handleManageSchedule = (id: number) => {
+    router.push(`/dashboard/business/schedules?characterId=${id}`);
   };
 
   return (
@@ -163,46 +161,18 @@ export default function CharactersPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 mt-4">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => handleTestChat(character.id)}
-                  className="flex-1"
-                >
-                  测试
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleViewDetail(character.id)}
-                  className="flex-1"
-                >
-                  详情
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEdit(character)}
-                  className="flex-1"
-                >
-                  编辑
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(character.id)}
-                  className="flex-1"
-                >
-                  删除
-                </Button>
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <Button variant="default" size="sm" onClick={() => handleTestChat(character.id)}>测试</Button>
+                <Button variant="outline" size="sm" onClick={() => handleViewDetail(character.id)}>详情</Button>
+                <Button variant="outline" size="sm" onClick={() => handleManageSchedule(character.id)}>日程</Button>
+                <Button variant="outline" size="sm" onClick={() => handleEdit(character)}>编辑</Button>
+                <Button variant="destructive" size="sm" onClick={() => handleDelete(character.id)}>删除</Button>
               </div>
             </Card>
           ))}
         </div>
       )}
 
-      {/* 创建/编辑对话框 */}
       {isDialogOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
@@ -272,12 +242,7 @@ export default function CharactersPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                  className="flex-1"
-                >
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
                   取消
                 </Button>
                 <Button type="submit" className="flex-1">

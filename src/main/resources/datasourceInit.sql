@@ -896,6 +896,54 @@ CREATE TABLE monthly_plans (
 CREATE INDEX idx_character_id ON monthly_plans (character_id);
 CREATE INDEX idx_character_deleted ON monthly_plans (character_id, is_deleted);
 
+CREATE TABLE schedule_rules (
+                               id BIGSERIAL PRIMARY KEY,
+                               character_key VARCHAR(128) NOT NULL,
+                               title VARCHAR(255) NOT NULL,
+                               recurrence_type VARCHAR(16) NOT NULL,
+                               interval INT NOT NULL DEFAULT 1,
+                               priority INT NOT NULL DEFAULT 10,
+                               is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                               valid_from DATE NULL,
+                               valid_to DATE NULL
+);
+CREATE INDEX idx_rules_character_active ON schedule_rules (character_key, is_active);
+
+CREATE TABLE schedule_rule_patterns (
+                                       id BIGSERIAL PRIMARY KEY,
+                                       rule_id BIGINT NOT NULL REFERENCES schedule_rules(id) ON DELETE CASCADE,
+                                       weekday_mask INT NULL,
+                                       month_day INT NULL,
+                                       week_of_month INT NULL,
+                                       weekday INT NULL
+);
+CREATE INDEX idx_patterns_rule ON schedule_rule_patterns (rule_id);
+
+CREATE TABLE schedule_slots (
+                                id BIGSERIAL PRIMARY KEY,
+                                rule_id BIGINT NOT NULL REFERENCES schedule_rules(id) ON DELETE CASCADE,
+                                start_time TIME NOT NULL,
+                                end_time TIME NOT NULL,
+                                location_text VARCHAR(255) NOT NULL,
+                                activity_text VARCHAR(512) NOT NULL,
+                                detail JSONB NULL
+);
+CREATE INDEX idx_slots_rule ON schedule_slots (rule_id);
+
+CREATE TABLE special_events (
+                                id BIGSERIAL PRIMARY KEY,
+                                character_key VARCHAR(128) NOT NULL,
+                                title VARCHAR(255) NOT NULL,
+                                start_at TIMESTAMPTZ NOT NULL,
+                                end_at TIMESTAMPTZ NOT NULL,
+                                location_text VARCHAR(255) NOT NULL,
+                                activity_text VARCHAR(512) NOT NULL,
+                                override_mode VARCHAR(16) NOT NULL DEFAULT 'REPLACE',
+                                priority INT NOT NULL DEFAULT 100,
+                                detail JSONB NULL
+);
+CREATE INDEX idx_events_character_time ON special_events (character_key, start_at, end_at);
+
 CREATE TABLE conversation_summary (
                                       id BIGSERIAL PRIMARY KEY,
                                       user_id BIGINT NOT NULL,
