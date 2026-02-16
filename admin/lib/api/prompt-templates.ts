@@ -1,5 +1,5 @@
-/**
- * Prompt 模板 API
+﻿/**
+ * Prompt template API
  */
 
 import { fetchApi } from './client';
@@ -14,20 +14,18 @@ export interface PromptTemplate {
   paramSchema?: Record<string, any>;
   version: number;
   isLatest: boolean;
-  status: number; // 0=草稿，1=启用，2=停用
-  grayStrategy: number; // 0=无灰度，1=按比例，2=按用户白名单
+  status: number;
+  grayStrategy: number;
   grayRatio?: number;
   grayUserList?: number[];
   priority: number;
   tags?: Record<string, any>;
+  postProcessPipelineId?: number;
   postProcessConfig?: Record<string, any>;
   createdBy?: string | number;
   updatedBy?: string | number;
-  createdByUserId?: number;
-  updatedByUserId?: number;
   createdAt?: string | null;
   updatedAt?: string | null;
-  // 兼容旧字段命名
   createdTime?: string | null;
   updatedTime?: string | null;
 }
@@ -45,6 +43,7 @@ export interface CreatePromptTemplateReq {
   grayUserList?: number[];
   priority?: number;
   tags?: Record<string, any>;
+  postProcessPipelineId?: number;
   postProcessConfig?: Record<string, any>;
 }
 
@@ -60,6 +59,7 @@ export interface UpdatePromptTemplateReq {
   grayUserList?: number[];
   priority?: number;
   tags?: Record<string, any>;
+  postProcessPipelineId?: number;
   postProcessConfig?: Record<string, any>;
 }
 
@@ -79,13 +79,6 @@ export interface PageResult<T> {
   pages: number;
 }
 
-export interface RenderPromptTemplateReq {
-  params: Record<string, any>;
-}
-
-/**
- * 创建 Prompt 模板
- */
 export async function createPromptTemplate(data: CreatePromptTemplateReq): Promise<PromptTemplate> {
   return fetchApi('/api/v1/prompt-templates', {
     method: 'POST',
@@ -93,9 +86,6 @@ export async function createPromptTemplate(data: CreatePromptTemplateReq): Promi
   });
 }
 
-/**
- * 分页查询模板列表
- */
 export async function listPromptTemplates(query: PromptTemplateQueryReq): Promise<PageResult<PromptTemplate>> {
   const params = new URLSearchParams();
   if (query.charId !== undefined) params.append('charId', query.charId.toString());
@@ -104,55 +94,30 @@ export async function listPromptTemplates(query: PromptTemplateQueryReq): Promis
   if (query.page !== undefined) params.append('page', query.page.toString());
   if (query.pageSize !== undefined) params.append('pageSize', query.pageSize.toString());
 
-  return fetchApi(`/api/v1/prompt-templates?${params.toString()}`, {
-    method: 'GET',
-  });
+  return fetchApi(`/api/v1/prompt-templates?${params.toString()}`, { method: 'GET' });
 }
 
-/**
- * 获取模板详情
- */
 export async function getPromptTemplate(id: number): Promise<PromptTemplate> {
-  return fetchApi(`/api/v1/prompt-templates/${id}`, {
-    method: 'GET',
-  });
+  return fetchApi(`/api/v1/prompt-templates/${id}`, { method: 'GET' });
 }
 
-/**
- * 更新模板
- */
-export async function updatePromptTemplate(
-  id: number,
-  data: UpdatePromptTemplateReq
-): Promise<PromptTemplate> {
+export async function updatePromptTemplate(id: number, data: UpdatePromptTemplateReq): Promise<PromptTemplate> {
   return fetchApi(`/api/v1/prompt-templates/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 }
 
-/**
- * 删除模板
- */
 export async function deletePromptTemplate(id: number): Promise<void> {
-  return fetchApi(`/api/v1/prompt-templates/${id}`, {
-    method: 'DELETE',
-  });
+  return fetchApi(`/api/v1/prompt-templates/${id}`, { method: 'DELETE' });
 }
 
-/**
- * 渲染模板预览
- */
 export async function enablePromptTemplate(id: number): Promise<PromptTemplate> {
-  return fetchApi(`/api/v1/prompt-templates/${id}/enable`, {
-    method: 'POST',
-  });
+  return fetchApi(`/api/v1/prompt-templates/${id}/enable`, { method: 'POST' });
 }
 
 export async function disablePromptTemplate(id: number): Promise<PromptTemplate> {
-  return fetchApi(`/api/v1/prompt-templates/${id}/disable`, {
-    method: 'POST',
-  });
+  return fetchApi(`/api/v1/prompt-templates/${id}/disable`, { method: 'POST' });
 }
 
 export async function renderPromptTemplate(id: number, params: Record<string, any>): Promise<string> {

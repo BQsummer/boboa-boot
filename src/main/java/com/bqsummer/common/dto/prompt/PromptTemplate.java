@@ -1,7 +1,8 @@
 package com.bqsummer.common.dto.prompt;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.bqsummer.framework.handler.PgJsonLongListTypeHandler;
+import com.bqsummer.framework.handler.PgJsonObjectTypeHandler;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -70,7 +71,7 @@ public class PromptTemplate {
      *     "repetition_penalty": 1
      * }
      */
-    @TableField(value = "param_schema", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "param_schema", typeHandler = PgJsonObjectTypeHandler.class)
     private Map<String, Object> paramSchema;
 
     /**
@@ -108,7 +109,7 @@ public class PromptTemplate {
     /**
      * 灰度用户白名单（用户ID数组），gray_strategy=2时有效
      */
-    @TableField(value = "gray_user_list", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "gray_user_list", typeHandler = PgJsonLongListTypeHandler.class)
     private List<Long> grayUserList;
 
     /**
@@ -119,8 +120,14 @@ public class PromptTemplate {
     /**
      * 扩展匹配条件，如地区/渠道/设备（可选）
      */
-    @TableField(value = "tags", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "tags", typeHandler = PgJsonObjectTypeHandler.class)
     private Map<String, Object> tags;
+
+    /**
+     * 后处理流水线ID（可选）
+     */
+    @TableField("post_process_pipeline_id")
+    private Long postProcessPipelineId;
 
     /**
      * 后处理配置（JSON），支持过滤标签、正则替换等规则
@@ -135,7 +142,7 @@ public class PromptTemplate {
      *     "maxLength": 4096
      * }
      */
-    @TableField(value = "post_process_config", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "post_process_config", typeHandler = PgJsonObjectTypeHandler.class)
     private Map<String, Object> postProcessConfig;
 
     /**

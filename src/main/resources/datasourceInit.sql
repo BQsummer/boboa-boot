@@ -817,6 +817,7 @@ CREATE TABLE prompt_template (
                                    priority INT NOT NULL DEFAULT 0,
                                    tags JSON DEFAULT NULL,
 
+                                   post_process_pipeline_id BIGINT DEFAULT NULL,
                                    post_process_config JSON DEFAULT NULL,
 
                                    created_by VARCHAR(64) DEFAULT NULL,
@@ -830,6 +831,53 @@ CREATE TABLE prompt_template (
 );
 CREATE INDEX idx_char_id_latest ON prompt_template (char_id, is_latest, status);
 CREATE INDEX idx_gray ON prompt_template (gray_strategy, status);
+CREATE INDEX idx_prompt_post_process_pipeline ON prompt_template (post_process_pipeline_id);
+
+CREATE TABLE post_process_pipeline (
+                                      id BIGSERIAL PRIMARY KEY,
+                                      name VARCHAR(128) NOT NULL,
+                                      description VARCHAR(255),
+
+                                      lang VARCHAR(16) DEFAULT 'zh-CN',
+                                      model_code VARCHAR(64) DEFAULT NULL,
+
+                                      version INT NOT NULL DEFAULT 1,
+                                      is_latest BOOLEAN NOT NULL DEFAULT TRUE,
+                                      status SMALLINT NOT NULL DEFAULT 0,
+
+                                      gray_strategy SMALLINT NOT NULL DEFAULT 0,
+                                      gray_ratio INT DEFAULT NULL,
+                                      gray_user_list JSON DEFAULT NULL,
+
+                                      tags JSON DEFAULT NULL,
+
+                                      created_by VARCHAR(64) DEFAULT NULL,
+                                      updated_by VARCHAR(64) DEFAULT NULL,
+                                      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                      is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+
+                                      CONSTRAINT uk_post_process_pipeline_name_ver UNIQUE (name, version)
+);
+CREATE INDEX idx_post_process_pipeline_status ON post_process_pipeline (status, is_latest);
+
+CREATE TABLE post_process_step (
+                                  id BIGSERIAL PRIMARY KEY,
+                                  pipeline_id BIGINT NOT NULL REFERENCES post_process_pipeline(id),
+                                  step_order INT NOT NULL,
+                                  step_type VARCHAR(32) NOT NULL,
+                                  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+
+                                  config JSON NOT NULL,
+                                  on_fail SMALLINT NOT NULL DEFAULT 0,
+                                  priority INT NOT NULL DEFAULT 0,
+
+                                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                  CONSTRAINT uk_pipeline_order UNIQUE (pipeline_id, step_order)
+);
+CREATE INDEX idx_post_process_step_pipeline ON post_process_step (pipeline_id, enabled, step_order);
 
 CREATE TABLE monthly_plans (
                                   id BIGSERIAL PRIMARY KEY,

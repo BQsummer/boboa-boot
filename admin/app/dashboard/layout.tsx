@@ -52,6 +52,11 @@ const menuItems: MenuItem[] = [
         icon: <MessageSquare />,
       },
       {
+        title: '后处理流水线',
+        href: '/dashboard/ai/post-process',
+        icon: <MessageSquare />,
+      },
+      {
         title: '策略配置',
         href: '/dashboard/ai/strategies',
         icon: <Target />,

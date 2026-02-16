@@ -89,6 +89,11 @@ public class PromptTemplateCreateRequest {
     private Map<String, Object> tags;
 
     /**
+     * 绑定的后处理流水线ID（可选）
+     */
+    private Long postProcessPipelineId;
+
+    /**
      * 后处理配置（JSON），支持过滤标签、正则替换等规则
      *
      * 示例：

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Prompt 模板响应 VO
+ * Prompt 妯℃澘鍝嶅簲 VO
  *
  * @author Boboa Boot Team
  * @date 2025-11-27
@@ -16,106 +16,111 @@ import java.util.Map;
 public class PromptTemplateResponse {
 
     /**
-     * 模板ID
+     * 妯℃澘ID
      */
     private Long id;
 
     /**
-     * 角色ID
+     * 瑙掕壊ID
      */
     private Long charId;
 
     /**
-     * 模板描述
+     * 妯℃澘鎻忚堪
      */
     private String description;
 
     /**
-     * 适用模型代码
+     * 閫傜敤妯″瀷浠ｇ爜
      */
     private String modelCode;
 
     /**
-     * 模板语言
+     * 妯℃澘璇█
      */
     private String lang;
 
     /**
-     * 模板内容
+     * 妯℃澘鍐呭
      */
     private String content;
 
     /**
-     * 模板参数结构说明
+     * 妯℃澘鍙傛暟缁撴瀯璇存槑
      */
     private Map<String, Object> paramSchema;
 
     /**
-     * 版本号
+     * 鐗堟湰鍙?
      */
     private Integer version;
 
     /**
-     * 是否最新版本
+     * 鏄惁鏈€鏂扮増鏈?
      */
     private Boolean isLatest;
 
     /**
-     * 是否稳定版本
+     * 鏄惁绋冲畾鐗堟湰
      */
 
     /**
-     * 状态
+     * 鐘舵€?
      */
     private Integer status;
 
     /**
-     * 灰度策略
+     * 鐏板害绛栫暐
      */
     private Integer grayStrategy;
 
     /**
-     * 灰度比例
+     * 鐏板害姣斾緥
      */
     private Integer grayRatio;
 
     /**
-     * 灰度用户白名单
+     * 鐏板害鐢ㄦ埛鐧藉悕鍗?
      */
     private List<Long> grayUserList;
 
     /**
-     * 模板优先级
+     * 妯℃澘浼樺厛绾?
      */
     private Integer priority;
 
     /**
-     * 扩展匹配条件
+     * 鎵╁睍鍖归厤鏉′欢
      */
     private Map<String, Object> tags;
 
     /**
-     * 后处理配置
+     * 鍚庡鐞嗛厤缃?
      */
+    private Long postProcessPipelineId;
+
     private Map<String, Object> postProcessConfig;
 
     /**
-     * 创建人
+     * 鍒涘缓浜?
      */
     private String createdBy;
 
     /**
-     * 更新人
+     * 鏇存柊浜?
      */
     private String updatedBy;
 
     /**
-     * 创建时间
+     * 鍒涘缓鏃堕棿
      */
     private LocalDateTime createdAt;
 
     /**
-     * 更新时间
+     * 鏇存柊鏃堕棿
      */
     private LocalDateTime updatedAt;
 }
+
+
+

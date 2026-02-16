@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Prompt 模板更新请求 VO
+ * Prompt 妯℃澘鏇存柊璇锋眰 VO
  *
  * @author Boboa Boot Team
  * @date 2025-11-27
@@ -18,75 +18,80 @@ import java.util.Map;
 public class PromptTemplateUpdateRequest {
 
     /**
-     * 模板描述
+     * 妯℃澘鎻忚堪
      */
-    @Size(max = 255, message = "描述长度不能超过255字符")
+    @Size(max = 255, message = "鎻忚堪闀垮害涓嶈兘瓒呰繃255瀛楃")
     private String description;
 
     /**
-     * 适用模型代码
+     * 閫傜敤妯″瀷浠ｇ爜
      */
-    @Size(max = 64, message = "模型代码长度不能超过64字符")
+    @Size(max = 64, message = "妯″瀷浠ｇ爜闀垮害涓嶈兘瓒呰繃64瀛楃")
     private String modelCode;
 
     /**
-     * 模板语言
+     * 妯℃澘璇█
      */
-    @Size(max = 16, message = "语言代码长度不能超过16字符")
+    @Size(max = 16, message = "璇█浠ｇ爜闀垮害涓嶈兘瓒呰繃16瀛楃")
     private String lang;
 
     /**
-     * 模板内容（Beetl 模板语法）
+     * 妯℃澘鍐呭锛圔eetl 妯℃澘璇硶锛?
      */
     private String content;
 
     /**
-     * 模板参数结构说明（JSON Schema）
+     * 妯℃澘鍙傛暟缁撴瀯璇存槑锛圝SON Schema锛?
      */
     private Map<String, Object> paramSchema;
 
     /**
-     * 状态：0=草稿，1=启用，2=停用
+     * 鐘舵€侊細0=鑽夌锛?=鍚敤锛?=鍋滅敤
      */
-    @Min(value = 0, message = "状态值不合法")
-    @Max(value = 2, message = "状态值不合法")
+    @Min(value = 0, message = "鐘舵€佸€间笉鍚堟硶")
+    @Max(value = 2, message = "鐘舵€佸€间笉鍚堟硶")
     private Integer status;
 
     /**
-     * 是否稳定版本
+     * 鏄惁绋冲畾鐗堟湰
      */
 
     /**
-     * 灰度策略：0=无灰度，1=按比例，2=按用户白名单
+     * 鐏板害绛栫暐锛?=鏃犵伆搴︼紝1=鎸夋瘮渚嬶紝2=鎸夌敤鎴风櫧鍚嶅崟
      */
-    @Min(value = 0, message = "灰度策略值不合法")
-    @Max(value = 2, message = "灰度策略值不合法")
+    @Min(value = 0, message = "鐏板害绛栫暐鍊间笉鍚堟硶")
+    @Max(value = 2, message = "鐏板害绛栫暐鍊间笉鍚堟硶")
     private Integer grayStrategy;
 
     /**
-     * 灰度比例：0-100
+     * 鐏板害姣斾緥锛?-100
      */
-    @Min(value = 0, message = "灰度比例必须在0-100之间")
-    @Max(value = 100, message = "灰度比例必须在0-100之间")
+    @Min(value = 0, message = "鐏板害姣斾緥蹇呴』鍦?-100涔嬮棿")
+    @Max(value = 100, message = "鐏板害姣斾緥蹇呴』鍦?-100涔嬮棿")
     private Integer grayRatio;
 
     /**
-     * 灰度用户白名单
+     * 鐏板害鐢ㄦ埛鐧藉悕鍗?
      */
     private List<Long> grayUserList;
 
     /**
-     * 模板优先级
+     * 妯℃澘浼樺厛绾?
      */
     private Integer priority;
 
     /**
-     * 扩展匹配条件
+     * 鎵╁睍鍖归厤鏉′欢
      */
     private Map<String, Object> tags;
 
     /**
-     * 后处理配置（JSON），支持过滤标签、正则替换等规则
+     * 鍚庡鐞嗛厤缃紙JSON锛夛紝鏀寔杩囨护鏍囩銆佹鍒欐浛鎹㈢瓑瑙勫垯
      */
+    private Long postProcessPipelineId;
+
     private Map<String, Object> postProcessConfig;
 }
+
+
+
