@@ -1,18 +1,27 @@
 package com.bqsummer.service.robot;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.bqsummer.common.bo.ai.AiModelBo;
+import com.bqsummer.common.dto.auth.UserProfile;
+import com.bqsummer.common.dto.character.AiCharacterSetting;
 import com.bqsummer.common.dto.im.Message;
+import com.bqsummer.common.dto.memory.ConversationSummary;
+import com.bqsummer.common.dto.memory.LongTermMemory;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.RobotTaskExecutionLog;
 import com.bqsummer.common.dto.robot.SendMessagePayload;
 import com.bqsummer.common.dto.robot.TaskStatus;
 import com.bqsummer.configuration.Configs;
+import com.bqsummer.mapper.AiCharacterSettingMapper;
 import com.bqsummer.mapper.ConversationMapper;
 import com.bqsummer.mapper.RobotTaskExecutionLogMapper;
 import com.bqsummer.mapper.RobotTaskMapper;
 import com.bqsummer.mapper.UserMapper;
 import com.bqsummer.mapper.AiCharacterMapper;
+import com.bqsummer.mapper.UserProfileMapper;
+import com.bqsummer.mapper.memory.ConversationSummaryMapper;
+import com.bqsummer.mapper.memory.LongTermMemoryMapper;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
 import com.bqsummer.common.dto.auth.User;
@@ -38,7 +47,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -73,6 +85,10 @@ public class RobotTaskExecutor {
     private final ConversationMapper conversationMapper;
     private final UserMapper userMapper;
     private final AiCharacterMapper aiCharacterMapper;
+    private final AiCharacterSettingMapper aiCharacterSettingMapper;
+    private final UserProfileMapper userProfileMapper;
+    private final ConversationSummaryMapper conversationSummaryMapper;
+    private final LongTermMemoryMapper longTermMemoryMapper;
     private final Configs configs;
 
     // 自我注入：用于调用事务方法，确保通过代理调用
@@ -214,7 +230,7 @@ public class RobotTaskExecutor {
             return true;
         }
 
-        log.warn("任务领取失败: taskId={}, expectedStatus=PENDING, reason=已被其他实例领取或状态已变更",
+        log.info("任务领取失败: taskId={}, expectedStatus=PENDING, reason=已被其他实例领取或状态已变更",
                 task.getId());
         return false;
     }
@@ -548,46 +564,232 @@ public class RobotTaskExecutor {
         Map<String, Object> params = new HashMap<>();
 
         try {
-            // 1. 基本参数（直接从payload获取）
             params.put("content", payload.getContent());
 
-            // 2. 查询用户昵称
-            String userName = "用户";  // 默认值
-            try {
-                User user = userMapper.findById(payload.getSenderId());
-                if (user != null && user.getNickName() != null && !user.getNickName().isEmpty()) {
-                    userName = user.getNickName();
-                } else if (user != null && user.getUsername() != null && !user.getUsername().isEmpty()) {
-                    userName = user.getUsername();
-                }
-            } catch (Exception e) {
-                log.warn("查询用户名失败，使用默认值: userId={}, error={}",
-                        payload.getSenderId(), e.getMessage());
-            }
-            params.put("user", userName);
+            User user = null;
+            AiCharacter character = null;
+            AiCharacterSetting defaultSetting = null;
+            AiCharacterSetting customSetting = null;
+            UserProfile userProfile = null;
 
-            // 3. 查询AI角色名称
-            String characterName = "AI助手";  // 默认值
             try {
-                AiCharacter character = aiCharacterMapper.findById(aiCharacterId);
-                if (character != null && character.getName() != null && !character.getName().isEmpty()) {
-                    characterName = character.getName();
-                }
+                user = userMapper.findById(payload.getSenderId());
             } catch (Exception e) {
-                log.warn("查询角色名失败，使用默认值: charId={}, error={}",
-                        aiCharacterId, e.getMessage());
+                log.warn("query user failed: userId={}, error={}", payload.getSenderId(), e.getMessage());
             }
+
+            try {
+                character = aiCharacterMapper.findById(aiCharacterId);
+            } catch (Exception e) {
+                log.warn("query ai character failed: charId={}, error={}", aiCharacterId, e.getMessage());
+            }
+
+            try {
+                defaultSetting = aiCharacterSettingMapper.findDefaultByCharacter(aiCharacterId);
+            } catch (Exception e) {
+                log.warn("query default ai character setting failed: charId={}, error={}", aiCharacterId, e.getMessage());
+            }
+
+            try {
+                customSetting = aiCharacterSettingMapper.findByUserAndCharacter(payload.getSenderId(), aiCharacterId);
+            } catch (Exception e) {
+                log.warn("query custom ai character setting failed: userId={}, charId={}, error={}",
+                        payload.getSenderId(), aiCharacterId, e.getMessage());
+            }
+
+            try {
+                userProfile = userProfileMapper.selectByUserId(payload.getSenderId());
+            } catch (Exception e) {
+                log.warn("query user profile failed: userId={}, error={}", payload.getSenderId(), e.getMessage());
+            }
+
+            String userName = resolveUserName(user);
+            String characterName = resolveCharacterName(character, defaultSetting, customSetting);
+
+            params.put("user", userName);
+            params.put("char", characterName);
+            params.put("charDetail", buildCharDetailString(defaultSetting, customSetting));
+            params.put("charStatus", "");
+            params.put("userDetail", buildUserDetailString(userProfile));
+            params.put("history", buildHistoryString(payload, aiCharacterId));
+
+            params.put("userName", userName);
+            params.put("userId", payload.getSenderId());
+            params.put("receiverId", payload.getReceiverId());
             params.put("characterName", characterName);
 
-            log.debug("构建模板参数成功: userName={}, characterName={}, content={}字符",
-                    userName, characterName, payload.getContent().length());
+            log.debug("build template params success: userName={}, characterName={}, historyCount={}",
+                    userName, characterName, ((List<?>) params.get("history")).size());
 
         } catch (Exception e) {
-            log.error("构建模板参数异常: {}", e.getMessage(), e);
-            // 即使异常也返回基本参数，确保后续流程可继续
+            log.error("build template params error: {}", e.getMessage(), e);
         }
 
         return params;
+    }
+
+    private String resolveUserName(User user) {
+        if (user != null && isNotBlank(user.getNickName())) {
+            return user.getNickName();
+        }
+        if (user != null && isNotBlank(user.getUsername())) {
+            return user.getUsername();
+        }
+        return "用户";
+    }
+
+    private String resolveCharacterName(AiCharacter character,
+                                        AiCharacterSetting defaultSetting,
+                                        AiCharacterSetting customSetting) {
+        if (customSetting != null && isNotBlank(customSetting.getName())) {
+            return customSetting.getName();
+        }
+        if (character != null && isNotBlank(character.getName())) {
+            return character.getName();
+        }
+        if (defaultSetting != null && isNotBlank(defaultSetting.getName())) {
+            return defaultSetting.getName();
+        }
+        return "AI助手";
+    }
+
+    private String buildCharDetailString(AiCharacterSetting defaultSetting, AiCharacterSetting customSetting) {
+        Object memorialDay = defaultSetting != null ? defaultSetting.getMemorialDay() : null;
+        if (customSetting != null && customSetting.getMemorialDay() != null) {
+            memorialDay = customSetting.getMemorialDay();
+        }
+
+        String relationship = defaultSetting != null ? defaultSetting.getRelationship() : null;
+        if (customSetting != null && isNotBlank(customSetting.getRelationship())) {
+            relationship = customSetting.getRelationship();
+        }
+
+        String background = defaultSetting != null ? defaultSetting.getBackground() : null;
+        if (customSetting != null && isNotBlank(customSetting.getBackground())) {
+            background = customSetting.getBackground();
+        }
+
+        List<String> parts = new ArrayList<>();
+        if (memorialDay != null) {
+            parts.add("纪念日为" + memorialDay);
+        }
+        if (isNotBlank(relationship)) {
+            parts.add("关系为" + relationship);
+        }
+        if (isNotBlank(background)) {
+            parts.add("背景为" + background);
+        }
+        return String.join("，", parts);
+    }
+
+    private String buildUserDetailString(UserProfile userProfile) {
+        if (userProfile == null) {
+            return "";
+        }
+
+        List<String> parts = new ArrayList<>();
+        if (isNotBlank(userProfile.getGender())) {
+            parts.add("性别为" + userProfile.getGender());
+        }
+        if (userProfile.getBirthday() != null) {
+            parts.add("生日为" + userProfile.getBirthday());
+        }
+        if (userProfile.getHeightCm() != null) {
+            parts.add("身高为" + userProfile.getHeightCm() + "cm");
+        }
+        if (isNotBlank(userProfile.getMbti())) {
+            parts.add("MBTI为" + userProfile.getMbti());
+        }
+        if (isNotBlank(userProfile.getOccupation())) {
+            parts.add("职业为" + userProfile.getOccupation());
+        }
+        if (isNotBlank(userProfile.getInterests())) {
+            parts.add("兴趣为" + userProfile.getInterests());
+        }
+        if (isNotBlank(userProfile.getDesc())) {
+            parts.add("描述为" + userProfile.getDesc());
+        }
+        return String.join("，", parts);
+    }
+
+    private String buildHistoryString(SendMessagePayload payload, Long aiCharacterId) {
+        List<Map<String, Object>> history = new ArrayList<>();
+
+        try {
+            List<Message> messages = messageRepository.findDialogHistory(
+                    payload.getSenderId(), payload.getReceiverId(), null, 20);
+            for (Message message : messages) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("type", "message");
+                item.put("time", message.getCreatedAt());
+                item.put("message", message);
+                history.add(item);
+            }
+        } catch (Exception e) {
+            log.warn("query message history failed: userId={}, peerId={}, error={}",
+                    payload.getSenderId(), payload.getReceiverId(), e.getMessage());
+        }
+
+        try {
+            List<ConversationSummary> summaries = conversationSummaryMapper.findLatestSummaries(
+                    payload.getSenderId(), aiCharacterId, 10);
+            for (ConversationSummary summary : summaries) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("type", "conversation_summary");
+                item.put("time", summary.getCreatedAt());
+                item.put("conversation_summary", summary);
+                history.add(item);
+            }
+        } catch (Exception e) {
+            log.warn("query conversation summary history failed: userId={}, charId={}, error={}",
+                    payload.getSenderId(), aiCharacterId, e.getMessage());
+        }
+
+        try {
+            QueryWrapper<LongTermMemory> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("user_id", payload.getSenderId())
+                    .eq("ai_character_id", aiCharacterId)
+                    .orderByDesc("created_at")
+                    .last("LIMIT 10");
+            List<LongTermMemory> memories = longTermMemoryMapper.selectList(queryWrapper);
+            for (LongTermMemory memory : memories) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("type", "long_term_memory");
+                item.put("time", memory.getCreatedAt());
+                item.put("long_term_memory", memory);
+                history.add(item);
+            }
+        } catch (Exception e) {
+            log.warn("query long term memory history failed: userId={}, charId={}, error={}",
+                    payload.getSenderId(), aiCharacterId, e.getMessage());
+        }
+
+        history.sort(Comparator.comparing(
+                item -> (LocalDateTime) item.get("time"),
+                Comparator.nullsLast(Comparator.reverseOrder())));
+
+        List<String> parts = new ArrayList<>();
+        for (Map<String, Object> item : history) {
+            String type = (String) item.get("type");
+            LocalDateTime time = (LocalDateTime) item.get("time");
+            String timeText = time != null ? time.toString() : "";
+            if ("message".equals(type)) {
+                Message message = (Message) item.get("message");
+                parts.add("[" + timeText + "] 聊天消息: " + (message != null ? message.getContent() : ""));
+            } else if ("conversation_summary".equals(type)) {
+                ConversationSummary summary = (ConversationSummary) item.get("conversation_summary");
+                parts.add("[" + timeText + "] 会话总结: "
+                        + (summary != null ? JsonUtil.toJson(summary.getSummaryJson()) : ""));
+            } else if ("long_term_memory".equals(type)) {
+                LongTermMemory memory = (LongTermMemory) item.get("long_term_memory");
+                parts.add("[" + timeText + "] 长期记忆: " + (memory != null ? memory.getText() : ""));
+            }
+        }
+        return String.join("\n", parts);
+    }
+
+    private boolean isNotBlank(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private Long resolveAiCharacterId(SendMessagePayload payload) {
