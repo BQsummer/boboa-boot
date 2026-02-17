@@ -969,6 +969,23 @@ CREATE TABLE user_relationship_state (
 CREATE INDEX idx_user_rel_stage ON user_relationship_state(stage_id, stage_score DESC);
 CREATE INDEX idx_user_rel_user_character ON user_relationship_state(user_id, ai_character_id);
 
+CREATE TABLE interaction_log (
+                                id BIGSERIAL PRIMARY KEY,
+                                user_id BIGINT NOT NULL REFERENCES users(id),
+                                ai_character_id BIGINT NOT NULL REFERENCES ai_characters(id),
+                                signal_type VARCHAR(64) NOT NULL,
+                                value DOUBLE PRECISION,
+                                points_raw INT NOT NULL DEFAULT 0,
+                                points_applied INT NOT NULL DEFAULT 0,
+                                window_key VARCHAR(128),
+                                meta_json JSONB,
+                                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_interaction_user_ai_time ON interaction_log(user_id, ai_character_id, created_at DESC);
+CREATE INDEX idx_interaction_signal_time ON interaction_log(signal_type, created_at DESC);
+CREATE INDEX idx_interaction_window ON interaction_log(user_id, ai_character_id, signal_type, window_key);
+
 CREATE TABLE stage_transition_logs (
                                       id BIGSERIAL PRIMARY KEY,
                                       user_id BIGINT NOT NULL REFERENCES users(id),

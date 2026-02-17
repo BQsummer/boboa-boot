@@ -68,4 +68,46 @@ public class Configs {
     @ConfigEle(name = "inviteDefaultExpireDays")
     public Integer inviteDefaultExpireDays = 30;
 
+    /**
+     * 关系分每日入账上限
+     */
+    @ConfigEle(name = "daily_points_cap")
+    public Integer dailyPointsCap = 30;
+
+    /**
+     * 关系分每日重置时区
+     */
+    @ConfigEle(name = "daily_reset_timezone")
+    public String dailyResetTimezone = "Asia/Shanghai";
+
+    /**
+     * 升级冷却时长(小时)
+     */
+    @ConfigEle(name = "upgrade_cooldown_hours")
+    public Integer upgradeCooldownHours = 24;
+
+    /**
+     * 超过该天数未互动开始衰减
+     */
+    @ConfigEle(name = "decay_after_inactive_days")
+    public Integer decayAfterInactiveDays = 7;
+
+    /**
+     * 衰减速率(每天衰减分)
+     */
+    @ConfigEle(name = "decay_points_per_day")
+    public Integer decayPointsPerDay = 3;
+
+    /**
+     * 特殊情绪一次性奖励最大次数
+     */
+    @ConfigEle(name = "special_emotion_max_rewards")
+    public Integer specialEmotionMaxRewards = 3;
+
+    /**
+     * 连续对话轮数阈值
+     */
+    @ConfigEle(name = "long_turns_threshold")
+    public Integer longTurnsThreshold = 12;
+
 }

@@ -3,25 +3,33 @@ package com.bqsummer.service.relationship;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.bqsummer.common.dto.relationship.InteractionLog;
 import com.bqsummer.common.dto.relationship.RelationshipStage;
 import com.bqsummer.common.dto.relationship.StageTransitionLog;
 import com.bqsummer.common.dto.relationship.StageTransitionRule;
 import com.bqsummer.common.dto.relationship.UserRelationshipState;
+import com.bqsummer.common.vo.req.relationship.RelationshipInteractionSignalRequest;
 import com.bqsummer.common.vo.req.relationship.RelationshipScoreAdjustRequest;
 import com.bqsummer.common.vo.req.relationship.UserRelationshipStateQueryRequest;
 import com.bqsummer.common.vo.req.relationship.UserRelationshipStateUpsertRequest;
 import com.bqsummer.common.vo.resp.relationship.UserRelationshipStateResponse;
+import com.bqsummer.configuration.Configs;
+import com.bqsummer.mapper.InteractionLogMapper;
 import com.bqsummer.mapper.StageTransitionLogMapper;
 import com.bqsummer.mapper.StageTransitionRuleMapper;
 import com.bqsummer.mapper.UserRelationshipStateMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,10 +37,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class UserRelationshipStateService {
 
+    private static final String SIGNAL_NATURAL_DECAY = "natural_decay";
+    private static final String SIGNAL_SPECIAL_EMOTION = "special_emotion";
+    private static final String SIGNAL_MANUAL_UPSERT = "manual_upsert";
+    private static final String SIGNAL_MANUAL_INCREASE = "manual_increase";
+    private static final String SIGNAL_MANUAL_DECREASE = "manual_decrease";
+
     private final UserRelationshipStateMapper userRelationshipStateMapper;
     private final StageTransitionLogMapper stageTransitionLogMapper;
     private final StageTransitionRuleMapper stageTransitionRuleMapper;
+    private final InteractionLogMapper interactionLogMapper;
     private final RelationshipStageService relationshipStageService;
+    private final Configs configs;
 
     public IPage<UserRelationshipStateResponse> list(UserRelationshipStateQueryRequest request) {
         LambdaQueryWrapper<UserRelationshipState> wrapper = new LambdaQueryWrapper<>();
@@ -86,6 +102,8 @@ public class UserRelationshipStateService {
         int delta = request.getStageScore() - oldScore;
         insertTransitionLog(request.getUserId(), request.getAiCharacterId(), fromStageId, targetStage.getId(),
                 request.getReason(), delta, request.getMeta(), now);
+        insertInteractionLog(request.getUserId(), request.getAiCharacterId(), SIGNAL_MANUAL_UPSERT,
+                null, delta, delta, null, request.getMeta(), now);
 
         return toResponse(current);
     }
@@ -100,6 +118,71 @@ public class UserRelationshipStateService {
         return adjustScore(request, false);
     }
 
+    @Transactional
+    public UserRelationshipStateResponse applySignal(RelationshipInteractionSignalRequest request) {
+        UserRelationshipState state = getOrInitState(request.getUserId(), request.getAiCharacterId());
+        LocalDateTime now = LocalDateTime.now();
+
+        applyNaturalDecayIfNeeded(state, now);
+
+        int pointsRaw = resolvePointsRaw(request.getSignalType(), request.getValue(), request.getPointsRaw());
+        int pointsApplied = pointsRaw;
+
+        Map<String, Object> meta = copyMeta(request.getMeta());
+
+        if (StringUtils.hasText(request.getWindowKey())) {
+            Long duplicated = interactionLogMapper.countByWindowKey(
+                    request.getUserId(), request.getAiCharacterId(), request.getSignalType(), request.getWindowKey());
+            if (duplicated != null && duplicated > 0) {
+                pointsApplied = 0;
+                meta.put("droppedReason", "window_key_duplicated");
+            }
+        }
+
+        if (pointsApplied > 0 && SIGNAL_SPECIAL_EMOTION.equals(request.getSignalType())) {
+            int maxRewards = normalizePositiveConfig(configs.getSpecialEmotionMaxRewards(), 3);
+            Long rewardedCount = interactionLogMapper.countAppliedBySignal(
+                    request.getUserId(), request.getAiCharacterId(), SIGNAL_SPECIAL_EMOTION);
+            if (rewardedCount != null && rewardedCount >= maxRewards) {
+                pointsApplied = 0;
+                meta.put("droppedReason", "special_emotion_reward_limit_reached");
+            }
+        }
+
+        if (pointsApplied > 0) {
+            pointsApplied = applyDailyCap(request.getUserId(), request.getAiCharacterId(), pointsApplied, meta, now);
+        }
+
+        int actualDelta = 0;
+        if (pointsApplied != 0) {
+            actualDelta = applyDeltaToState(
+                    state,
+                    pointsApplied,
+                    request.getSignalType(),
+                    meta,
+                    now
+            );
+        }
+
+        insertInteractionLog(
+                request.getUserId(),
+                request.getAiCharacterId(),
+                request.getSignalType(),
+                request.getValue(),
+                pointsRaw,
+                actualDelta,
+                request.getWindowKey(),
+                meta,
+                now
+        );
+
+        if (actualDelta == 0) {
+            state = userRelationshipStateMapper.findByUserAndCharacter(request.getUserId(), request.getAiCharacterId());
+        }
+
+        return toResponse(state);
+    }
+
     private UserRelationshipStateResponse adjustScore(RelationshipScoreAdjustRequest request, boolean increase) {
         int delta = request.getDelta() == null ? 0 : request.getDelta();
         if (delta <= 0) {
@@ -110,30 +193,54 @@ public class UserRelationshipStateService {
         UserRelationshipState state = getOrInitState(request.getUserId(), request.getAiCharacterId());
         LocalDateTime now = LocalDateTime.now();
 
+        applyNaturalDecayIfNeeded(state, now);
+
+        int actualDelta = applyDeltaToState(state, delta, request.getReason(), request.getMeta(), now);
+
+        insertInteractionLog(
+                request.getUserId(),
+                request.getAiCharacterId(),
+                increase ? SIGNAL_MANUAL_INCREASE : SIGNAL_MANUAL_DECREASE,
+                (double) Math.abs(request.getDelta()),
+                delta,
+                actualDelta,
+                null,
+                request.getMeta(),
+                now
+        );
+
+        return toResponse(state);
+    }
+
+    private int applyDeltaToState(UserRelationshipState state,
+                                  int delta,
+                                  String reason,
+                                  Map<String, Object> meta,
+                                  LocalDateTime now) {
         int oldScore = state.getStageScore() == null ? 0 : state.getStageScore();
         int newScore = Math.max(0, oldScore + delta);
 
         Integer fromStageId = state.getStageId();
         Integer toStageId = resolveStageAfterScoreChange(
-                request.getUserId(), request.getAiCharacterId(), fromStageId, newScore, delta > 0, now);
+                state.getUserId(), state.getAiCharacterId(), fromStageId, newScore, delta > 0, now);
 
         state.setStageScore(newScore);
         state.setStageId(toStageId);
         state.setUpdatedAt(now);
         userRelationshipStateMapper.updateById(state);
 
+        int actualDelta = newScore - oldScore;
         insertTransitionLog(
-                request.getUserId(),
-                request.getAiCharacterId(),
+                state.getUserId(),
+                state.getAiCharacterId(),
                 fromStageId,
                 toStageId,
-                request.getReason(),
-                delta,
-                request.getMeta(),
+                reason,
+                actualDelta,
+                meta,
                 now
         );
-
-        return toResponse(state);
+        return actualDelta;
     }
 
     private Integer resolveStageAfterScoreChange(Long userId,
@@ -171,7 +278,11 @@ public class UserRelationshipStateService {
                     : Comparator.comparing(RelationshipStage::getLevel).compare(stageA, stageB);
         });
 
-        return matched.get(0).getToStageId();
+        Integer targetStageId = matched.get(0).getToStageId();
+        if (increase && !targetStageId.equals(currentStageId) && !isUpgradeCooldownReady(userId, aiCharacterId, now)) {
+            return currentStageId;
+        }
+        return targetStageId;
     }
 
     private boolean isThresholdMatched(StageTransitionRule rule, int score, boolean increase) {
@@ -204,6 +315,155 @@ public class UserRelationshipStateService {
 
         long seconds = Duration.between(logs.get(0).getCreatedAt(), now).getSeconds();
         return seconds >= rule.getCooldownSec();
+    }
+
+    private boolean isUpgradeCooldownReady(Long userId,
+                                           Long aiCharacterId,
+                                           LocalDateTime now) {
+        int cooldownHours = normalizePositiveConfig(configs.getUpgradeCooldownHours(), 24);
+        if (cooldownHours <= 0) {
+            return true;
+        }
+
+        List<StageTransitionLog> recentLogs = stageTransitionLogMapper.findRecentByUserAndCharacter(userId, aiCharacterId, 20);
+        if (recentLogs == null || recentLogs.isEmpty()) {
+            return true;
+        }
+
+        for (StageTransitionLog log : recentLogs) {
+            if (log.getCreatedAt() == null || log.getFromStageId() == null || log.getToStageId() == null) {
+                continue;
+            }
+            if (log.getFromStageId().equals(log.getToStageId())) {
+                continue;
+            }
+            RelationshipStage fromStage = relationshipStageService.requireById(log.getFromStageId());
+            RelationshipStage toStage = relationshipStageService.requireById(log.getToStageId());
+            if (toStage.getLevel() > fromStage.getLevel()) {
+                long hours = Duration.between(log.getCreatedAt(), now).toHours();
+                return hours >= cooldownHours;
+            }
+        }
+        return true;
+    }
+
+    private void applyNaturalDecayIfNeeded(UserRelationshipState state, LocalDateTime now) {
+        int decayAfterDays = normalizePositiveConfig(configs.getDecayAfterInactiveDays(), 7);
+        int decayPerDay = normalizePositiveConfig(configs.getDecayPointsPerDay(), 3);
+        if (decayAfterDays <= 0 || decayPerDay <= 0) {
+            return;
+        }
+
+        Long userId = state.getUserId();
+        Long aiCharacterId = state.getAiCharacterId();
+
+        LocalDateTime lastNonDecayAt = interactionLogMapper.findLastInteractionAtExcludingSignal(
+                userId,
+                aiCharacterId,
+                SIGNAL_NATURAL_DECAY
+        );
+        if (lastNonDecayAt == null) {
+            lastNonDecayAt = state.getUpdatedAt() != null ? state.getUpdatedAt() : state.getCreatedAt();
+        }
+        if (lastNonDecayAt == null) {
+            return;
+        }
+
+        long inactiveDays = Duration.between(lastNonDecayAt, now).toDays();
+        if (inactiveDays <= decayAfterDays) {
+            return;
+        }
+
+        int targetDecay = (int) (inactiveDays - decayAfterDays) * decayPerDay;
+        int alreadyDecay = zeroIfNull(interactionLogMapper.sumAbsNegativePointsBySignalSince(
+                userId,
+                aiCharacterId,
+                SIGNAL_NATURAL_DECAY,
+                lastNonDecayAt
+        ));
+
+        int extraDecay = targetDecay - alreadyDecay;
+        if (extraDecay <= 0) {
+            return;
+        }
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("inactiveDays", inactiveDays);
+        meta.put("decayAfterInactiveDays", decayAfterDays);
+        meta.put("decayPointsPerDay", decayPerDay);
+        meta.put("alreadyDecay", alreadyDecay);
+        meta.put("targetDecay", targetDecay);
+
+        int actualDelta = applyDeltaToState(state, -extraDecay, SIGNAL_NATURAL_DECAY, meta, now);
+        insertInteractionLog(userId, aiCharacterId, SIGNAL_NATURAL_DECAY, (double) inactiveDays,
+                -extraDecay, actualDelta, null, meta, now);
+    }
+
+    private int resolvePointsRaw(String signalType, Double value, Integer pointsRaw) {
+        if (pointsRaw != null) {
+            return pointsRaw;
+        }
+
+        double safeValue = value == null ? 1.0D : Math.max(0.0D, value);
+        int scaled = (int) Math.round(safeValue * 10.0D);
+
+        if ("return_visit_day".equals(signalType)) {
+            return Math.max(4, scaled);
+        }
+        if ("return_visit_week".equals(signalType)) {
+            return Math.max(8, scaled + 2);
+        }
+        if ("long_turns".equals(signalType)) {
+            return Math.max(3, scaled / 2);
+        }
+        if ("affectionate_address".equals(signalType) || "we_pronoun".equals(signalType)) {
+            return Math.max(2, scaled / 3);
+        }
+        if ("boundary_reject".equals(signalType)) {
+            return -Math.max(4, scaled);
+        }
+        if (SIGNAL_SPECIAL_EMOTION.equals(signalType)) {
+            return Math.max(6, scaled);
+        }
+        return scaled;
+    }
+
+    private int applyDailyCap(Long userId,
+                              Long aiCharacterId,
+                              int points,
+                              Map<String, Object> meta,
+                              LocalDateTime now) {
+        int cap = normalizePositiveConfig(configs.getDailyPointsCap(), 30);
+        if (cap <= 0) {
+            meta.put("droppedReason", "daily_cap_disabled_or_zero");
+            return 0;
+        }
+
+        ZoneId zoneId;
+        try {
+            zoneId = ZoneId.of(StringUtils.hasText(configs.getDailyResetTimezone())
+                    ? configs.getDailyResetTimezone()
+                    : "Asia/Shanghai");
+        } catch (Exception e) {
+            zoneId = ZoneId.of("Asia/Shanghai");
+        }
+
+        ZonedDateTime nowInZone = now.atZone(zoneId);
+        LocalDateTime dayStart = nowInZone.toLocalDate().atStartOfDay();
+        LocalDateTime dayEnd = dayStart.plusDays(1);
+
+        int used = zeroIfNull(interactionLogMapper.sumPositiveAppliedPointsInRange(userId, aiCharacterId, dayStart, dayEnd));
+        int remained = Math.max(0, cap - used);
+        int applied = Math.min(points, remained);
+
+        meta.put("dailyCap", cap);
+        meta.put("dailyUsed", used);
+        meta.put("dailyRemained", remained);
+        if (applied < points) {
+            meta.put("capApplied", true);
+        }
+
+        return applied;
     }
 
     private UserRelationshipState getOrInitState(Long userId, Long aiCharacterId) {
@@ -245,6 +505,47 @@ public class UserRelationshipStateService {
         log.setCreatedAt(now);
         log.setUpdatedAt(now);
         stageTransitionLogMapper.insert(log);
+    }
+
+    private void insertInteractionLog(Long userId,
+                                      Long aiCharacterId,
+                                      String signalType,
+                                      Double value,
+                                      Integer pointsRaw,
+                                      Integer pointsApplied,
+                                      String windowKey,
+                                      Map<String, Object> meta,
+                                      LocalDateTime now) {
+        InteractionLog log = new InteractionLog();
+        log.setUserId(userId);
+        log.setAiCharacterId(aiCharacterId);
+        log.setSignalType(signalType);
+        log.setValue(value);
+        log.setPointsRaw(pointsRaw == null ? 0 : pointsRaw);
+        log.setPointsApplied(pointsApplied == null ? 0 : pointsApplied);
+        log.setWindowKey(windowKey);
+        log.setMetaJson(meta);
+        log.setCreatedAt(now);
+        log.setUpdatedAt(now);
+        interactionLogMapper.insert(log);
+    }
+
+    private Map<String, Object> copyMeta(Map<String, Object> meta) {
+        if (meta == null) {
+            return new LinkedHashMap<>();
+        }
+        return new LinkedHashMap<>(meta);
+    }
+
+    private int normalizePositiveConfig(Integer value, int defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        return Math.max(0, value);
+    }
+
+    private int zeroIfNull(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private UserRelationshipStateResponse toResponse(UserRelationshipState state) {

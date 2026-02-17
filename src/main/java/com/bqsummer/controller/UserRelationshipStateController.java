@@ -1,6 +1,7 @@
 package com.bqsummer.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.bqsummer.common.vo.req.relationship.RelationshipInteractionSignalRequest;
 import com.bqsummer.common.vo.req.relationship.RelationshipScoreAdjustRequest;
 import com.bqsummer.common.vo.req.relationship.UserRelationshipStateQueryRequest;
 import com.bqsummer.common.vo.req.relationship.UserRelationshipStateUpsertRequest;
@@ -39,5 +40,11 @@ public class UserRelationshipStateController {
     public ResponseEntity<UserRelationshipStateResponse> decreaseScore(
             @Valid @RequestBody RelationshipScoreAdjustRequest request) {
         return ResponseEntity.ok(userRelationshipStateService.decreaseScore(request));
+    }
+
+    @PostMapping("/apply-signal")
+    public ResponseEntity<UserRelationshipStateResponse> applySignal(
+            @Valid @RequestBody RelationshipInteractionSignalRequest request) {
+        return ResponseEntity.ok(userRelationshipStateService.applySignal(request));
     }
 }
