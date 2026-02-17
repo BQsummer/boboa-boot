@@ -28,160 +28,165 @@ import {
 
 const menuItems: MenuItem[] = [
   {
-    title: '概览',
+    title: 'Overview',
     href: '/dashboard',
     icon: <LayoutDashboard />,
   },
   {
-    title: 'AI管理',
+    title: 'AI',
     icon: <Brain />,
     children: [
       {
-        title: '健康检查',
+        title: 'Health',
         href: '/dashboard/ai/health',
         icon: <Activity />,
       },
       {
-        title: '模型管理',
+        title: 'Models',
         href: '/dashboard/ai/models',
         icon: <Sparkles />,
       },
       {
-        title: '提示词管理',
+        title: 'Prompts',
         href: '/dashboard/ai/prompts',
         icon: <MessageSquare />,
       },
       {
-        title: '后处理流水线',
+        title: 'Relationship Stages',
+        href: '/dashboard/ai/relationship',
+        icon: <MessageSquare />,
+      },
+      {
+        title: 'Post Process',
         href: '/dashboard/ai/post-process',
         icon: <MessageSquare />,
       },
       {
-        title: '策略配置',
+        title: 'Strategies',
         href: '/dashboard/ai/strategies',
         icon: <Target />,
       },
     ],
   },
   {
-    title: '业务管理',
+    title: 'Business',
     icon: <Users />,
     children: [
       {
-        title: 'AI人物',
+        title: 'Characters',
         href: '/dashboard/business/characters',
         icon: <UserCircle />,
       },
       {
-        title: '对话管理',
+        title: 'Conversations',
         href: '/dashboard/business/conversations',
         icon: <MessageCircle />,
       },
       {
-        title: '好友管理',
+        title: 'Friends',
         href: '/dashboard/business/friends',
         icon: <UserPlus />,
       },
       {
-        title: '消息管理',
+        title: 'Messages',
         href: '/dashboard/business/messages',
         icon: <Mail />,
       },
       {
-        title: '语音管理',
+        title: 'Voice',
         href: '/dashboard/business/voice',
         icon: <Mic />,
       },
       {
-        title: '人物日程',
+        title: 'Schedules',
         href: '/dashboard/business/schedules',
         icon: <CalendarClock />,
       },
     ],
   },
   {
-    title: '财务管理',
+    title: 'Finance',
     icon: <DollarSign />,
     children: [
       {
-        title: '积分管理',
+        title: 'Points',
         href: '/dashboard/finance/points',
         icon: <Wallet />,
       },
       {
-        title: '充值记录',
+        title: 'Recharge',
         href: '/dashboard/finance/recharge',
         icon: <CreditCard />,
       },
     ],
   },
   {
-    title: '运营管理',
+    title: 'Operation',
     icon: <Gift />,
     children: [
       {
-        title: '反馈管理',
+        title: 'Feedback',
         href: '/dashboard/operation/feedback',
         icon: <MessageSquare />,
       },
       {
-        title: '邀请管理',
+        title: 'Invites',
         href: '/dashboard/operation/invites',
         icon: <UserPlus />,
       },
       {
-        title: '邮件管理',
+        title: 'Mail',
         href: '/dashboard/operation/mail',
         icon: <Mail />,
       },
       {
-        title: '站内信管理',
+        title: 'Inbox',
         href: '/dashboard/operation/inbox',
         icon: <MessageSquare />,
       },
       {
-        title: '套餐管理',
+        title: 'Plans',
         href: '/dashboard/operation/plans',
         icon: <Gift />,
       },
       {
-        title: '任务管理',
+        title: 'Tasks',
         href: '/dashboard/operation/tasks',
         icon: <ClipboardList />,
       },
     ],
   },
   {
-    title: '系统管理',
+    title: 'System',
     icon: <Settings />,
     children: [
       {
-        title: '管理员',
+        title: 'Admins',
         href: '/dashboard/system/admin',
         icon: <UserCircle />,
       },
       {
-        title: '系统配置',
+        title: 'Config',
         href: '/dashboard/system/config',
         icon: <Settings />,
       },
       {
-        title: 'IP管理',
+        title: 'IP Blacklist',
         href: '/dashboard/system/ip-blacklist',
         icon: <Settings />,
       },
       {
-        title: '调度管理',
+        title: 'Scheduler',
         href: '/dashboard/system/scheduler',
         icon: <CalendarClock />,
       },
       {
-        title: '用户管理',
+        title: 'Users',
         href: '/dashboard/system/users',
         icon: <Users />,
       },
       {
-        title: '文件管理',
+        title: 'Files',
         href: '/dashboard/system/files',
         icon: <FileText />,
       },
@@ -205,13 +210,11 @@ export default function DashboardLayout({
       <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">管理后台</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Admin Console</h1>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                欢迎, {user?.nickName || user?.username}
-              </span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Hello, {user?.nickName || user?.username}</span>
               <Button onClick={handleLogout} variant="outline" size="sm">
-                退出登录
+                Logout
               </Button>
             </div>
           </div>

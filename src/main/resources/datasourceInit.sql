@@ -929,6 +929,77 @@ CREATE TABLE post_process_step (
 );
 CREATE INDEX idx_post_process_step_pipeline ON post_process_step (pipeline_id, enabled, step_order);
 
+CREATE TABLE relationship_stages (
+                                    id SMALLSERIAL PRIMARY KEY,
+                                    code VARCHAR(32) UNIQUE NOT NULL,
+                                    name VARCHAR(64) NOT NULL,
+                                    level SMALLINT NOT NULL CHECK (level >= 0),
+                                    description VARCHAR(256) NOT NULL,
+                                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_relationship_stage_level ON relationship_stages(level);
+CREATE INDEX idx_relationship_stage_active_level ON relationship_stages(is_active, level);
+
+CREATE TABLE stage_prompts (
+                              id BIGSERIAL PRIMARY KEY,
+                              stage_code VARCHAR(32) NOT NULL REFERENCES relationship_stages(code),
+                              prompt_type VARCHAR(16) NOT NULL
+                                  CHECK (prompt_type IN ('system', 'opener', 'reply', 'safety')),
+                              version INT NOT NULL DEFAULT 1 CHECK (version > 0),
+                              content TEXT NOT NULL,
+                              is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                              created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                              updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                              CONSTRAINT uk_stage_prompt_type_version UNIQUE (stage_code, prompt_type, version)
+);
+CREATE INDEX idx_stage_prompts_lookup ON stage_prompts(stage_code, prompt_type, is_active, version DESC);
+
+CREATE TABLE user_relationship_state (
+                                        id BIGSERIAL PRIMARY KEY,
+                                        user_id BIGINT NOT NULL REFERENCES users(id),
+                                        ai_character_id BIGINT NOT NULL REFERENCES ai_characters(id),
+                                        stage_id SMALLINT NOT NULL REFERENCES relationship_stages(id),
+                                        stage_score INT NOT NULL DEFAULT 0,
+                                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                        CONSTRAINT uk_user_ai_character_relationship UNIQUE (user_id, ai_character_id)
+);
+CREATE INDEX idx_user_rel_stage ON user_relationship_state(stage_id, stage_score DESC);
+CREATE INDEX idx_user_rel_user_character ON user_relationship_state(user_id, ai_character_id);
+
+CREATE TABLE stage_transition_logs (
+                                      id BIGSERIAL PRIMARY KEY,
+                                      user_id BIGINT NOT NULL REFERENCES users(id),
+                                      ai_character_id BIGINT NOT NULL REFERENCES ai_characters(id),
+                                      from_stage_id SMALLINT NOT NULL REFERENCES relationship_stages(id),
+                                      to_stage_id SMALLINT NOT NULL REFERENCES relationship_stages(id),
+                                      reason VARCHAR(128),
+                                      delta_score INT NOT NULL DEFAULT 0,
+                                      meta JSONB,
+                                      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_stage_transition_user_ai_time ON stage_transition_logs(user_id, ai_character_id, created_at DESC);
+CREATE INDEX idx_stage_transition_stage_pair ON stage_transition_logs(from_stage_id, to_stage_id, created_at DESC);
+
+CREATE TABLE stage_transition_rules (
+                                       id BIGSERIAL PRIMARY KEY,
+                                       from_stage_id SMALLINT NOT NULL REFERENCES relationship_stages(id),
+                                       to_stage_id SMALLINT NOT NULL REFERENCES relationship_stages(id),
+                                       direction VARCHAR(8) NOT NULL CHECK (direction IN ('up', 'down')),
+                                       min_score INT,
+                                       max_score INT,
+                                       cooldown_sec INT NOT NULL DEFAULT 0,
+                                       condition JSONB,
+                                       is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                                       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_rules_from_to ON stage_transition_rules(from_stage_id, to_stage_id, is_active);
+CREATE INDEX idx_rules_from_direction ON stage_transition_rules(from_stage_id, direction, is_active);
+
 CREATE TABLE monthly_plans (
                                   id BIGSERIAL PRIMARY KEY,
                                   character_id BIGINT NOT NULL,
