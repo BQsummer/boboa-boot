@@ -2,7 +2,7 @@
  * API 客户端配置
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
 
 export class ApiError extends Error {
   constructor(

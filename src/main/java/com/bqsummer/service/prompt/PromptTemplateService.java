@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * Prompt 妯℃澘鏈嶅姟瀹炵幇绫?
+ * Prompt 模板服务实现类
  *
  */
 @Slf4j
@@ -34,24 +34,24 @@ public class PromptTemplateService {
 
     @Transactional
     public PromptTemplateResponse create(PromptTemplateCreateRequest request, Long createdBy) {
-        // 鍙傛暟鏍￠獙
+        // 参数校验
         if (request.getCharId() == null) {
-            throw new IllegalArgumentException("charId 涓嶈兘涓虹┖");
+            throw new IllegalArgumentException("charId 不能为空");
         }
         if (!StringUtils.hasText(request.getContent())) {
-            throw new IllegalArgumentException("content 涓嶈兘涓虹┖");
+            throw new IllegalArgumentException("content 不能为空");
         }
 
-        // 鑾峰彇褰撳墠鏈€澶х増鏈彿
+        // 获取当前最大版本号
         Integer maxVersion = promptTemplateMapper.getMaxVersionByCharId(request.getCharId());
         int newVersion = (maxVersion == null) ? 1 : maxVersion + 1;
 
-        // 濡傛灉宸插瓨鍦ㄧ増鏈紝灏嗘墍鏈夌増鏈爣璁颁负闈炴渶鏂?
+        // 如果已存在版本，将所有版本标记为非最新
         if (maxVersion != null) {
             promptTemplateMapper.markAllAsNotLatest(request.getCharId());
         }
 
-        // 鍒涘缓鏂版ā鏉?
+        // 创建新模板
         PromptTemplate template = new PromptTemplate();
         template.setCharId(request.getCharId());
         template.setDescription(request.getDescription());
@@ -73,45 +73,45 @@ public class PromptTemplateService {
         template.setCreatedBy(String.valueOf(createdBy));
         template.setCreatedAt(LocalDateTime.now());
 
-        // 淇濆瓨鍒版暟鎹簱
+        // 保存到数据库
         promptTemplateMapper.insert(template);
 
-        log.info("鍒涘缓 Prompt 妯℃澘鎴愬姛锛宑harId: {}, version: {}, id: {}",
+        log.info("创建 Prompt 模板成功，charId: {}, version: {}, id: {}",
                 request.getCharId(), newVersion, template.getId());
 
         return convertToResponse(template);
     }
 
     public IPage<PromptTemplateResponse> list(PromptTemplateQueryRequest request) {
-        // 鏋勫缓鏌ヨ鏉′欢
+        // 构建查询条件
         LambdaQueryWrapper<PromptTemplate> queryWrapper = new LambdaQueryWrapper<>();
 
-        // 鎺掗櫎宸插垹闄ょ殑璁板綍
+        // 排除已删除的记录
         queryWrapper.eq(PromptTemplate::getIsDeleted, false);
 
-        // 鎸?charId 绛涢€?
+        // 按 charId 筛选
         if (request.getCharId() != null) {
             queryWrapper.eq(PromptTemplate::getCharId, request.getCharId());
         }
 
-        // 鎸夌姸鎬佺瓫閫?
+        // 按状态筛选
         if (request.getStatus() != null) {
             queryWrapper.eq(PromptTemplate::getStatus, request.getStatus());
         }
 
-        // 鍙煡璇㈡渶鏂扮増鏈?
+        // 只查询最新版本
         if (Boolean.TRUE.equals(request.getIsLatest())) {
             queryWrapper.eq(PromptTemplate::getIsLatest, true);
         }
 
-        // 榛樿鎸夊垱寤烘椂闂撮檷搴忔帓搴?
+        // 默认按创建时间降序排序
         queryWrapper.orderByDesc(PromptTemplate::getCreatedAt);
 
-        // 鍒嗛〉鏌ヨ
+        // 分页查询
         Page<PromptTemplate> page = new Page<>(request.getPage(), request.getPageSize());
         IPage<PromptTemplate> resultPage = promptTemplateMapper.selectPage(page, queryWrapper);
 
-        // 杞崲涓哄搷搴斿璞?
+        // 转换为响应对象
         return resultPage.convert(this::convertToResponse);
     }
 
@@ -119,7 +119,7 @@ public class PromptTemplateService {
         PromptTemplate template = promptTemplateMapper.selectById(id);
 
         if (template == null || Boolean.TRUE.equals(template.getIsDeleted())) {
-            throw new RuntimeException("妯℃澘涓嶅瓨鍦ㄦ垨宸插垹闄わ紝id: " + id);
+            throw new RuntimeException("模板不存在或已删除，id: " + id);
         }
 
         return convertToResponse(template);
@@ -130,10 +130,10 @@ public class PromptTemplateService {
         PromptTemplate template = promptTemplateMapper.selectById(id);
 
         if (template == null || Boolean.TRUE.equals(template.getIsDeleted())) {
-            throw new RuntimeException("妯℃澘涓嶅瓨鍦ㄦ垨宸插垹闄わ紝id: " + id);
+            throw new RuntimeException("模板不存在或已删除，id: " + id);
         }
 
-        // 鏇存柊瀛楁锛堝彧鏇存柊闈炵┖瀛楁锛?
+        // 更新字段（只更新非空字段）
         if (request.getDescription() != null) {
             template.setDescription(request.getDescription());
         }
@@ -174,14 +174,14 @@ public class PromptTemplateService {
             template.setPostProcessConfig(request.getPostProcessConfig());
         }
 
-        // 璁板綍鏇存柊淇℃伅
+        // 记录更新信息
         template.setUpdatedBy(String.valueOf(updatedBy));
         template.setUpdatedAt(LocalDateTime.now());
 
-        // 淇濆瓨鏇存柊
+        // 保存更新
         promptTemplateMapper.updateById(template);
 
-        log.info("鏇存柊 Prompt 妯℃澘鎴愬姛锛宨d: {}, updatedBy: {}", id, updatedBy);
+        log.info("更新 Prompt 模板成功，id: {}, updatedBy: {}", id, updatedBy);
 
         return convertToResponse(template);
     }
@@ -191,17 +191,17 @@ public class PromptTemplateService {
         PromptTemplate template = promptTemplateMapper.selectById(id);
 
         if (template == null || Boolean.TRUE.equals(template.getIsDeleted())) {
-            throw new RuntimeException("妯℃澘涓嶅瓨鍦ㄦ垨宸插垹闄わ紝id: " + id);
+            throw new RuntimeException("模板不存在或已删除，id: " + id);
         }
 
-        // 閫昏緫鍒犻櫎
+        // 逻辑删除
         template.setIsDeleted(true);
         template.setUpdatedBy(String.valueOf(deletedBy));
         template.setUpdatedAt(LocalDateTime.now());
 
         promptTemplateMapper.updateById(template);
 
-        log.info("鍒犻櫎 Prompt 妯℃澘鎴愬姛锛宨d: {}, deletedBy: {}", id, deletedBy);
+        log.info("删除 Prompt 模板成功，id: {}, deletedBy: {}", id, deletedBy);
     }
 
     @Transactional
@@ -238,16 +238,16 @@ public class PromptTemplateService {
         PromptTemplate template = promptTemplateMapper.selectById(id);
 
         if (template == null || Boolean.TRUE.equals(template.getIsDeleted())) {
-            throw new RuntimeException("妯℃澘涓嶅瓨鍦ㄦ垨宸插垹闄わ紝id: " + id);
+            throw new RuntimeException("模板不存在或已删除，id: " + id);
         }
 
         return beetlTemplateService.render(template.getContent(), params);
     }
 
     /**
-     * 鑾峰彇鎸囧畾瑙掕壊鐨勬渶鏂扮ǔ瀹氱増鏈ā鏉?
-     * @param charId 瑙掕壊ID
-     * @return 鏈€鏂扮ǔ瀹氱増鏈ā鏉匡紝涓嶅瓨鍦ㄥ垯杩斿洖null
+     * 获取指定角色的最新稳定版本模板
+     * @param charId 角色ID
+     * @return 最新稳定版本模板，不存在则返回null
      */
     public PromptTemplate getLatestByCharId(Long charId) {
         LambdaQueryWrapper<PromptTemplate> queryWrapper = new LambdaQueryWrapper<>();
@@ -258,17 +258,17 @@ public class PromptTemplateService {
         PromptTemplate template = promptTemplateMapper.selectOne(queryWrapper);
         
         if (template != null) {
-            log.info("鏌ヨ鍒拌鑹叉渶鏂扮ǔ瀹氭ā鏉? charId={}, templateId={}, version={}", 
+            log.info("查询到角色最新稳定模板: charId={}, templateId={}, version={}", 
                     charId, template.getId(), template.getVersion());
         } else {
-            log.debug("瑙掕壊鏈厤缃ǔ瀹氭ā鏉? charId={}", charId);
+            log.debug("角色未配置稳定模板: charId={}", charId);
         }
         
         return template;
     }
 
     /**
-     * 灏嗗疄浣撹浆鎹负鍝嶅簲瀵硅薄
+     * 将实体转换为响应对象
      */
     private PromptTemplateResponse convertToResponse(PromptTemplate template) {
         PromptTemplateResponse response = new PromptTemplateResponse();

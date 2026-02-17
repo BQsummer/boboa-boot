@@ -56,20 +56,20 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * 鏈哄櫒浜轰换鍔℃墽琛屽櫒
- * 鑱岃矗:
- * 1. 浣跨敤澹版槑寮忛鍙栨満鍒舵姠鍗犱换鍔★紙PENDING 鈫?RUNNING锛?
- *    - 鍩轰簬 locked_by 瀛楁鏍囪鎵€鏈夋潈
- *    - 鍘熷瓙UPDATE鎿嶄綔淇濊瘉浜掓枼鎬э紝涓嶅彈闀挎椂鎿嶄綔鏈熼棿骞跺彂鍐欏奖鍝?
- * 2. 鎵ц浠诲姟鐨勫叿浣撹涓猴紙SEND_MESSAGE, SEND_VOICE, SEND_NOTIFICATION锛?
- * 3. 鏇存柊浠诲姟鐘舵€侊紙RUNNING 鈫?DONE / FAILED锛?
- *    - 楠岃瘉 locked_by 鎵€鏈夋潈锛岄槻姝㈣法瀹炰緥璇搷浣?
- * 4. 璁板綍鎵ц鏃ュ織鍒?robot_task_execution_log
- * 5. 澶勭悊澶辫触閲嶈瘯閫昏緫
- *    - 澶辫触閲嶈瘯鏃舵竻绌?locked_by锛屽厑璁稿叾浠栧疄渚嬮鍙?
- * 娉ㄦ剰浜嬮」:
- * - 浣跨敤鑷垜娉ㄥ叆(self)鏉ヨ皟鐢ㄤ簨鍔℃柟娉曪紝纭繚@Transactional娉ㄨВ鐢熸晥
- * - 鐩存帴璋冪敤绫诲唴閮ㄧ殑@Transactional鏂规硶浼氱粫杩嘢pring浠ｇ悊锛屽鑷翠簨鍔″け鏁?
+ * 机器人任务执行器
+ * 职责:
+ * 1. 使用声明式领取机制抢占任务（PENDING -> RUNNING）
+ *    - 基于 locked_by 字段标记所有权
+ *    - 原子UPDATE操作保证互斥性，不受长时操作期间并发写影响
+ * 2. 执行任务的具体行为（SEND_MESSAGE, SEND_VOICE, SEND_NOTIFICATION）
+ * 3. 更新任务状态（RUNNING -> DONE / FAILED）
+ *    - 验证 locked_by 所有权，防止跨实例误操作
+ * 4. 记录执行日志到 robot_task_execution_log
+ * 5. 处理失败重试逻辑
+ *    - 失败重试时清空 locked_by，允许其他实例领取
+ * 注意事项:
+ * - 使用自我注入(self)来调用事务方法，确保@Transactional注解生效
+ * - 直接调用类内部的@Transactional方法会绕过Spring代理，导致事务失效
  */
 @Slf4j
 @Service
@@ -94,12 +94,12 @@ public class RobotTaskExecutor {
     @Autowired
     private PostProcessRuntimeService postProcessRuntimeService;
 
-    // 鑷垜娉ㄥ叆锛氱敤浜庤皟鐢ㄤ簨鍔℃柟娉曪紝纭繚閫氳繃浠ｇ悊璋冪敤
+    // 自我注入：用于调用事务方法，确保通过代理调用
     private RobotTaskExecutor self;
 
     /**
-     * 娉ㄥ叆鑷韩浠ｇ悊瀵硅薄
-     * 鐢ㄤ簬鍦ㄧ被鍐呴儴璋冪敤浜嬪姟鏂规硶鏃讹紝纭繚閫氳繃Spring浠ｇ悊璋冪敤
+     * 注入自身代理对象
+     * 用于在类内部调用事务方法时，确保通过Spring代理调用
      */
     @Autowired
     public void setSelf(@Lazy RobotTaskExecutor self) {
@@ -107,8 +107,8 @@ public class RobotTaskExecutor {
     }
 
     /**
-     * 寮傛鎵ц浠诲姟
-     * 娉ㄦ剰锛欯Async鏂规硶涓嶈兘浣跨敤@Transactional锛屼簨鍔″湪鍐呴儴鐨勫悓姝ユ柟娉曚腑澶勭悊
+     * 异步执行任务
+     * 注意：@Async方法不能使用@Transactional，事务在内部的同步方法中处理
      */
     @Async
     public CompletableFuture<Void> executeAsync(RobotTask task) {
@@ -117,27 +117,27 @@ public class RobotTaskExecutor {
     }
 
     /**
-     * 鎵ц浠诲姟鐨勬牳蹇冮€昏緫
-     * 娉ㄦ剰锛氭鏂规硶鐢盄Async鏂规硶璋冪敤锛孈Transactional鍦ㄦ澶勪笉鐢熸晥
-     * 浜嬪姟澶勭悊宸叉媶鍒嗗埌鍚勪釜瀛愭柟娉曚腑
+     * 执行任务的核心逻辑
+     * 注意：此方法由@Async方法调用，@Transactional在此处不生效
+     * 事务处理已拆分到各个子方法中
      *
-     * @param task 寰呮墽琛岀殑浠诲姟
+     * @param task 待执行的任务
      */
     public void execute(RobotTask task) {
         LocalDateTime startTime = LocalDateTime.now();
         Long taskId = task.getId();
 
-        log.info("寮€濮嬫墽琛屼换鍔? taskId={}, actionType={}, scheduledAt={}",
+        log.info("开始执行任务: taskId={}, actionType={}, scheduledAt={}",
                 taskId, task.getActionType(), task.getScheduledAt());
 
-        // Step 1: 灏濊瘯鎶㈠崰浠诲姟锛堥€氳繃self璋冪敤纭繚浜嬪姟鐢熸晥锛?
+        // Step 1: 尝试抢占任务（通过self调用确保事务生效）
         boolean acquired = self.tryAcquireTask(task);
         if (!acquired) {
-            log.debug("浠诲姟宸茶鍏朵粬瀹炰緥鎶㈠崰锛岃烦杩? taskId={}", taskId);
+            log.debug("任务已被其他实例抢占，跳过: taskId={}", taskId);
             return;
         }
 
-        // Step 2: 鎵ц浠诲姟琛屼负
+        // Step 2: 执行任务行为
         boolean success = false;
         String errorMessage = null;
         LocalDateTime completedTime = null;
@@ -147,31 +147,31 @@ public class RobotTaskExecutor {
             success = true;
             completedTime = LocalDateTime.now();
 
-            // 鏇存柊浠诲姟鐘舵€佷负 DONE锛堥€氳繃self璋冪敤纭繚浜嬪姟鐢熸晥锛?
+            // 更新任务状态为 DONE（通过self调用确保事务生效）
             self.updateTaskStatusToDone(task, completedTime);
 
-            log.info("浠诲姟鎵ц鎴愬姛: taskId={}", taskId);
+            log.info("任务执行成功: taskId={}", taskId);
 
         } catch (Exception e) {
-            log.error("浠诲姟鎵ц澶辫触: taskId=" + taskId, e);
+            log.error("任务执行失败: taskId=" + taskId, e);
             errorMessage = e.getMessage();
             completedTime = LocalDateTime.now();
 
-            // 澶勭悊澶辫触閲嶈瘯閫昏緫锛堥€氳繃self璋冪敤纭繚浜嬪姟鐢熸晥锛?
+            // 处理失败重试逻辑（通过self调用确保事务生效）
             self.handleTaskFailure(task, errorMessage);
         }
 
-        // Step 3: 璁板綍鎵ц鏃ュ織
+        // Step 3: 记录执行日志
         recordExecutionLog(task, startTime, completedTime, success, errorMessage);
     }
 
     /**
-     * 鏇存柊浠诲姟鐘舵€佷负 DONE
-     * 鐙珛浜嬪姟鏂规硶锛岀‘淇濅簨鍔＄敓鏁?
-     * 鎵€鏈夋潈楠岃瘉锛?
-     * - 鍩轰簬 locked_by 楠岃瘉褰撳墠瀹炰緥鏄惁鎷ユ湁璇ヤ换鍔?
-     * - WHERE locked_by=褰撳墠瀹炰緥ID 纭繚鍙湁浠诲姟鎵€鏈夎€呰兘鏇存柊鐘舵€?
-     * - 闃叉璺ㄥ疄渚嬭鎿嶄綔
+     * 更新任务状态为 DONE
+     * 独立事务方法，确保事务生效
+     * 所有权验证：
+     * - 基于 locked_by 验证当前实例是否拥有该任务
+     * - WHERE locked_by=当前实例ID 确保只有任务所有者能更新状态
+     * - 防止跨实例误操作
      */
     @Transactional(rollbackFor = Exception.class)
     public void updateTaskStatusToDone(RobotTask task, LocalDateTime completedTime) {
@@ -179,31 +179,31 @@ public class RobotTaskExecutor {
 
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", task.getId())
-                    .eq("locked_by", instanceId)  // 楠岃瘉鎵€鏈夋潈
+                    .eq("locked_by", instanceId)  // 验证所有权
                     .set("status", TaskStatus.DONE.name())
                     .set("completed_at", completedTime);
 
         int updated = robotTaskMapper.update(null, updateWrapper);
 
         if (updated == 1) {
-            log.info("浠诲姟鐘舵€佹洿鏂颁负DONE: taskId={}, instanceId={}, executionTime={}ms",
+            log.info("任务状态更新为DONE: taskId={}, instanceId={}, executionTime={}ms",
                     task.getId(), instanceId,
                     Duration.between(task.getStartedAt(), completedTime).toMillis());
         } else {
-            log.error("浠诲姟鐘舵€佹洿鏂板け璐ワ紝鎵€鏈夋潈楠岃瘉澶辫触: taskId={}, currentInstanceId={}",
+            log.error("任务状态更新失败，所有权验证失败: taskId={}, currentInstanceId={}",
                     task.getId(), instanceId);
         }
     }
 
     /**
-     * 浣跨敤澹版槑寮忛鍙栨満鍒跺皾璇曟姠鍗犱换鍔?
-     * 鐙珛浜嬪姟鏂规硶锛岀‘淇濅簨鍔＄敓鏁?
-     * 鏈哄埗璇存槑锛?
-     * - 浣跨敤 locked_by 瀛楁鏍囪浠诲姟鎵€鏈夋潈
-     * - 鍘熷瓙UPDATE鎿嶄綔锛歐HERE status='PENDING' SET locked_by=瀹炰緥ID, status='RUNNING'
-     * - 鍙湁涓€涓疄渚嬭兘鎴愬姛棰嗗彇锛堜簰鏂ユ€х敱WHERE鏉′欢淇濊瘉锛?
+     * 使用声明式领取机制尝试抢占任务
+     * 独立事务方法，确保事务生效
+     * 机制说明：
+     * - 使用 locked_by 字段标记任务所有权
+     * - 原子UPDATE操作：WHERE status='PENDING' SET locked_by=实例ID, status='RUNNING'
+     * - 只有一个实例能成功领取（互斥性由WHERE条件保证）
      *
-     * @return true 濡傛灉鎶㈠崰鎴愬姛锛宖alse 濡傛灉琚叾浠栧疄渚嬫姠鍗犳垨鐘舵€佸凡鍙樻洿
+     * @return true 如果抢占成功，false 如果被其他实例抢占或状态已变更
      */
     @Transactional(rollbackFor = Exception.class)
     public boolean tryAcquireTask(RobotTask task) {
@@ -212,40 +212,40 @@ public class RobotTaskExecutor {
 
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", task.getId())
-                    .eq("status", TaskStatus.PENDING.name())  // 鍙湁PENDING浠诲姟鍙互琚鍙?
-                    .isNull("locked_by")  // 纭繚浠诲姟鏈鍏朵粬瀹炰緥棰嗗彇
+                    .eq("status", TaskStatus.PENDING.name())  // 只有PENDING任务可以被领取
+                    .isNull("locked_by")  // 确保任务未被其他实例领取
                     .set("status", TaskStatus.RUNNING.name())
-                    .set("locked_by", instanceId)  // 璁剧疆鎵€鏈夋潈
+                    .set("locked_by", instanceId)  // 设置所有权
                     .set("started_at", now)
                     .set("heartbeat_at", now);
 
         int updated = robotTaskMapper.update(null, updateWrapper);
 
         if (updated == 1) {
-            // 鏇存柊鏈湴task瀵硅薄鐘舵€?
+            // 更新本地task对象状态
             task.setLockedBy(instanceId);
             task.setStatus(TaskStatus.RUNNING.name());
             task.setStartedAt(now);
             task.setHeartbeatAt(now);
 
-            log.info("浠诲姟棰嗗彇鎴愬姛: taskId={}, instanceId={}, status=RUNNING",
+            log.info("任务领取成功: taskId={}, instanceId={}, status=RUNNING",
                     task.getId(), instanceId);
             return true;
         }
 
-        log.info("浠诲姟棰嗗彇澶辫触: taskId={}, expectedStatus=PENDING, reason=宸茶鍏朵粬瀹炰緥棰嗗彇鎴栫姸鎬佸凡鍙樻洿",
+        log.info("任务领取失败: taskId={}, expectedStatus=PENDING, reason=已被其他实例领取或状态已变更",
                 task.getId());
         return false;
     }
 
     /**
-     * 鎵ц浠诲姟鐨勫叿浣撹涓?
+     * 执行任务的具体行为
      */
     private void executeAction(RobotTask task) {
         String actionType = task.getActionType();
         String payload = task.getActionPayload();
 
-        log.debug("鎵ц琛屼负: taskId={}, actionType={}, payload={}",
+        log.debug("执行行为: taskId={}, actionType={}, payload={}",
                  task.getId(), actionType, payload);
 
         switch (actionType) {
@@ -259,120 +259,120 @@ public class RobotTaskExecutor {
                 executeSendNotification(task);
                 break;
             default:
-                throw new IllegalArgumentException("涓嶆敮鎸佺殑琛屼负绫诲瀷: " + actionType);
+                throw new IllegalArgumentException("不支持的行为类型: " + actionType);
         }
     }
 
     /**
-     * 鎵ц鍙戦€佹秷鎭涓?
-     * 1. 瑙ｆ瀽 action_payload JSON
-     * 2. 璋冪敤LLM鎺ㄧ悊鏈嶅姟
-     * 3. 鍒涘缓AI鍥炲娑堟伅
-     * 4. 鏇存柊浼氳瘽琛?
-     * T028-T032: 娣诲姞瀹屽杽鐨勫紓甯稿鐞嗗拰閲嶈瘯閫昏緫
-     * 娉ㄦ剰锛氭鏂规硶闇€瑕佷繚璇佷簨鍔℃€э紝閫氳繃self璋冪敤纭繚浜嬪姟鐢熸晥
+     * 执行发送消息行为
+     * 1. 解析 action_payload JSON
+     * 2. 调用LLM推理服务
+     * 3. 创建AI回复消息
+     * 4. 更新会话表
+     * T028-T032: 添加完善的异常处理和重试逻辑
+     * 注意：此方法需要保证事务性，通过self调用确保事务生效
      */
     private void executeSendMessage(RobotTask task) {
         self.executeSendMessageWithTransaction(task);
     }
 
     /**
-     * 鍦ㄤ簨鍔′腑鎵ц鍙戦€佹秷鎭涓?
-     * 鎷嗗垎涓虹嫭绔嬬殑浜嬪姟鏂规硶锛岀‘淇濇暟鎹竴鑷存€?
+     * 在事务中执行发送消息行为
+     * 拆分为独立的事务方法，确保数据一致性
      *
-     * US1: 浣跨敤ModelRoutingService鍔ㄦ€侀€夋嫨妯″瀷
-     * US2: 浣跨敤PromptTemplateService鍜孊eetlTemplateService娓叉煋鎻愮ず璇?
+     * US1: 使用ModelRoutingService动态选择模型
+     * US2: 使用PromptTemplateService和BeetlTemplateService渲染提示词
      */
     @Transactional(rollbackFor = Exception.class)
     protected void executeSendMessageWithTransaction(RobotTask task) {
-        log.info("寮€濮嬫墽琛孲END_MESSAGE浠诲姟: taskId={}, retryCount={}/{}, payload={}",
+        log.info("开始执行SEND_MESSAGE任务: taskId={}, retryCount={}/{}, payload={}",
                 task.getId(), task.getRetryCount(), task.getMaxRetryCount(),
                 task.getActionPayload());
 
         try {
-            // 1. 瑙ｆ瀽 action_payload JSON
+            // 1. 解析 action_payload JSON
             SendMessagePayload payload = JsonUtil.fromJson(
                     task.getActionPayload(), SendMessagePayload.class);
 
             if (payload == null) {
-                throw new IllegalArgumentException("action_payload瑙ｆ瀽澶辫触");
+                throw new IllegalArgumentException("action_payload解析失败");
             }
 
-            log.info("瑙ｆ瀽payload鎴愬姛: messageId={}, senderId={}, receiverId={}, modelId={}",
+            log.info("解析payload成功: messageId={}, senderId={}, receiverId={}, modelId={}",
                     payload.getMessageId(), payload.getSenderId(),
                     payload.getReceiverId(), payload.getModelId());
 
-            // 2. US1: 浣跨敤璺敱绛栫暐閫夋嫨妯″瀷
+            // 2. US1: 使用路由策略选择模型
             AiModelBo selectedModel = null;
             try {
                 InferenceRequest tempRequest = new InferenceRequest();
                 tempRequest.setPrompt(payload.getContent());
                 selectedModel = modelRoutingService.selectModelByDefault(tempRequest);
-                log.info("浣跨敤榛樿璺敱绛栫暐閫夋嫨妯″瀷: modelId={}, modelName={}",
+                log.info("使用默认路由策略选择模型: modelId={}, modelName={}",
                         selectedModel.getId(), selectedModel.getName());
             } catch (RoutingException e) {
-                // 闄嶇骇锛氫娇鐢╬ayload涓殑modelId
-                log.warn("榛樿璺敱绛栫暐澶辫触: {}, 闄嶇骇浣跨敤payload涓殑modelId={}",
+                // 降级：使用payload中的modelId
+                log.warn("默认路由策略失败: {}, 降级使用payload中的modelId={}",
                         e.getMessage(), payload.getModelId());
                 if (payload.getModelId() != null) {
                     selectedModel = new AiModelBo();
                     selectedModel.setId(payload.getModelId());
-                    log.info("闄嶇骇浣跨敤payload涓殑妯″瀷: modelId={}", selectedModel.getId());
+                    log.info("降级使用payload中的模型: modelId={}", selectedModel.getId());
                 } else {
-                    throw new RuntimeException("鏃犳硶閫夋嫨鍙敤妯″瀷: 榛樿绛栫暐澶辫触涓攑ayload鏃爉odelId");
+                    throw new RuntimeException("无法选择可用模型: 默认策略失败且payload无modelId");
                 }
             }
 
-            // 3. US2: 浣跨敤妯℃澘娓叉煋鎻愮ず璇?
-            String finalPrompt = payload.getContent();  // 榛樿浣跨敤鍘熷娑堟伅
+            // 3. US2: 使用模板渲染提示词
+            String finalPrompt = payload.getContent();  // 默认使用原始消息
             Long aiCharacterId = resolveAiCharacterId(payload);
             PromptTemplate template = null;
             try {
                 template = promptTemplateService.getLatestByCharId(aiCharacterId);
                 if (template != null) {
-                    // 妯℃澘瀛樺湪锛岃繘琛屾覆鏌?
+                    // 模板存在，进行渲染
                     Map<String, Object> templateParams = buildTemplateParams(payload, aiCharacterId);
                     try {
                         finalPrompt = beetlTemplateService.render(template.getContent(), templateParams);
-                        log.info("妯℃澘娓叉煋鎴愬姛: templateId={}, promptLength={}瀛楃",
+                        log.info("模板渲染成功: templateId={}, promptLength={}字符",
                                 template.getId(), finalPrompt.length());
                     } catch (Exception renderEx) {
-                        // 妯℃澘娓叉煋澶辫触锛岄檷绾у埌鍘熷娑堟伅
-                        log.error("妯℃澘娓叉煋澶辫触锛岄檷绾т娇鐢ㄥ師濮嬫秷鎭? templateId={}, error={}",
+                        // 模板渲染失败，降级到原始消息
+                        log.error("模板渲染失败，降级使用原始消息: templateId={}, error={}",
                                 template.getId(), renderEx.getMessage());
                         finalPrompt = payload.getContent();
                     }
                 } else {
-                    // 妯℃澘涓嶅瓨鍦紝浣跨敤鍘熷娑堟伅
-                    log.error("瑙掕壊鏈厤缃ā鏉匡紝浣跨敤鍘熷娑堟伅: charId={}", aiCharacterId);
+                    // 模板不存在，使用原始消息
+                    log.error("角色未配置模板，使用原始消息: charId={}", aiCharacterId);
                 }
             } catch (Exception e) {
-                // 鏌ヨ妯℃澘寮傚父锛岄檷绾у埌鍘熷娑堟伅
-                log.warn("鏌ヨ妯℃澘澶辫触锛屼娇鐢ㄥ師濮嬫秷鎭? charId={}, error={}",
+                // 查询模板异常，降级到原始消息
+                log.warn("查询模板失败，使用原始消息: charId={}, error={}",
                         aiCharacterId, e.getMessage());
             }
 
-            // 4. 璋冪敤LLM鎺ㄧ悊鏈嶅姟
+            // 4. 调用LLM推理服务
             InferenceRequest inferenceRequest = new InferenceRequest();
             inferenceRequest.setModelId(selectedModel.getId());
             inferenceRequest.setPrompt(finalPrompt);
-            inferenceRequest.setTemperature(0.7);  // TODO: US3灏嗕粠妯℃澘閰嶇疆璇诲彇
-            inferenceRequest.setMaxTokens(2000);   // TODO: US3灏嗕粠妯℃澘閰嶇疆璇诲彇
+            inferenceRequest.setTemperature(0.7);  // TODO: US3将从模板配置读取
+            inferenceRequest.setMaxTokens(2000);   // TODO: US3将从模板配置读取
 
-            log.info("璋冪敤LLM鎺ㄧ悊鏈嶅姟: modelId={}, prompt={}",
+            log.info("调用LLM推理服务: modelId={}, prompt={}",
                     selectedModel.getId(), finalPrompt);
 
             InferenceResponse inferenceResponse = inferenceService.chat(inferenceRequest);
 
-            // 楠岃瘉LLM鍝嶅簲
+            // 验证LLM响应
             if (inferenceResponse == null || !Boolean.TRUE.equals(inferenceResponse.getSuccess())) {
-                String errorMsg = inferenceResponse != null ? inferenceResponse.getErrorMessage() : "LLM鍝嶅簲涓虹┖";
-                log.warn("LLM鎺ㄧ悊澶辫触: taskId={}, retryCount={}, error={}",
+                String errorMsg = inferenceResponse != null ? inferenceResponse.getErrorMessage() : "LLM响应为空";
+                log.warn("LLM推理失败: taskId={}, retryCount={}, error={}",
                         task.getId(), task.getRetryCount(), errorMsg);
-                throw new RuntimeException("LLM鎺ㄧ悊澶辫触: " + errorMsg);
+                throw new RuntimeException("LLM推理失败: " + errorMsg);
             }
 
-            log.info("LLM鎺ㄧ悊鎴愬姛: taskId={}, tokens={}, responseTime={}ms",
+            log.info("LLM推理成功: taskId={}, tokens={}, responseTime={}ms",
                     task.getId(), inferenceResponse.getTotalTokens(),
                     inferenceResponse.getResponseTimeMs());
 
@@ -383,10 +383,10 @@ public class RobotTaskExecutor {
                 log.warn("post process failed: taskId={}, error={}", task.getId(), e.getMessage());
             }
 
-            // 5. 鍒涘缓AI鍥炲娑堟伅
+            // 5. 创建AI回复消息
             Message aiReply = new Message();
-            aiReply.setSenderId(payload.getReceiverId()); // AI鐢ㄦ埛ID
-            aiReply.setReceiverId(payload.getSenderId()); // 鍘熷鍙戦€佽€匢D
+            aiReply.setSenderId(payload.getReceiverId()); // AI用户ID
+            aiReply.setReceiverId(payload.getSenderId()); // 原始发送者ID
             aiReply.setType("text");
             aiReply.setContent(finalContent);
             aiReply.setStatus("sent");
@@ -396,60 +396,60 @@ public class RobotTaskExecutor {
 
             messageRepository.save(aiReply);
 
-            log.info("AI鍥炲娑堟伅鍒涘缓鎴愬姛: messageId={}, content={}瀛楃",
+            log.info("AI回复消息创建成功: messageId={}, content={}字符",
                     aiReply.getId(), finalContent.length());
 
-            // 6. 鏇存柊浼氳瘽琛?
+            // 6. 更新会话表
             try {
                 conversationMapper.upsertSender(
-                        payload.getReceiverId(), // AI浣滀负鍙戦€佹柟
-                        payload.getSenderId(), // 鐢ㄦ埛浣滀负鎺ユ敹鏂?
+                        payload.getReceiverId(), // AI作为发送方
+                        payload.getSenderId(), // 用户作为接收方
                         aiReply.getId(),
                         aiReply.getCreatedAt());
                 conversationMapper.upsertReceiver(
-                        payload.getSenderId(), // 鐢ㄦ埛浣滀负鎺ユ敹鏂?
-                        payload.getReceiverId(), // AI浣滀负鍙戦€佹柟
+                        payload.getSenderId(), // 用户作为接收方
+                        payload.getReceiverId(), // AI作为发送方
                         aiReply.getId(),
                         aiReply.getCreatedAt());
             } catch (Exception e) {
-                // 浼氳瘽琛ㄦ洿鏂板け璐ヤ笉搴旈樆鏂富娴佺▼
-                log.warn("鏇存柊浼氳瘽琛ㄥけ璐? {}", e.getMessage());
+                // 会话表更新失败不应阻断主流程
+                log.warn("更新会话表失败: {}", e.getMessage());
             }
 
-            log.info("SEND_MESSAGE浠诲姟鎵ц瀹屾垚: taskId={}, aiReplyId={}",
+            log.info("SEND_MESSAGE任务执行完成: taskId={}, aiReplyId={}",
                     task.getId(), aiReply.getId());
 
         } catch (Exception e) {
-            // 鎹曡幏鎵€鏈夊紓甯革紝鐢眅xecute鏂规硶鐨勫紓甯稿鐞嗛€昏緫澶勭悊
-            log.warn("SEND_MESSAGE浠诲姟鎵ц澶辫触: taskId={}, retryCount={}, error={}",
+            // 捕获所有异常，由execute方法的异常处理逻辑处理
+            log.warn("SEND_MESSAGE任务执行失败: taskId={}, retryCount={}, error={}",
                     task.getId(), task.getRetryCount(), e.getMessage());
             throw e;
         }
     }
 
     /**
-     * 鎵ц鍙戦€佽闊宠涓?
+     * 执行发送语音行为
      */
     private void executeSendVoice(RobotTask task) {
-        // TODO: 瀹炵幇鍙戦€佽闊抽€昏緫
-        log.info("鍙戦€佽闊? taskId={}, payload={}", task.getId(), task.getActionPayload());
+        // TODO: 实现发送语音逻辑
+        log.info("发送语音: taskId={}, payload={}", task.getId(), task.getActionPayload());
     }
 
     /**
-     * 鎵ц鍙戦€侀€氱煡琛屼负
+     * 执行发送通知行为
      */
     private void executeSendNotification(RobotTask task) {
-        // TODO: 瀹炵幇鍙戦€侀€氱煡閫昏緫
-        log.info("鍙戦€侀€氱煡: taskId={}, payload={}", task.getId(), task.getActionPayload());
+        // TODO: 实现发送通知逻辑
+        log.info("发送通知: taskId={}, payload={}", task.getId(), task.getActionPayload());
     }
 
     /**
-     * 澶勭悊浠诲姟澶辫触鍚庣殑閲嶈瘯閫昏緫
-     * 鐙珛浜嬪姟鏂规硶锛岀‘淇濅簨鍔＄敓鏁?
-     * 鎵€鏈夋潈閲婃斁锛?
-     * - 澶辫触閲嶈瘯鏃舵竻绌?locked_by锛圫ET locked_by=NULL锛夛紝閲婃斁浠诲姟鎵€鏈夋潈
-     * - 鐘舵€佸彉鏇翠负 PENDING锛屽厑璁镐换鎰忓疄渚嬮噸鏂伴鍙?
-     * - 杈惧埌鏈€澶ч噸璇曟鏁版椂锛屾爣璁颁负 FAILED 骞舵竻绌?locked_by
+     * 处理任务失败后的重试逻辑
+     * 独立事务方法，确保事务生效
+     * 所有权释放：
+     * - 失败重试时清空 locked_by（SET locked_by=NULL），释放任务所有权
+     * - 状态变更为 PENDING，允许任意实例重新领取
+     * - 达到最大重试次数时，标记为 FAILED 并清空 locked_by
      */
     @Transactional(rollbackFor = Exception.class)
     public void handleTaskFailure(RobotTask task, String errorMessage) {
@@ -458,74 +458,74 @@ public class RobotTaskExecutor {
         String previousLockedBy = task.getLockedBy();
 
         if (retryCount >= maxRetryCount) {
-            // 瓒呰繃鏈€澶ч噸璇曟鏁帮紝鏍囪涓?FAILED
+            // 超过最大重试次数，标记为 FAILED
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", task.getId())
                         .set("status", TaskStatus.FAILED.name())
                         .set("retry_count", retryCount)
                         .set("completed_at", LocalDateTime.now())
                         .set("error_message", errorMessage)
-                        .set("locked_by", null);  // 娓呯┖鎵€鏈夋潈
+                        .set("locked_by", null);  // 清空所有权
             robotTaskMapper.update(null, updateWrapper);
 
-            log.warn("浠诲姟澶辫触涓旇秴杩囨渶澶ч噸璇曟鏁? taskId={}, retryCount={}, previousLockedBy={}",
+            log.warn("任务失败且超过最大重试次数: taskId={}, retryCount={}, previousLockedBy={}",
                     task.getId(), retryCount, previousLockedBy);
         } else {
-            // 璁＄畻涓嬫鎵ц鏃堕棿
+            // 计算下次执行时间
             String[] retryDelay = configs.getRetryDelay().split(",");
             int delaySeconds = retryCount > retryDelay.length ?
                                Integer.parseInt(retryDelay[retryDelay.length - 1]) :
                                Integer.parseInt(retryDelay[retryCount - 1]);
             LocalDateTime nextExecuteAt = LocalDateTime.now().plusSeconds(delaySeconds);
 
-            // 閲嶇疆鐘舵€佷负 PENDING锛屽鍔犻噸璇曡鏁帮紝閲婃斁鎵€鏈夋潈
+            // 重置状态为 PENDING，增加重试计数，释放所有权
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", task.getId())
                         .set("status", TaskStatus.PENDING.name())
                         .set("retry_count", retryCount)
                         .set("scheduled_at", nextExecuteAt)
                         .set("error_message", errorMessage)
-                        .set("locked_by", null);  // 娓呯┖鎵€鏈夋潈锛屽厑璁稿叾浠栧疄渚嬮噸璇?
+                        .set("locked_by", null);  // 清空所有权，允许其他实例重试
             robotTaskMapper.update(null, updateWrapper);
 
-            log.warn("浠诲姟澶辫触閲嶈瘯锛岄噴鏀炬墍鏈夋潈: taskId={}, previousLockedBy={}, retryCount={}, nextScheduledAt={}",
+            log.warn("任务失败重试，释放所有权: taskId={}, previousLockedBy={}, retryCount={}, nextScheduledAt={}",
                     task.getId(), previousLockedBy, retryCount, nextExecuteAt);
         }
     }
 
     /**
-     * 璁板綍鎵ц鏃ュ織
-     * T044: 娣诲姞鎬ц兘鏃ュ織锛圠LM鍝嶅簲鏃堕棿銆佷换鍔＄瓑寰呮椂闂达級
+     * 记录执行日志
+     * T044: 添加性能日志（LLM响应时间、任务等待时间）
      */
     private void recordExecutionLog(RobotTask task, LocalDateTime startTime,
                                     LocalDateTime completedTime, boolean success,
                                     String errorMessage) {
         try {
-            // 璁＄畻鎵ц寤惰繜锛堜换鍔＄瓑寰呮椂闂达級
+            // 计算执行延迟（任务等待时间）
             long delayMs = Duration.between(task.getScheduledAt(), startTime).toMillis();
             long durationMs = completedTime != null ?
                              Duration.between(startTime, completedTime).toMillis() : 0;
 
-            // T044: 娣诲姞鎬ц兘鏃ュ織
+            // T044: 添加性能日志
             if (success) {
-                log.info("浠诲姟鎵ц鎬ц兘鎸囨爣: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}",
+                log.info("任务执行性能指标: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}",
                         task.getId(), durationMs, delayMs, task.getRetryCount() + 1);
 
-                // 鎬ц兘鍛婅锛氭墽琛屾椂闂磋繃闀?
+                // 性能告警：执行时间过长
                 if (durationMs > 30000) {
-                    log.warn("浠诲姟鎵ц鏃堕棿杩囬暱: taskId={}, duration={}ms (>5s)", task.getId(), durationMs);
+                    log.warn("任务执行时间过长: taskId={}, duration={}ms (>5s)", task.getId(), durationMs);
                 }
 
-                // 鎬ц兘鍛婅锛氳皟搴﹀欢杩熻繃澶?
+                // 性能告警：调度延迟过大
                 if (delayMs > 60000) {
-                    log.warn("浠诲姟璋冨害寤惰繜杩囧ぇ: taskId={}, delay={}ms (>60s)", task.getId(), delayMs);
+                    log.warn("任务调度延迟过大: taskId={}, delay={}ms (>60s)", task.getId(), delayMs);
                 }
             } else {
-                log.warn("浠诲姟鎵ц澶辫触鎬ц兘鎸囨爣: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}, error={}",
+                log.warn("任务执行失败性能指标: taskId={}, executionDuration={}ms, scheduledDelay={}ms, attempt={}, error={}",
                         task.getId(), durationMs, delayMs, task.getRetryCount() + 1, errorMessage);
             }
 
-            // 鑾峰彇瀹炰緥ID
+            // 获取实例ID
             String instanceId = getInstanceId();
 
             RobotTaskExecutionLog log = RobotTaskExecutionLog.builder()
@@ -543,23 +543,23 @@ public class RobotTaskExecutor {
             executionLogMapper.insert(log);
 
         } catch (Exception e) {
-            // 璁板綍鏃ュ織澶辫触涓嶅簲褰卞搷涓绘祦绋?
-            RobotTaskExecutor.log.error("璁板綍鎵ц鏃ュ織澶辫触: taskId=" + task.getId(), e);
+            // 记录日志失败不应影响主流程
+            RobotTaskExecutor.log.error("记录执行日志失败: taskId=" + task.getId(), e);
         }
     }
 
     /**
-     * 鑾峰彇褰撳墠瀹炰緥ID锛坧od鍚嶇О鎴栦富鏈哄悕锛?
+     * 获取当前实例ID（pod名称或主机名）
      */
     private String getInstanceId() {
         try {
-            // 浼樺厛浣跨敤鐜鍙橀噺锛圞ubernetes pod鍚嶇О锛?
+            // 优先使用环境变量（Kubernetes pod名称）
             String podName = System.getenv("HOSTNAME");
             if (podName != null && !podName.isEmpty()) {
                 return podName;
             }
 
-            // 鍚﹀垯浣跨敤涓绘満鍚?
+            // 否则使用主机名
             return InetAddress.getLocalHost().getHostName();
         } catch (Exception e) {
             return "unknown";
@@ -567,9 +567,9 @@ public class RobotTaskExecutor {
     }
 
     /**
-     * 鏋勫缓妯℃澘娓叉煋鍙傛暟
-     * @param payload 娑堟伅鍙戦€佽浇鑽?
-     * @return 妯℃澘鍙傛暟Map锛屽寘鍚玼serName銆乽serId銆乧ontent銆乺eceiverId銆乧haracterName
+     * 构建模板渲染参数
+     * @param payload 消息发送载荷
+     * @return 模板参数Map，包含userName、userId、content、receiverId、characterName
      */
     private Map<String, Object> buildTemplateParams(SendMessagePayload payload, Long aiCharacterId) {
         Map<String, Object> params = new HashMap<>();
@@ -646,7 +646,7 @@ public class RobotTaskExecutor {
         if (user != null && isNotBlank(user.getUsername())) {
             return user.getUsername();
         }
-        return "鐢ㄦ埛";
+        return "用户";
     }
 
     private String resolveCharacterName(AiCharacter character,
@@ -661,7 +661,7 @@ public class RobotTaskExecutor {
         if (defaultSetting != null && isNotBlank(defaultSetting.getName())) {
             return defaultSetting.getName();
         }
-        return "AI鍔╂墜";
+        return "AI助手";
     }
 
     private String buildCharDetailString(AiCharacterSetting defaultSetting, AiCharacterSetting customSetting) {
@@ -682,7 +682,7 @@ public class RobotTaskExecutor {
 
         List<String> parts = new ArrayList<>();
         if (memorialDay != null) {
-            parts.add("绾康鏃ヤ负" + memorialDay);
+            parts.add("纪念日为" + memorialDay);
         }
         if (isNotBlank(relationship)) {
             parts.add("relationship=" + relationship);
@@ -786,14 +786,14 @@ public class RobotTaskExecutor {
             String timeText = time != null ? time.toString() : "";
             if ("message".equals(type)) {
                 Message message = (Message) item.get("message");
-                parts.add("[" + timeText + "] 鑱婂ぉ娑堟伅: " + (message != null ? message.getContent() : ""));
+                parts.add("[" + timeText + "] 聊天消息: " + (message != null ? message.getContent() : ""));
             } else if ("conversation_summary".equals(type)) {
                 ConversationSummary summary = (ConversationSummary) item.get("conversation_summary");
-                parts.add("[" + timeText + "] 浼氳瘽鎬荤粨: "
+                parts.add("[" + timeText + "] 会话总结: "
                         + (summary != null ? JsonUtil.toJson(summary.getSummaryJson()) : ""));
             } else if ("long_term_memory".equals(type)) {
                 LongTermMemory memory = (LongTermMemory) item.get("long_term_memory");
-                parts.add("[" + timeText + "] 闀挎湡璁板繂: " + (memory != null ? memory.getText() : ""));
+                parts.add("[" + timeText + "] 长期记忆: " + (memory != null ? memory.getText() : ""));
             }
         }
         return String.join("\n", parts);
@@ -816,5 +816,6 @@ public class RobotTaskExecutor {
         return payload.getReceiverId();
     }
 }
+
 
 

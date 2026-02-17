@@ -135,6 +135,11 @@ const menuItems: MenuItem[] = [
         icon: <Mail />,
       },
       {
+        title: '站内信管理',
+        href: '/dashboard/operation/inbox',
+        icon: <MessageSquare />,
+      },
+      {
         title: '套餐管理',
         href: '/dashboard/operation/plans',
         icon: <Gift />,

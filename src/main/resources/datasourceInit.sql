@@ -372,6 +372,56 @@ CREATE TABLE message (
 CREATE INDEX idx_receiver_id_id ON message (receiver_id, id);
 CREATE INDEX idx_both_users_time ON message (sender_id, receiver_id, id);
 
+CREATE TABLE inbox_message (
+                             id BIGSERIAL PRIMARY KEY,
+                             msg_type SMALLINT NOT NULL,
+                             title VARCHAR(100),
+                             content TEXT NOT NULL,
+                             sender_id BIGINT,
+                             biz_type VARCHAR(50),
+                             biz_id BIGINT,
+                             extra JSONB,
+                             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                             created_by BIGINT,
+                             updated_by BIGINT
+);
+CREATE INDEX idx_inbox_message_type ON inbox_message (msg_type);
+CREATE INDEX idx_inbox_message_biz ON inbox_message (biz_type, biz_id);
+CREATE INDEX idx_inbox_message_created_at ON inbox_message (created_at DESC);
+
+CREATE TABLE inbox_user_message (
+                                  id BIGSERIAL PRIMARY KEY,
+                                  user_id BIGINT NOT NULL,
+                                  message_id BIGINT NOT NULL REFERENCES inbox_message(id) ON DELETE CASCADE,
+                                  read_status SMALLINT NOT NULL DEFAULT 0,
+                                  read_at TIMESTAMP,
+                                  delete_status SMALLINT NOT NULL DEFAULT 0,
+                                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                  created_by BIGINT,
+                                  updated_by BIGINT,
+                                  CONSTRAINT uk_inbox_user_message UNIQUE (user_id, message_id)
+);
+CREATE INDEX idx_inbox_user_read ON inbox_user_message (user_id, read_status);
+CREATE INDEX idx_inbox_user_time ON inbox_user_message (user_id, created_at DESC);
+CREATE INDEX idx_inbox_user_delete ON inbox_user_message (user_id, delete_status);
+CREATE INDEX idx_inbox_message_rel ON inbox_user_message (message_id);
+
+CREATE TABLE inbox_message_batch_send (
+                                        id BIGSERIAL PRIMARY KEY,
+                                        message_id BIGINT NOT NULL REFERENCES inbox_message(id) ON DELETE CASCADE,
+                                        send_type SMALLINT NOT NULL,
+                                        target_count INT,
+                                        success_count INT,
+                                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                        created_by BIGINT,
+                                        updated_by BIGINT
+);
+CREATE INDEX idx_inbox_batch_message ON inbox_message_batch_send (message_id);
+CREATE INDEX idx_inbox_batch_created ON inbox_message_batch_send (created_at DESC);
+
 
 CREATE TABLE friends (
                          id BIGSERIAL PRIMARY KEY,

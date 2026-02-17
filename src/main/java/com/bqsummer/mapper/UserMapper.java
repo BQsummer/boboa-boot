@@ -164,4 +164,7 @@ public interface UserMapper {
         @Result(property = "userType", column = "user_type")
     })
     List<User> searchUsers(@Param("keyword") String keyword, @Param("currentUserId") Long currentUserId);
+
+    @Select("SELECT id FROM users WHERE is_deleted = 0 AND status = 1 AND (user_type = 'REAL' OR user_type IS NULL OR user_type = '')")
+    List<Long> findAllActiveRealUserIds();
 }
