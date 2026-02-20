@@ -392,6 +392,7 @@ public class RobotTaskExecutor {
             aiReply.setContent(finalContent);
             aiReply.setStatus("sent");
             aiReply.setIsDeleted(false);
+            aiReply.setIsInContext(true);
             aiReply.setCreatedAt(LocalDateTime.now());
             aiReply.setUpdatedAt(LocalDateTime.now());
 
@@ -765,7 +766,7 @@ public class RobotTaskExecutor {
         userNameCache.put(payload.getReceiverId(), characterName);
 
         try {
-            List<Message> messages = messageRepository.findDialogHistory(
+            List<Message> messages = messageRepository.findDialogHistoryForPrompt(
                     payload.getSenderId(), payload.getReceiverId(), null, 20);
             for (Message message : messages) {
                 Map<String, Object> item = new HashMap<>();

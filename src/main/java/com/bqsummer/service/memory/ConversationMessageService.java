@@ -41,7 +41,7 @@ public class ConversationMessageService {
             if (unsummarizedCount >= SUMMARY_THRESHOLD) {
                 log.info("未总结消息达到阈值，触发总结生成: userId={}, aiCharacterId={}, count={}",
                         userId, aiCharacterId, unsummarizedCount);
-                summaryService.generateSummaryAsync(userId, aiCharacterId);
+                //summaryService.generateSummaryAsync(userId, aiCharacterId);
             }
         } catch (Exception e) {
             log.error("检查总结条件失败，但主流程继续: userId={}, aiCharacterId={}", userId, aiCharacterId, e);
@@ -49,7 +49,7 @@ public class ConversationMessageService {
 
         if ("USER".equals(senderType)) {
             try {
-                longTermMemoryService.extractMemoryAsync(userId, aiCharacterId, content, messageId);
+                //longTermMemoryService.extractMemoryAsync(userId, aiCharacterId, content, messageId);
             } catch (Exception e) {
                 log.error("触发记忆提取失败，但主流程继续: userId={}, aiCharacterId={}", userId, aiCharacterId, e);
             }

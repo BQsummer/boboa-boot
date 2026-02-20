@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { getCharacter } from '@/lib/api/characters';
-import { ImMessage, getRecentMessages, pollMessages, sendImMessage } from '@/lib/api/messages';
+import { ImMessage, clearContext, clearSession, getRecentMessages, pollMessages, sendImMessage } from '@/lib/api/messages';
 import { useAuth } from '@/lib/contexts/auth-context';
 
 function mergeMessages(existing: ImMessage[], incoming: ImMessage[]): ImMessage[] {
@@ -27,6 +27,8 @@ export default function CharacterTestChatPage() {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [acting, setActing] = useState(false);
+  const [featureValue, setFeatureValue] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const listEndRef = useRef<HTMLDivElement | null>(null);
   const lastSyncIdRef = useRef(0);
@@ -47,7 +49,7 @@ export default function CharacterTestChatPage() {
   useEffect(() => {
     const load = async () => {
       if (!Number.isInteger(characterId) || characterId <= 0) {
-        setNotice('角色ID无效');
+        setNotice('角色 ID 无效');
         setLoading(false);
         return;
       }
@@ -105,7 +107,7 @@ export default function CharacterTestChatPage() {
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     const text = content.trim();
-    if (!text || sending) return;
+    if (!text || sending || acting) return;
     try {
       setSending(true);
       await sendImMessage({
@@ -119,6 +121,29 @@ export default function CharacterTestChatPage() {
       setNotice('发送失败，请稍后重试');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleFeatureAction = async (action: string) => {
+    if (!action || acting || sending) return;
+
+    try {
+      setActing(true);
+      if (action === 'clearSession') {
+        await clearSession(characterId);
+        setMessages([]);
+        lastSyncIdRef.current = 0;
+        setNotice('会话已清除');
+      } else if (action === 'clearContext') {
+        await clearContext(characterId);
+        setNotice('上下文已清除（历史消息保留）');
+      }
+    } catch (error) {
+      console.error('feature action failed:', error);
+      setNotice('操作失败，请稍后重试');
+    } finally {
+      setFeatureValue('');
+      setActing(false);
     }
   };
 
@@ -180,9 +205,23 @@ export default function CharacterTestChatPage() {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="输入测试消息..."
-              disabled={sending}
+              disabled={sending || acting}
             />
-            <Button type="submit" disabled={sending || !content.trim()}>
+            <select
+              value={featureValue}
+              disabled={sending || acting}
+              onChange={(e) => {
+                const selected = e.target.value;
+                setFeatureValue(selected);
+                void handleFeatureAction(selected);
+              }}
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">功能</option>
+              <option value="clearSession">清除会话</option>
+              <option value="clearContext">清除上下文</option>
+            </select>
+            <Button type="submit" disabled={sending || acting || !content.trim()}>
               {sending ? '发送中...' : '发送'}
             </Button>
           </div>

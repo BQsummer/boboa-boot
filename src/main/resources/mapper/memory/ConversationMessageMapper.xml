@@ -4,6 +4,7 @@
 
     <sql id="pairWhere">
         is_deleted = FALSE
+        AND is_in_context = TRUE
         AND (
             (sender_id = #{userId} AND receiver_id = #{aiCharacterId})
             OR

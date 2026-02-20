@@ -366,11 +366,16 @@ CREATE TABLE message (
                          content VARCHAR(2048) NOT NULL,
                          status VARCHAR(16) NOT NULL DEFAULT 'sent',
                          is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                         is_in_context BOOLEAN NOT NULL DEFAULT TRUE,
                          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_receiver_id_id ON message (receiver_id, id);
 CREATE INDEX idx_both_users_time ON message (sender_id, receiver_id, id);
+
+-- Compatibility migration for existing databases:
+ALTER TABLE message
+    ADD COLUMN IF NOT EXISTS is_in_context BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE TABLE inbox_message (
                              id BIGSERIAL PRIMARY KEY,

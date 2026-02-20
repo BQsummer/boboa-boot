@@ -120,6 +120,7 @@ public class MessageService {
         msg.setContent(request.getContent());
         msg.setStatus("sent");
         msg.setIsDeleted(false);
+        msg.setIsInContext(true);
         msg.setCreatedAt(LocalDateTime.now());
         msg.setUpdatedAt(LocalDateTime.now());
 
@@ -207,6 +208,18 @@ public class MessageService {
         }
 
         return new ReceiverResolution(receiverId, receiverId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public int clearSession(Long userId, Long peerId) {
+        ReceiverResolution receiver = resolveReceiver(peerId);
+        return messageRepository.clearSession(userId, receiver.aiUserId());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public int clearContext(Long userId, Long peerId) {
+        ReceiverResolution receiver = resolveReceiver(peerId);
+        return messageRepository.clearContext(userId, receiver.aiUserId());
     }
 
     private record ReceiverResolution(Long aiUserId, Long aiCharacterId) {

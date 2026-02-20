@@ -41,6 +41,8 @@ public class Message {
      */
     private Boolean isDeleted = false;
 
+    private Boolean isInContext = true;
+
     /**
      * 创建时间
      */

@@ -85,7 +85,7 @@ public class LongTermMemoryService {
                 try {
                     // 生成embedding
                     float[] embedding = embeddingUtil.generateEmbedding(item.getText());
-                    
+
                     if (embedding == null || embedding.length == 0) {
                         throw new SnorlaxServerException("Embedding API 返回空向量");
                     }

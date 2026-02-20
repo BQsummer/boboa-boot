@@ -1,6 +1,7 @@
 package com.bqsummer.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.bqsummer.common.dto.im.Message;
 import com.bqsummer.mapper.MessageMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ public class MessageRepository {
         //log.info("Querying messages for userId: {}, lastSyncId: {}, limit: {}", userId, lastSyncId, limit);
         QueryWrapper<Message> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("receiver_id", userId)
+                .eq("is_deleted", false)
                 .gt("id", lastSyncId)
                 .orderByAsc("id")
                 .last("LIMIT " + limit);
@@ -32,6 +34,7 @@ public class MessageRepository {
         QueryWrapper<Message> queryWrapper = new QueryWrapper<>();
         queryWrapper
                 .nested(n -> n.eq("sender_id", userId).or().eq("receiver_id", userId))
+                .eq("is_deleted", false)
                 .gt("id", lastSyncId)
                 .orderByAsc("id")
                 .last("LIMIT " + limit);
@@ -44,6 +47,7 @@ public class MessageRepository {
                 .nested(n -> n.nested(m -> m.eq("sender_id", userId).eq("receiver_id", peerId))
                         .or()
                         .nested(m -> m.eq("sender_id", peerId).eq("receiver_id", userId)))
+                .eq("is_deleted", false)
                 .gt("id", lastSyncId)
                 .orderByAsc("id")
                 .last("LIMIT " + limit);
@@ -60,9 +64,22 @@ public class MessageRepository {
     }
 
     public List<Message> findDialogHistory(Long userId, Long peerId, Long beforeId, int limit) {
+        return findDialogHistory(userId, peerId, beforeId, limit, false);
+    }
+
+    public List<Message> findDialogHistoryForPrompt(Long userId, Long peerId, Long beforeId, int limit) {
+        return findDialogHistory(userId, peerId, beforeId, limit, true);
+    }
+
+    private List<Message> findDialogHistory(Long userId, Long peerId, Long beforeId, int limit, boolean onlyInContext) {
         QueryWrapper<Message> qw = new QueryWrapper<>();
-        qw.nested(n -> n.eq("sender_id", userId).eq("receiver_id", peerId))
-          .or(n -> n.eq("sender_id", peerId).eq("receiver_id", userId));
+        qw.nested(n -> n.nested(m -> m.eq("sender_id", userId).eq("receiver_id", peerId))
+                .or()
+                .nested(m -> m.eq("sender_id", peerId).eq("receiver_id", userId)));
+        qw.eq("is_deleted", false);
+        if (onlyInContext) {
+            qw.eq("is_in_context", true);
+        }
         if (beforeId != null && beforeId > 0) {
             qw.lt("id", beforeId);
         }
@@ -72,6 +89,29 @@ public class MessageRepository {
 
     public List<Message> findRecentDialogMessages(Long userId, Long peerId, int limit) {
         return findDialogHistory(userId, peerId, null, limit);
+    }
+
+    public int clearSession(Long userId, Long peerId) {
+        UpdateWrapper<Message> uw = new UpdateWrapper<>();
+        uw.nested(n -> n.nested(m -> m.eq("sender_id", userId).eq("receiver_id", peerId))
+                .or()
+                .nested(m -> m.eq("sender_id", peerId).eq("receiver_id", userId)))
+                .eq("is_deleted", false)
+                .set("is_deleted", true)
+                .setSql("updated_at = NOW()");
+        return messageMapper.update(null, uw);
+    }
+
+    public int clearContext(Long userId, Long peerId) {
+        UpdateWrapper<Message> uw = new UpdateWrapper<>();
+        uw.nested(n -> n.nested(m -> m.eq("sender_id", userId).eq("receiver_id", peerId))
+                .or()
+                .nested(m -> m.eq("sender_id", peerId).eq("receiver_id", userId)))
+                .eq("is_deleted", false)
+                .eq("is_in_context", true)
+                .set("is_in_context", false)
+                .setSql("updated_at = NOW()");
+        return messageMapper.update(null, uw);
     }
 
     private String truncateByCodePoint(String content, int maxCodePoints) {
