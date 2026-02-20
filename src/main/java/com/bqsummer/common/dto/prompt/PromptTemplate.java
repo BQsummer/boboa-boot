@@ -123,6 +123,9 @@ public class PromptTemplate {
     @TableField(value = "tags", typeHandler = PgJsonObjectTypeHandler.class)
     private Map<String, Object> tags;
 
+    @TableField(value = "kb_entry_ids", typeHandler = PgJsonLongListTypeHandler.class)
+    private List<Long> kbEntryIds;
+
     /**
      * 后处理流水线ID（可选）
      */

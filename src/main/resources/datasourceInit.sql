@@ -871,6 +871,7 @@ CREATE TABLE prompt_template (
                                    gray_user_list JSON DEFAULT NULL,
                                    priority INT NOT NULL DEFAULT 0,
                                    tags JSON DEFAULT NULL,
+                                   kb_entry_ids JSON DEFAULT NULL,
 
                                    post_process_pipeline_id BIGINT DEFAULT NULL,
                                    post_process_config JSON DEFAULT NULL,
@@ -887,6 +888,49 @@ CREATE TABLE prompt_template (
 CREATE INDEX idx_char_id_latest ON prompt_template (char_id, is_latest, status);
 CREATE INDEX idx_gray ON prompt_template (gray_strategy, status);
 CREATE INDEX idx_prompt_post_process_pipeline ON prompt_template (post_process_pipeline_id);
+
+-- Compatibility migration for existing databases:
+ALTER TABLE prompt_template
+    ADD COLUMN IF NOT EXISTS kb_entry_ids JSON;
+
+CREATE EXTENSION IF NOT EXISTS vectors;
+
+CREATE TABLE kb_entry (
+                         id BIGSERIAL PRIMARY KEY,
+                         title VARCHAR(200),
+                         enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                         priority INT NOT NULL DEFAULT 0,
+                         template TEXT NOT NULL,
+                         params JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+                         context_scope VARCHAR(20) NOT NULL DEFAULT 'LAST_USER'
+                             CHECK (context_scope IN ('LAST_USER', 'LAST_N')),
+                         last_n INT NOT NULL DEFAULT 1,
+
+                         always_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+
+                         keywords TEXT,
+                         keyword_mode VARCHAR(20) DEFAULT 'CONTAINS'
+                             CHECK (keyword_mode IN ('CONTAINS', 'EXACT', 'REGEX')),
+
+                         vector_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+                         vector_threshold NUMERIC(8, 6) DEFAULT 0.800000,
+                         vector_top_k INT DEFAULT 5,
+                         embedding vector(1536),
+
+                         probability NUMERIC(5, 4) NOT NULL DEFAULT 1.0000,
+
+                         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_kb_entry_enabled_priority ON kb_entry (enabled, priority DESC, id DESC);
+CREATE INDEX idx_kb_entry_vector_enabled ON kb_entry (vector_enabled, enabled);
+CREATE INDEX idx_kb_entry_embedding ON kb_entry
+    USING vectors  (embedding vectors.vector_cos_ops)
+    WITH (options = $$
+        [indexing.ivf]
+        nlist = 100
+    $$);
 
 CREATE TABLE post_process_pipeline (
                                       id BIGSERIAL PRIMARY KEY,
@@ -1142,7 +1186,7 @@ CREATE INDEX idx_ltm_type
 -- 向量索引（IVFFlat）
 CREATE INDEX idx_ltm_embedding
     ON long_term_memory
-        USING vectors (embedding vector_cos_ops)
+        USING vectors  (embedding vectors.vector_cos_ops)
     WITH (options = $$
         [indexing.ivf]
         nlist = 100

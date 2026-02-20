@@ -34,6 +34,7 @@ import com.bqsummer.service.ai.UnifiedInferenceService;
 import com.bqsummer.service.ai.ModelRoutingService;
 import com.bqsummer.service.prompt.PromptTemplateService;
 import com.bqsummer.service.prompt.BeetlTemplateService;
+import com.bqsummer.service.prompt.KnowledgeBaseTriggerService;
 import com.bqsummer.service.prompt.PostProcessRuntimeService;
 import com.bqsummer.util.InstanceIdGenerator;
 import com.bqsummer.util.JsonUtil;
@@ -83,6 +84,7 @@ public class RobotTaskExecutor {
     private final ModelRoutingService modelRoutingService;
     private final PromptTemplateService promptTemplateService;
     private final BeetlTemplateService beetlTemplateService;
+    private final KnowledgeBaseTriggerService knowledgeBaseTriggerService;
     private final MessageRepository messageRepository;
     private final ConversationMapper conversationMapper;
     private final UserMapper userMapper;
@@ -333,8 +335,28 @@ public class RobotTaskExecutor {
                 if (template != null) {
                     // 模板存在，进行渲染
                     Map<String, Object> templateParams = buildTemplateParams(payload, aiCharacterId);
+                    List<KnowledgeBaseTriggerService.TriggeredKnowledge> triggeredKnowledge =
+                            knowledgeBaseTriggerService.resolveTriggeredKnowledge(
+                                    template,
+                                    payload.getSenderId(),
+                                    payload.getReceiverId(),
+                                    payload.getContent(),
+                                    templateParams
+                            );
+                    String knowledgeBlock = buildKnowledgeBlock(triggeredKnowledge);
+                    List<String> knowledgeItems = new ArrayList<>();
+                    for (KnowledgeBaseTriggerService.TriggeredKnowledge item : triggeredKnowledge) {
+                        knowledgeItems.add(item.content());
+                    }
+                    templateParams.put("knowledge", knowledgeBlock);
+                    templateParams.put("knowledgeItems", knowledgeItems);
+                    templateParams.put("knowledgeCount", triggeredKnowledge.size());
+
                     try {
                         finalPrompt = beetlTemplateService.render(template.getContent(), templateParams);
+                        if (isNotBlank(knowledgeBlock)) {
+                            finalPrompt = finalPrompt + "\n\n[Knowledge Base]\n" + knowledgeBlock;
+                        }
                         log.info("模板渲染成功: templateId={}, promptLength={}字符",
                                 template.getId(), finalPrompt.length());
                     } catch (Exception renderEx) {
@@ -846,6 +868,24 @@ public class RobotTaskExecutor {
             } else if ("long_term_memory".equals(type)) {
                 LongTermMemory memory = (LongTermMemory) item.get("long_term_memory");
                 parts.add("[" + timeText + "] 长期记忆: " + (memory != null ? memory.getText() : ""));
+            }
+        }
+        return String.join("\n", parts);
+    }
+
+    private String buildKnowledgeBlock(List<KnowledgeBaseTriggerService.TriggeredKnowledge> knowledgeList) {
+        if (knowledgeList == null || knowledgeList.isEmpty()) {
+            return "";
+        }
+        List<String> parts = new ArrayList<>();
+        for (KnowledgeBaseTriggerService.TriggeredKnowledge item : knowledgeList) {
+            if (item == null || !isNotBlank(item.content())) {
+                continue;
+            }
+            if (isNotBlank(item.title())) {
+                parts.add("[" + item.title() + "] " + item.content());
+            } else {
+                parts.add(item.content());
             }
         }
         return String.join("\n", parts);

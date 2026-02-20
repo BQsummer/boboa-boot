@@ -94,6 +94,8 @@ public class PromptTemplateResponse {
      */
     private Map<String, Object> tags;
 
+    private List<Long> kbEntryIds;
+
     /**
      * 鍚庡鐞嗛厤缃?
      */

@@ -85,6 +85,8 @@ public class PromptTemplateUpdateRequest {
      */
     private Map<String, Object> tags;
 
+    private List<Long> kbEntryIds;
+
     /**
      * 鍚庡鐞嗛厤缃紙JSON锛夛紝鏀寔杩囨护鏍囩銆佹鍒欐浛鎹㈢瓑瑙勫垯
      */

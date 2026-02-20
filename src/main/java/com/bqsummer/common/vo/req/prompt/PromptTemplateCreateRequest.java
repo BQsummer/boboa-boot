@@ -88,6 +88,8 @@ public class PromptTemplateCreateRequest {
      */
     private Map<String, Object> tags;
 
+    private List<Long> kbEntryIds;
+
     /**
      * 绑定的后处理流水线ID（可选）
      */

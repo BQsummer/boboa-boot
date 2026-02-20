@@ -31,6 +31,7 @@ export default function CharacterTestChatPage() {
   const [featureValue, setFeatureValue] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const listEndRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSyncIdRef = useRef(0);
 
   const myUserId = user?.userId ?? 0;
@@ -104,23 +105,31 @@ export default function CharacterTestChatPage() {
     listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (!loading && !acting) {
+      inputRef.current?.focus();
+    }
+  }, [loading, acting]);
+
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     const text = content.trim();
     if (!text || sending || acting) return;
     try {
       setSending(true);
+      setContent('');
       await sendImMessage({
         receiverId: characterId,
         type: 'text',
         content: text,
       });
-      setContent('');
     } catch (error) {
       console.error('send message failed:', error);
+      setContent((prev) => (prev ? prev : text));
       setNotice('发送失败，请稍后重试');
     } finally {
       setSending(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   };
 
@@ -202,10 +211,11 @@ export default function CharacterTestChatPage() {
         <form onSubmit={handleSend} className="border-t p-3 bg-white">
           <div className="flex gap-2">
             <Input
+              ref={inputRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="输入测试消息..."
-              disabled={sending || acting}
+              disabled={acting}
             />
             <select
               value={featureValue}

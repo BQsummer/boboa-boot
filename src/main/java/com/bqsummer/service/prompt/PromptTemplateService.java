@@ -67,6 +67,7 @@ public class PromptTemplateService {
         template.setGrayUserList(request.getGrayUserList());
         template.setPriority(request.getPriority());
         template.setTags(request.getTags());
+        template.setKbEntryIds(request.getKbEntryIds());
         template.setPostProcessPipelineId(request.getPostProcessPipelineId());
         template.setPostProcessConfig(request.getPostProcessConfig());
         template.setIsDeleted(false);
@@ -166,6 +167,9 @@ public class PromptTemplateService {
         }
         if (request.getTags() != null) {
             template.setTags(request.getTags());
+        }
+        if (request.getKbEntryIds() != null) {
+            template.setKbEntryIds(request.getKbEntryIds());
         }
         if (request.getPostProcessPipelineId() != null) {
             template.setPostProcessPipelineId(request.getPostProcessPipelineId());
@@ -287,6 +291,7 @@ public class PromptTemplateService {
         response.setGrayUserList(template.getGrayUserList());
         response.setPriority(template.getPriority());
         response.setTags(template.getTags());
+        response.setKbEntryIds(template.getKbEntryIds());
         response.setPostProcessPipelineId(template.getPostProcessPipelineId());
         response.setPostProcessConfig(template.getPostProcessConfig());
         response.setCreatedBy(template.getCreatedBy());
