@@ -25,7 +25,9 @@ import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -91,6 +93,14 @@ public class MessageService {
         return getNotifier(userId).asFlux().next()
                 .timeout(LONG_POLL_TIMEOUT, Mono.just("timeout"))
                 .flatMap(ignored -> dbQuery);
+    }
+
+    public List<Message> getRecentMessages(Long userId, Long peerId, int limit) {
+        ReceiverResolution receiver = resolveReceiver(peerId);
+        List<Message> recent = messageRepository.findRecentDialogMessages(userId, receiver.aiUserId(), limit);
+        List<Message> ordered = new ArrayList<>(recent);
+        ordered.sort(Comparator.comparingLong(Message::getId));
+        return ordered;
     }
 
     @Transactional(rollbackFor = Exception.class)

@@ -70,6 +70,10 @@ public class MessageRepository {
         return messageMapper.selectList(qw);
     }
 
+    public List<Message> findRecentDialogMessages(Long userId, Long peerId, int limit) {
+        return findDialogHistory(userId, peerId, null, limit);
+    }
+
     private String truncateByCodePoint(String content, int maxCodePoints) {
         if (content == null) {
             return null;

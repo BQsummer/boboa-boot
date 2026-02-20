@@ -46,6 +46,16 @@ export async function getMessageHistory(
   });
 }
 
+export async function getRecentMessages(peerId: number, limit = 50): Promise<ImMessage[]> {
+  const params = new URLSearchParams({
+    peerId: String(peerId),
+    limit: String(limit),
+  });
+  return fetchApi<ImMessage[]>(`/api/v1/messages/recent?${params.toString()}`, {
+    method: 'GET',
+  });
+}
+
 export async function pollMessages(peerId: number, lastSyncId = 0, limit = 50): Promise<ImMessage[]> {
   const params = new URLSearchParams({
     peer_id: String(peerId),

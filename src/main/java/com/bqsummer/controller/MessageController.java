@@ -47,4 +47,14 @@ public class MessageController {
         limit = Math.min(Math.max(limit, 1), 100);
         return messageRepository.findDialogHistory(uid, peerId, beforeId, limit);
     }
+
+    @GetMapping("/recent")
+    @Operation(summary = "获取最近消息", description = "获取当前用户与指定用户/角色的最近消息（按消息ID升序返回）")
+    public List<Message> recent(
+            @Parameter(description = "对话对方ID（用户或AI角色）") @RequestParam Long peerId,
+            @Parameter(description = "返回数量限制（1-100）") @RequestParam(defaultValue = "50") int limit) {
+        Long uid = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        limit = Math.min(Math.max(limit, 1), 100);
+        return messageService.getRecentMessages(uid, peerId, limit);
+    }
 }

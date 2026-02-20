@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { getCharacter } from '@/lib/api/characters';
-import { ImMessage, getMessageHistory, pollMessages, sendImMessage } from '@/lib/api/messages';
+import { ImMessage, getRecentMessages, pollMessages, sendImMessage } from '@/lib/api/messages';
 import { useAuth } from '@/lib/contexts/auth-context';
 
 function mergeMessages(existing: ImMessage[], incoming: ImMessage[]): ImMessage[] {
@@ -33,9 +33,9 @@ export default function CharacterTestChatPage() {
 
   const myUserId = user?.userId ?? 0;
 
-  const loadHistory = useCallback(async () => {
-    const history = await getMessageHistory(characterId, undefined, 100);
-    const ordered = [...history].sort((a, b) => a.id - b.id);
+  const loadRecent = useCallback(async () => {
+    const recent = await getRecentMessages(characterId, 50);
+    const ordered = [...recent].sort((a, b) => a.id - b.id);
     setMessages((prev) => {
       const merged = mergeMessages(prev, ordered);
       const maxId = merged.length > 0 ? merged[merged.length - 1].id : 0;
@@ -57,7 +57,7 @@ export default function CharacterTestChatPage() {
         lastSyncIdRef.current = 0;
         const character = await getCharacter(characterId);
         setCharacterName(character.name);
-        await loadHistory();
+        await loadRecent();
       } catch (error) {
         console.error('load test chat page failed:', error);
         setNotice('加载失败，请稍后重试');
@@ -66,7 +66,7 @@ export default function CharacterTestChatPage() {
       }
     };
     load();
-  }, [characterId, loadHistory]);
+  }, [characterId, loadRecent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +96,7 @@ export default function CharacterTestChatPage() {
     return () => {
       cancelled = true;
     };
-  }, [loading]);
+  }, [loading, characterId]);
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -114,7 +114,6 @@ export default function CharacterTestChatPage() {
         content: text,
       });
       setContent('');
-      await loadHistory();
     } catch (error) {
       console.error('send message failed:', error);
       setNotice('发送失败，请稍后重试');
