@@ -1,6 +1,6 @@
 import { fetchApi } from './client';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://8.155.167.155:6053';
 
 interface ApiResult<T> {
   code: number;

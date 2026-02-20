@@ -21,7 +21,7 @@ public class StrategyModelBindRequest {
      * 权重（1-100）
      */
     @NotNull(message = "权重不能为空")
-    @Min(value = 1, message = "权重最小为1")
+    @Min(value = 0, message = "权重最小为1")
     @Max(value = 100, message = "权重最大为100")
     private Integer weight;
 

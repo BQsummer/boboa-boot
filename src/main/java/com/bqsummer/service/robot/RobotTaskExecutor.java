@@ -48,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -359,7 +360,7 @@ public class RobotTaskExecutor {
             inferenceRequest.setTemperature(0.7);  // TODO: US3将从模板配置读取
             inferenceRequest.setMaxTokens(2000);   // TODO: US3将从模板配置读取
 
-            log.info("调用LLM推理服务: modelId={}, prompt={}",
+            log.debug("调用LLM推理服务: modelId={}, prompt={}",
                     selectedModel.getId(), finalPrompt);
 
             InferenceResponse inferenceResponse = inferenceService.chat(inferenceRequest);
@@ -629,8 +630,6 @@ public class RobotTaskExecutor {
             params.put("receiverId", payload.getReceiverId());
             params.put("characterName", characterName);
 
-            log.debug("build template params success: userName={}, characterName={}, historyCount={}",
-                    userName, characterName, ((List<?>) params.get("history")).size());
 
         } catch (Exception e) {
             log.error("build template params error: {}", e.getMessage(), e);
@@ -725,6 +724,45 @@ public class RobotTaskExecutor {
 
     private String buildHistoryString(SendMessagePayload payload, Long aiCharacterId) {
         List<Map<String, Object>> history = new ArrayList<>();
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        // 缓存用户名和角色名
+        Map<Long, String> userNameCache = new HashMap<>();
+        User currentUser = null;
+        AiCharacter character = null;
+        AiCharacterSetting defaultSetting = null;
+        AiCharacterSetting customSetting = null;
+
+        try {
+            currentUser = userMapper.findById(payload.getSenderId());
+            if (currentUser != null) {
+                userNameCache.put(currentUser.getId(), resolveUserName(currentUser));
+            }
+        } catch (Exception e) {
+            log.warn("query current user failed: userId={}, error={}", payload.getSenderId(), e.getMessage());
+        }
+
+        try {
+            character = aiCharacterMapper.findById(aiCharacterId);
+        } catch (Exception e) {
+            log.warn("query ai character failed: charId={}, error={}", aiCharacterId, e.getMessage());
+        }
+
+        try {
+            defaultSetting = aiCharacterSettingMapper.findDefaultByCharacter(aiCharacterId);
+        } catch (Exception e) {
+            log.warn("query default ai character setting failed: charId={}, error={}", aiCharacterId, e.getMessage());
+        }
+
+        try {
+            customSetting = aiCharacterSettingMapper.findByUserAndCharacter(payload.getSenderId(), aiCharacterId);
+        } catch (Exception e) {
+            log.warn("query custom ai character setting failed: userId={}, charId={}, error={}",
+                    payload.getSenderId(), aiCharacterId, e.getMessage());
+        }
+
+        String characterName = resolveCharacterName(character, defaultSetting, customSetting);
+        userNameCache.put(payload.getReceiverId(), characterName);
 
         try {
             List<Message> messages = messageRepository.findDialogHistory(
@@ -783,10 +821,23 @@ public class RobotTaskExecutor {
         for (Map<String, Object> item : history) {
             String type = (String) item.get("type");
             LocalDateTime time = (LocalDateTime) item.get("time");
-            String timeText = time != null ? time.toString() : "";
+            String timeText = time != null ? time.format(timeFormatter) : "";
             if ("message".equals(type)) {
                 Message message = (Message) item.get("message");
-                parts.add("[" + timeText + "] 聊天消息: " + (message != null ? message.getContent() : ""));
+                if (message != null) {
+                    // 获取发送者名称
+                    String senderName = userNameCache.get(message.getSenderId());
+                    if (senderName == null) {
+                        try {
+                            User sender = userMapper.findById(message.getSenderId());
+                            senderName = resolveUserName(sender);
+                            userNameCache.put(message.getSenderId(), senderName);
+                        } catch (Exception e) {
+                            senderName = "用户";
+                        }
+                    }
+                    parts.add("[" + timeText + "] " + senderName + ": " + message.getContent());
+                }
             } else if ("conversation_summary".equals(type)) {
                 ConversationSummary summary = (ConversationSummary) item.get("conversation_summary");
                 parts.add("[" + timeText + "] 会话总结: "

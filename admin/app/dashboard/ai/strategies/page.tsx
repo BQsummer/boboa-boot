@@ -209,8 +209,8 @@ export default function StrategiesPage() {
       return;
     }
 
-    if (!Number.isInteger(weight) || weight < 1 || weight > 100) {
-      alert('权重必须是 1 到 100 的整数');
+    if (!Number.isInteger(weight) || weight < 0 || weight > 100) {
+      alert('权重必须是 0 到 100 的整数');
       return;
     }
 
@@ -502,7 +502,7 @@ export default function StrategiesPage() {
             </div>
 
             <div className="mb-4 text-xs text-gray-500">
-              规则: 权重必须是 1-100 的整数，且策略下所有模型权重总和不能超过 100。加权策略实际生效时要求总和为 100。
+              规则: 权重必须是 0-100 的整数，且策略下所有模型权重总和不能超过 100。加权策略实际生效时要求总和为 100。
             </div>
 
             <div className="space-y-2">
