@@ -23,6 +23,13 @@ interface PollMessageResp {
   messages: ImMessage[];
 }
 
+interface RegenerateReplyResp {
+  regenerated: boolean;
+  deletedMessageId?: number | null;
+  taskId?: number | null;
+  message?: string;
+}
+
 export async function sendImMessage(req: SendMessageReq): Promise<void> {
   return fetchApi<void>('/api/v1/messages', {
     method: 'POST',
@@ -83,6 +90,15 @@ export async function clearContext(peerId: number): Promise<{ updatedCount: numb
     peerId: String(peerId),
   });
   return fetchApi<{ updatedCount: number }>(`/api/v1/messages/clear-context?${params.toString()}`, {
+    method: 'POST',
+  });
+}
+
+export async function regenerateLastAiReply(peerId: number): Promise<RegenerateReplyResp> {
+  const params = new URLSearchParams({
+    peerId: String(peerId),
+  });
+  return fetchApi<RegenerateReplyResp>(`/api/v1/messages/regenerate-last?${params.toString()}`, {
     method: 'POST',
   });
 }

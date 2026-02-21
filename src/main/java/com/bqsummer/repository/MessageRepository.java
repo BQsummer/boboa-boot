@@ -114,6 +114,25 @@ public class MessageRepository {
         return messageMapper.update(null, uw);
     }
 
+    public Message findLatestActiveMessageBySenderAndReceiver(Long senderId, Long receiverId) {
+        QueryWrapper<Message> qw = new QueryWrapper<>();
+        qw.eq("sender_id", senderId)
+                .eq("receiver_id", receiverId)
+                .eq("is_deleted", false)
+                .orderByDesc("id")
+                .last("LIMIT 1");
+        return messageMapper.selectOne(qw);
+    }
+
+    public int softDeleteById(Long id) {
+        UpdateWrapper<Message> uw = new UpdateWrapper<>();
+        uw.eq("id", id)
+                .eq("is_deleted", false)
+                .set("is_deleted", true)
+                .setSql("updated_at = NOW()");
+        return messageMapper.update(null, uw);
+    }
+
     private String truncateByCodePoint(String content, int maxCodePoints) {
         if (content == null) {
             return null;

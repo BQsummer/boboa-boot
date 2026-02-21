@@ -6,7 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { getCharacter } from '@/lib/api/characters';
-import { ImMessage, clearContext, clearSession, getRecentMessages, pollMessages, sendImMessage } from '@/lib/api/messages';
+import {
+  ImMessage,
+  clearContext,
+  clearSession,
+  getRecentMessages,
+  pollMessages,
+  regenerateLastAiReply,
+  sendImMessage,
+} from '@/lib/api/messages';
 import { useAuth } from '@/lib/contexts/auth-context';
 
 function mergeMessages(existing: ImMessage[], incoming: ImMessage[]): ImMessage[] {
@@ -146,6 +154,12 @@ export default function CharacterTestChatPage() {
       } else if (action === 'clearContext') {
         await clearContext(characterId);
         setNotice('上下文已清除（历史消息保留）');
+      } else if (action === 'regenerateLastAiReply') {
+        const result = await regenerateLastAiReply(characterId);
+        if (result.deletedMessageId) {
+          setMessages((prev) => prev.filter((message) => message.id !== result.deletedMessageId));
+        }
+        setNotice(result.message || (result.regenerated ? '已触发重新生成' : '暂无可重新生成的角色回复'));
       }
     } catch (error) {
       console.error('feature action failed:', error);
@@ -166,22 +180,22 @@ export default function CharacterTestChatPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-4">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 pb-24 sm:gap-4 sm:pb-0">
+      <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={() => router.push(`/dashboard/business/characters/${characterId}`)}>
           返回角色
         </Button>
-        <h1 className="text-2xl font-bold">{title}</h1>
+        <h1 className="text-xl font-bold sm:text-2xl">{title}</h1>
       </div>
 
       {notice && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {notice}
         </div>
       )}
 
-      <Card className="p-0 overflow-hidden">
-        <div className="h-[60vh] overflow-y-auto p-4 bg-slate-50">
+      <Card className="flex min-h-[60vh] flex-1 flex-col overflow-hidden p-0">
+        <div className="flex-1 overflow-y-auto bg-slate-50 p-3 pb-28 sm:p-4 sm:pb-4">
           {messages.length === 0 ? (
             <div className="text-sm text-gray-500">暂无消息，发送第一条开始测试。</div>
           ) : (
@@ -208,14 +222,18 @@ export default function CharacterTestChatPage() {
           )}
         </div>
 
-        <form onSubmit={handleSend} className="border-t p-3 bg-white">
-          <div className="flex gap-2">
+        <form
+          onSubmit={handleSend}
+          className="fixed inset-x-0 bottom-0 z-20 border-t bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(15,23,42,0.08)] sm:static sm:z-auto sm:border-t sm:p-3 sm:shadow-none"
+        >
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 sm:max-w-none sm:flex-row">
             <Input
               ref={inputRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="输入测试消息..."
               disabled={acting}
+              className="w-full"
             />
             <select
               value={featureValue}
@@ -225,13 +243,14 @@ export default function CharacterTestChatPage() {
                 setFeatureValue(selected);
                 void handleFeatureAction(selected);
               }}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-40"
             >
               <option value="">功能</option>
+              <option value="regenerateLastAiReply">重新生成回复</option>
               <option value="clearSession">清除会话</option>
               <option value="clearContext">清除上下文</option>
             </select>
-            <Button type="submit" disabled={sending || acting || !content.trim()}>
+            <Button type="submit" disabled={sending || acting || !content.trim()} className="w-full sm:w-auto">
               {sending ? '发送中...' : '发送'}
             </Button>
           </div>

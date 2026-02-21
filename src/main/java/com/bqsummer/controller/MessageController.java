@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -67,5 +68,18 @@ public class MessageController {
         Long uid = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
         int updated = messageService.clearContext(uid, peerId);
         return Map.of("updatedCount", updated);
+    }
+
+    @PostMapping("/regenerate-last")
+    @Operation(summary = "Regenerate last AI reply", description = "Soft-delete latest AI reply in current dialog and regenerate")
+    public Map<String, Object> regenerateLast(@RequestParam Long peerId) {
+        Long uid = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        MessageService.RegenerateResult result = messageService.regenerateLastAiReply(uid, peerId);
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("regenerated", result.regenerated());
+        resp.put("deletedMessageId", result.deletedMessageId());
+        resp.put("taskId", result.taskId());
+        resp.put("message", result.message());
+        return resp;
     }
 }

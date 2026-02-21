@@ -150,22 +150,7 @@ public class MessageService {
         notifyUser(receiver.aiUserId());
         notifyUser(uid);
 
-        RobotTask task = createRobotTask(msg, receiver.aiUserId(), receiver.aiCharacterId());
-        robotTaskMapper.insert(task);
-
-        RobotTaskScheduler robotTaskScheduler = robotTaskSchedulerProvider.getIfAvailable();
-        if (robotTaskScheduler == null) {
-            log.warn("RobotTaskScheduler not ready, skip queue load: taskId={}", task.getId());
-            return;
-        }
-
-        int loaded = robotTaskScheduler.loadTasks(Collections.singletonList(task));
-        if (loaded == 0) {
-            log.warn("task load failed, queue full: taskId={}", task.getId());
-        } else {
-            log.info("task created and loaded: taskId={}, receiverId={}, aiCharacterId={}",
-                    task.getId(), receiver.aiUserId(), receiver.aiCharacterId());
-        }
+        enqueueRobotTask(msg, receiver);
     }
 
     private boolean isAiUser(Long userId) {
@@ -220,6 +205,59 @@ public class MessageService {
     public int clearContext(Long userId, Long peerId) {
         ReceiverResolution receiver = resolveReceiver(peerId);
         return messageRepository.clearContext(userId, receiver.aiUserId());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public RegenerateResult regenerateLastAiReply(Long userId, Long peerId) {
+        ReceiverResolution receiver = resolveReceiver(peerId);
+        Message latestAiReply = messageRepository.findLatestActiveMessageBySenderAndReceiver(
+                receiver.aiUserId(), userId);
+
+        if (latestAiReply == null) {
+            return new RegenerateResult(false, null, null, "暂无可重新生成的角色回复");
+        }
+
+        int deleted = messageRepository.softDeleteById(latestAiReply.getId());
+        if (deleted <= 0) {
+            return new RegenerateResult(false, null, null, "删除最新角色回复失败，请稍后重试");
+        }
+
+        Message latestUserMessage = messageRepository.findLatestActiveMessageBySenderAndReceiver(
+                userId, receiver.aiUserId());
+        if (latestUserMessage == null || latestUserMessage.getContent() == null
+                || latestUserMessage.getContent().trim().isEmpty()) {
+            notifyUser(userId);
+            return new RegenerateResult(false, latestAiReply.getId(), null, "已删除最新角色回复，但未找到可用于重生成的用户消息");
+        }
+
+        notifyUser(receiver.aiUserId());
+        notifyUser(userId);
+
+        Long taskId = enqueueRobotTask(latestUserMessage, receiver);
+        return new RegenerateResult(true, latestAiReply.getId(), taskId, "已删除最新角色回复并触发重新生成");
+    }
+
+    private Long enqueueRobotTask(Message sourceMessage, ReceiverResolution receiver) {
+        RobotTask task = createRobotTask(sourceMessage, receiver.aiUserId(), receiver.aiCharacterId());
+        robotTaskMapper.insert(task);
+
+        RobotTaskScheduler robotTaskScheduler = robotTaskSchedulerProvider.getIfAvailable();
+        if (robotTaskScheduler == null) {
+            log.warn("RobotTaskScheduler not ready, skip queue load: taskId={}", task.getId());
+            return task.getId();
+        }
+
+        int loaded = robotTaskScheduler.loadTasks(Collections.singletonList(task));
+        if (loaded == 0) {
+            log.warn("task load failed, queue full: taskId={}", task.getId());
+        } else {
+            log.info("task created and loaded: taskId={}, receiverId={}, aiCharacterId={}",
+                    task.getId(), receiver.aiUserId(), receiver.aiCharacterId());
+        }
+        return task.getId();
+    }
+
+    public record RegenerateResult(boolean regenerated, Long deletedMessageId, Long taskId, String message) {
     }
 
     private record ReceiverResolution(Long aiUserId, Long aiCharacterId) {
