@@ -923,14 +923,19 @@ CREATE TABLE kb_entry (
                          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE kb_entry
+    ADD CONSTRAINT kb_entry_vector_enabled_requires_embedding
+        CHECK (NOT vector_enabled OR embedding IS NOT NULL);
 CREATE INDEX idx_kb_entry_enabled_priority ON kb_entry (enabled, priority DESC, id DESC);
 CREATE INDEX idx_kb_entry_vector_enabled ON kb_entry (vector_enabled, enabled);
-CREATE INDEX idx_kb_entry_embedding ON kb_entry
-    USING vectors  (embedding vectors.vector_cos_ops)
+CREATE INDEX idx_kb_entry_embedding
+    ON kb_entry
+        USING vectors (embedding vectors.vector_cos_ops)
     WITH (options = $$
-        [indexing.ivf]
-        nlist = 100
-    $$);
+    [indexing.ivf]
+    nlist = 100
+$$)
+    WHERE embedding IS NOT NULL;
 
 CREATE TABLE post_process_pipeline (
                                       id BIGSERIAL PRIMARY KEY,

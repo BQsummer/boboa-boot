@@ -102,7 +102,7 @@ public class ConfigService {
                 // If database doesn't have value, use the default value from code
                 if (dbValue == null) {
                     Object defaultValue = methodNameMapToDefaultValue.get(mapKey);
-                    log.info("Using default value for config {} : {}", configName, defaultValue);
+                    log.debug("Using default value for config {} : {}", configName, defaultValue);
                     return defaultValue;
                 }
                 return dbValue;

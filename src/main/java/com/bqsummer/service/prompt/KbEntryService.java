@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -56,8 +56,8 @@ public class KbEntryService {
         entry.setVectorThreshold(defaultBigDecimal(request.getVectorThreshold(), DEFAULT_VECTOR_THRESHOLD));
         entry.setVectorTopK(defaultInteger(request.getVectorTopK(), 5));
         entry.setProbability(defaultBigDecimal(request.getProbability(), DEFAULT_PROBABILITY));
-        entry.setCreatedAt(LocalDateTime.now());
-        entry.setUpdatedAt(LocalDateTime.now());
+        entry.setCreatedAt(OffsetDateTime.now());
+        entry.setUpdatedAt(OffsetDateTime.now());
 
         refreshEmbeddingIfNeeded(entry, true);
         kbEntryMapper.insert(entry);
@@ -148,7 +148,7 @@ public class KbEntryService {
             entry.setProbability(request.getProbability());
         }
 
-        entry.setUpdatedAt(LocalDateTime.now());
+        entry.setUpdatedAt(OffsetDateTime.now());
         refreshEmbeddingIfNeeded(entry, refreshEmbedding);
         kbEntryMapper.updateById(entry);
 

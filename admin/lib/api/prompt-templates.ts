@@ -20,6 +20,7 @@ export interface PromptTemplate {
   grayUserList?: number[];
   priority: number;
   tags?: Record<string, any>;
+  kbEntryIds?: number[];
   postProcessPipelineId?: number;
   postProcessConfig?: Record<string, any>;
   createdBy?: string | number;
@@ -43,6 +44,7 @@ export interface CreatePromptTemplateReq {
   grayUserList?: number[];
   priority?: number;
   tags?: Record<string, any>;
+  kbEntryIds?: number[];
   postProcessPipelineId?: number;
   postProcessConfig?: Record<string, any>;
 }
@@ -59,6 +61,7 @@ export interface UpdatePromptTemplateReq {
   grayUserList?: number[];
   priority?: number;
   tags?: Record<string, any>;
+  kbEntryIds?: number[];
   postProcessPipelineId?: number;
   postProcessConfig?: Record<string, any>;
 }

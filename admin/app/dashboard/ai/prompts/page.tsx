@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,12 +22,23 @@ import { listPostProcessPipelines, PostProcessPipeline } from '@/lib/api/post-pr
 
 type FormData = CreatePromptTemplateReq & {
   postProcessConfigText: string;
+  kbEntryIdsText: string;
 };
 
 function parseJsonOrUndefined(text: string): Record<string, any> | undefined {
   const value = text.trim();
   if (!value) return undefined;
   return JSON.parse(value);
+}
+
+function parseIdList(text: string): number[] | undefined {
+  const value = text.trim();
+  if (!value) return undefined;
+  const ids = value
+    .split(',')
+    .map((item) => Number.parseInt(item.trim(), 10))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  return ids.length ? ids : undefined;
 }
 
 export default function PromptsPage() {
@@ -59,6 +70,7 @@ export default function PromptsPage() {
     priority: 0,
     postProcessPipelineId: undefined,
     postProcessConfigText: '',
+    kbEntryIdsText: '',
   });
 
   const pipelineMap = useMemo(() => {
@@ -94,7 +106,7 @@ export default function PromptsPage() {
     }
   };
 
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       setLoading(true);
       const result = await listPromptTemplates({
@@ -111,7 +123,7 @@ export default function PromptsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterCharId, filterStatus, currentPage]);
 
   useEffect(() => {
     loadCharacters();
@@ -121,7 +133,7 @@ export default function PromptsPage() {
 
   useEffect(() => {
     loadTemplates();
-  }, [currentPage, filterCharId, filterStatus]);
+  }, [loadTemplates]);
 
   const handleCreate = () => {
     setEditingTemplate(null);
@@ -137,6 +149,7 @@ export default function PromptsPage() {
       priority: 0,
       postProcessPipelineId: undefined,
       postProcessConfigText: '',
+      kbEntryIdsText: '',
     });
     setIsDialogOpen(true);
   };
@@ -160,6 +173,7 @@ export default function PromptsPage() {
       postProcessConfigText: template.postProcessConfig
         ? JSON.stringify(template.postProcessConfig, null, 2)
         : '',
+      kbEntryIdsText: (template.kbEntryIds || []).join(','),
     });
     setIsDialogOpen(true);
   };
@@ -168,6 +182,7 @@ export default function PromptsPage() {
     e.preventDefault();
     try {
       const postProcessConfig = parseJsonOrUndefined(formData.postProcessConfigText);
+      const kbEntryIds = parseIdList(formData.kbEntryIdsText);
       if (editingTemplate) {
         const updateData: UpdatePromptTemplateReq = {
           description: formData.description,
@@ -181,6 +196,7 @@ export default function PromptsPage() {
           priority: formData.priority,
           tags: formData.tags,
           paramSchema: formData.paramSchema,
+          kbEntryIds,
           postProcessPipelineId: formData.postProcessPipelineId,
           postProcessConfig,
         };
@@ -188,9 +204,11 @@ export default function PromptsPage() {
       } else {
         const createData: CreatePromptTemplateReq = {
           ...formData,
+          kbEntryIds,
           postProcessConfig,
         };
         delete (createData as any).postProcessConfigText;
+        delete (createData as any).kbEntryIdsText;
         await createPromptTemplate(createData);
       }
       setIsDialogOpen(false);
@@ -340,6 +358,7 @@ export default function PromptsPage() {
                       {template.modelCode && <span>模型: {template.modelCode}</span>}
                       <span>语言: {template.lang}</span>
                       <span>优先级: {template.priority}</span>
+                      <span>知识库: {(template.kbEntryIds || []).length} 条</span>
                       <span>灰度: {getGrayStrategyLabel(template.grayStrategy)}</span>
                       {template.grayStrategy === 1 && template.grayRatio !== undefined && (
                         <span>灰度比例: {template.grayRatio}%</span>
@@ -514,6 +533,15 @@ export default function PromptsPage() {
                   />
                 </div>
               )}
+
+              <div>
+                <label className="block text-sm font-medium mb-1">关联知识库条目 ID（英文逗号分隔）</label>
+                <Input
+                  value={formData.kbEntryIdsText}
+                  onChange={(e) => setFormData({ ...formData, kbEntryIdsText: e.target.value })}
+                  placeholder="例如: 1,2,3"
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">后处理流水线</label>

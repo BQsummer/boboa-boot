@@ -24,6 +24,7 @@ import {
   Mic,
   CalendarClock,
   FileText,
+  BookOpenText,
 } from 'lucide-react';
 
 const menuItems: MenuItem[] = [
@@ -50,6 +51,11 @@ const menuItems: MenuItem[] = [
         title: 'Prompts',
         href: '/dashboard/ai/prompts',
         icon: <MessageSquare />,
+      },
+      {
+        title: 'Knowledge Base',
+        href: '/dashboard/ai/kb-entries',
+        icon: <BookOpenText />,
       },
       {
         title: 'Relationship Stages',

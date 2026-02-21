@@ -9,7 +9,7 @@ import com.bqsummer.framework.handler.PgJsonObjectTypeHandler;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 /**
@@ -54,7 +54,7 @@ public class KbEntry {
 
     private BigDecimal probability;
 
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 
-    private LocalDateTime updatedAt;
+    private OffsetDateTime updatedAt;
 }

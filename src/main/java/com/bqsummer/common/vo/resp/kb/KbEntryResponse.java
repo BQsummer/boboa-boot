@@ -3,7 +3,7 @@ package com.bqsummer.common.vo.resp.kb;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 @Data
@@ -39,7 +39,7 @@ public class KbEntryResponse {
 
     private BigDecimal probability;
 
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 
-    private LocalDateTime updatedAt;
+    private OffsetDateTime updatedAt;
 }
