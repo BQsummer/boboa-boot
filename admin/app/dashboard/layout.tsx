@@ -1,9 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Sidebar, MenuItem } from '@/components/dashboard/sidebar';
 import {
+  Menu,
+  X,
   LayoutDashboard,
   Brain,
   Users,
@@ -205,20 +209,49 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
   };
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Admin Console</h1>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label="Open menu"
+                onClick={() => setMobileMenuOpen(true)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              <h1 className="text-base font-bold text-gray-900 dark:text-white sm:text-xl">Admin Console</h1>
+            </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600 dark:text-gray-300">Hello, {user?.nickName || user?.username}</span>
+              <span className="hidden text-sm text-gray-600 dark:text-gray-300 sm:inline">
+                Hello, {user?.nickName || user?.username}
+              </span>
               <Button onClick={handleLogout} variant="outline" size="sm">
                 Logout
               </Button>
@@ -227,11 +260,41 @@ export default function DashboardLayout({
         </div>
       </nav>
 
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar menuItems={menuItems} />
+      {mobileMenuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu overlay"
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 md:hidden">
+            <div className="flex h-16 items-center justify-between border-b border-gray-200 px-3 dark:border-gray-700">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">Menu</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Close menu"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <Sidebar
+              menuItems={menuItems}
+              className="h-[calc(100dvh-4rem)] w-full border-r-0"
+              onNavigate={() => setMobileMenuOpen(false)}
+            />
+          </div>
+        </>
+      )}
 
-        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-          <div className="p-6">{children}</div>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <Sidebar menuItems={menuItems} className="hidden md:block" />
+
+        <main className="min-w-0 flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+          <div className="h-full p-3 sm:p-6">{children}</div>
         </main>
       </div>
     </div>

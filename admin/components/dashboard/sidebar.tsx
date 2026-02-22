@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export interface MenuItem {
   title: string;
@@ -14,9 +15,19 @@ export interface MenuItem {
 
 interface SidebarProps {
   menuItems: MenuItem[];
+  className?: string;
+  onNavigate?: () => void;
 }
 
-function MenuItemComponent({ item, level = 0 }: { item: MenuItem; level?: number }) {
+function MenuItemComponent({
+  item,
+  level = 0,
+  onNavigate,
+}: {
+  item: MenuItem;
+  level?: number;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const hasChildren = item.children && item.children.length > 0;
@@ -53,14 +64,16 @@ function MenuItemComponent({ item, level = 0 }: { item: MenuItem; level?: number
   return (
     <div>
       {item.href && !hasChildren ? (
-        <Link href={item.href}>{itemContent}</Link>
+        <Link href={item.href} onClick={onNavigate}>
+          {itemContent}
+        </Link>
       ) : (
         itemContent
       )}
       {hasChildren && isOpen && (
         <div className="border-l border-gray-200 dark:border-gray-700 ml-6">
           {item.children!.map((child, index) => (
-            <MenuItemComponent key={index} item={child} level={level + 1} />
+            <MenuItemComponent key={index} item={child} level={level + 1} onNavigate={onNavigate} />
           ))}
         </div>
       )}
@@ -68,13 +81,18 @@ function MenuItemComponent({ item, level = 0 }: { item: MenuItem; level?: number
   );
 }
 
-export function Sidebar({ menuItems }: SidebarProps) {
+export function Sidebar({ menuItems, className, onNavigate }: SidebarProps) {
   return (
-    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-full overflow-y-auto">
+    <aside
+      className={cn(
+        'h-full w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900',
+        className
+      )}
+    >
       <div className="py-4">
         <nav className="space-y-1">
           {menuItems.map((item, index) => (
-            <MenuItemComponent key={index} item={item} />
+            <MenuItemComponent key={index} item={item} onNavigate={onNavigate} />
           ))}
         </nav>
       </div>

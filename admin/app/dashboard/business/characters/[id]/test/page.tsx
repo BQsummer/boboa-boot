@@ -180,7 +180,7 @@ export default function CharacterTestChatPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 pb-24 sm:gap-4 sm:pb-0">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col gap-3 sm:gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={() => router.push(`/dashboard/business/characters/${characterId}`)}>
           返回角色
@@ -194,8 +194,8 @@ export default function CharacterTestChatPage() {
         </div>
       )}
 
-      <Card className="flex min-h-[60vh] flex-1 flex-col overflow-hidden p-0">
-        <div className="flex-1 overflow-y-auto bg-slate-50 p-3 pb-28 sm:p-4 sm:pb-4">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+        <div className="flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-4">
           {messages.length === 0 ? (
             <div className="text-sm text-gray-500">暂无消息，发送第一条开始测试。</div>
           ) : (
@@ -224,9 +224,9 @@ export default function CharacterTestChatPage() {
 
         <form
           onSubmit={handleSend}
-          className="fixed inset-x-0 bottom-0 z-20 border-t bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(15,23,42,0.08)] sm:static sm:z-auto sm:border-t sm:p-3 sm:shadow-none"
+          className="border-t bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
         >
-          <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 sm:max-w-none sm:flex-row">
+          <div className="flex w-full flex-col gap-2 sm:flex-row">
             <Input
               ref={inputRef}
               value={content}
