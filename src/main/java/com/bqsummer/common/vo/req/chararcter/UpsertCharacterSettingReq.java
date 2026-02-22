@@ -28,6 +28,8 @@ public class UpsertCharacterSettingReq {
      */
     private String relationship;
 
+    private String emotion;
+
     /**
      * 背景故事
      */

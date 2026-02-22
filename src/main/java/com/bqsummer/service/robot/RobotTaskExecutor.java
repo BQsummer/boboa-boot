@@ -697,6 +697,11 @@ public class RobotTaskExecutor {
             relationship = customSetting.getRelationship();
         }
 
+        String emotion = defaultSetting != null ? defaultSetting.getEmotion() : null;
+        if (customSetting != null && isNotBlank(customSetting.getEmotion())) {
+            emotion = customSetting.getEmotion();
+        }
+
         String background = defaultSetting != null ? defaultSetting.getBackground() : null;
         if (customSetting != null && isNotBlank(customSetting.getBackground())) {
             background = customSetting.getBackground();
@@ -708,6 +713,9 @@ public class RobotTaskExecutor {
         }
         if (isNotBlank(relationship)) {
             parts.add("relationship=" + relationship);
+        }
+        if (isNotBlank(emotion)) {
+            parts.add("emotion=" + emotion);
         }
         if (isNotBlank(background)) {
             parts.add("background=" + background);

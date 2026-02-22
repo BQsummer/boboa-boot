@@ -51,6 +51,8 @@ public class AiCharacterSetting {
      */
     private String relationship;
 
+    private String emotion;
+
     /**
      * 背景故事
      */

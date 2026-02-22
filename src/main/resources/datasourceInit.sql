@@ -516,6 +516,7 @@ CREATE TABLE ai_character_settings (
                                        avatar_url VARCHAR(512),
                                        memorial_day DATE,
                                        relationship VARCHAR(64),
+                                       emotion VARCHAR(1024),
                                        background VARCHAR(1024),
                                        language VARCHAR(32),
                                        custom_params VARCHAR(2000),
@@ -533,6 +534,9 @@ ALTER TABLE ai_character_settings
 
 ALTER TABLE ai_character_settings
     DROP CONSTRAINT IF EXISTS ai_character_settings_user_id_character_id_key;
+
+ALTER TABLE ai_character_settings
+    ADD COLUMN IF NOT EXISTS emotion VARCHAR(1024);
 
 DROP INDEX IF EXISTS uk_ai_character_setting_user_character;
 DROP INDEX IF EXISTS uk_ai_character_setting_default;

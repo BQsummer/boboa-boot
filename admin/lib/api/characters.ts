@@ -34,6 +34,7 @@ export interface AiCharacterSetting {
   avatarUrl?: string;
   memorialDay?: string; // yyyy-MM-dd
   relationship?: string;
+  emotion?: string;
   background?: string;
   language?: string;
   customParams?: string; // JSON
@@ -47,6 +48,7 @@ export interface UpsertCharacterSettingReq {
   avatarUrl?: string;
   memorialDay?: string; // yyyy-MM-dd
   relationship?: string;
+  emotion?: string;
   background?: string;
   language?: string;
   customParams?: string; // JSON

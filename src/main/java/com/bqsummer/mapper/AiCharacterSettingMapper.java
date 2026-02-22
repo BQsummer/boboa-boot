@@ -17,6 +17,7 @@ public interface AiCharacterSettingMapper {
             @Result(property = "characterId", column = "character_id"),
             @Result(property = "avatarUrl", column = "avatar_url"),
             @Result(property = "memorialDay", column = "memorial_day"),
+            @Result(property = "emotion", column = "emotion"),
             @Result(property = "customParams", column = "custom_params"),
             @Result(property = "isDeleted", column = "is_deleted"),
             @Result(property = "createdTime", column = "created_time"),
@@ -30,6 +31,7 @@ public interface AiCharacterSettingMapper {
             @Result(property = "characterId", column = "character_id"),
             @Result(property = "avatarUrl", column = "avatar_url"),
             @Result(property = "memorialDay", column = "memorial_day"),
+            @Result(property = "emotion", column = "emotion"),
             @Result(property = "customParams", column = "custom_params"),
             @Result(property = "isDeleted", column = "is_deleted"),
             @Result(property = "createdTime", column = "created_time"),
@@ -43,6 +45,7 @@ public interface AiCharacterSettingMapper {
             @Result(property = "characterId", column = "character_id"),
             @Result(property = "avatarUrl", column = "avatar_url"),
             @Result(property = "memorialDay", column = "memorial_day"),
+            @Result(property = "emotion", column = "emotion"),
             @Result(property = "customParams", column = "custom_params"),
             @Result(property = "isDeleted", column = "is_deleted"),
             @Result(property = "createdTime", column = "created_time"),
@@ -57,6 +60,7 @@ public interface AiCharacterSettingMapper {
             "avatar_url = #{avatarUrl},",
             "memorial_day = #{memorialDay},",
             "relationship = #{relationship},",
+            "emotion = #{emotion},",
             "background = #{background},",
             "language = #{language},",
             "custom_params = #{customParams},",
@@ -69,21 +73,22 @@ public interface AiCharacterSettingMapper {
 
     @Insert({
             "<script>",
-            "INSERT INTO ai_character_settings (user_id, character_id, name, avatar_url, memorial_day, relationship, background, language, custom_params, is_deleted, created_time, updated_time)",
-            "VALUES (NULL, #{characterId}, #{name}, #{avatarUrl}, #{memorialDay}, #{relationship}, #{background}, #{language}, #{customParams}, #{isDeleted}, NOW(), NOW())",
+            "INSERT INTO ai_character_settings (user_id, character_id, name, avatar_url, memorial_day, relationship, emotion, background, language, custom_params, is_deleted, created_time, updated_time)",
+            "VALUES (NULL, #{characterId}, #{name}, #{avatarUrl}, #{memorialDay}, #{relationship}, #{emotion}, #{background}, #{language}, #{customParams}, #{isDeleted}, NOW(), NOW())",
             "</script>"
     })
     int insertDefault(AiCharacterSetting setting);
 
     @Insert({
             "<script>",
-            "INSERT INTO ai_character_settings (user_id, character_id, name, avatar_url, memorial_day, relationship, background, language, custom_params, is_deleted, created_time, updated_time)",
-            "VALUES (#{userId}, #{characterId}, #{name}, #{avatarUrl}, #{memorialDay}, #{relationship}, #{background}, #{language}, #{customParams}, #{isDeleted}, NOW(), NOW())",
+            "INSERT INTO ai_character_settings (user_id, character_id, name, avatar_url, memorial_day, relationship, emotion, background, language, custom_params, is_deleted, created_time, updated_time)",
+            "VALUES (#{userId}, #{characterId}, #{name}, #{avatarUrl}, #{memorialDay}, #{relationship}, #{emotion}, #{background}, #{language}, #{customParams}, #{isDeleted}, NOW(), NOW())",
             "ON CONFLICT (user_id, character_id) DO UPDATE SET",
             "name = EXCLUDED.name,",
             "avatar_url = EXCLUDED.avatar_url,",
             "memorial_day = EXCLUDED.memorial_day,",
             "relationship = EXCLUDED.relationship,",
+            "emotion = EXCLUDED.emotion,",
             "background = EXCLUDED.background,",
             "language = EXCLUDED.language,",
             "custom_params = EXCLUDED.custom_params,",

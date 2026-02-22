@@ -30,6 +30,7 @@ const EMPTY_FORM: UpsertCharacterSettingReq = {
   avatarUrl: '',
   memorialDay: '',
   relationship: '',
+  emotion: '',
   background: '',
   language: '',
   customParams: '',
@@ -56,6 +57,7 @@ function toForm(setting: AiCharacterSetting | null): UpsertCharacterSettingReq {
     avatarUrl: setting.avatarUrl || '',
     memorialDay: setting.memorialDay || '',
     relationship: setting.relationship || '',
+    emotion: setting.emotion || '',
     background: setting.background || '',
     language: setting.language || '',
     customParams: setting.customParams || '',
@@ -422,6 +424,14 @@ export default function CharacterDetailPage() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium mb-1">感情</label>
+                <Input
+                  value={settingsForm.emotion}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, emotion: e.target.value })}
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium mb-1">背景设定</label>
                 <textarea
                   className="w-full px-3 py-2 border rounded-md min-h-[90px]"
@@ -471,6 +481,7 @@ export default function CharacterDetailPage() {
                 <div>头像: {currentSetting.avatarUrl || '-'}</div>
                 <div>纪念日: {currentSetting.memorialDay || '-'}</div>
                 <div>关系: {currentSetting.relationship || '-'}</div>
+                <div>感情: {currentSetting.emotion || '-'}</div>
                 <div>语言: {currentSetting.language || '-'}</div>
                 <div className="whitespace-pre-wrap">背景: {currentSetting.background || '-'}</div>
                 <pre className="bg-gray-100 p-3 rounded text-xs overflow-x-auto">
