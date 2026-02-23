@@ -147,6 +147,7 @@ export default function PromptsPage() {
       grayStrategy: 0,
       grayRatio: 0,
       priority: 0,
+      paramSchema: { historyShowTime: true },
       postProcessPipelineId: undefined,
       postProcessConfigText: '',
       kbEntryIdsText: '',
@@ -168,7 +169,10 @@ export default function PromptsPage() {
       grayUserList: template.grayUserList,
       priority: template.priority,
       tags: template.tags,
-      paramSchema: template.paramSchema,
+      paramSchema: {
+        ...(template.paramSchema || {}),
+        historyShowTime: template.paramSchema?.historyShowTime !== false,
+      },
       postProcessPipelineId: template.postProcessPipelineId,
       postProcessConfigText: template.postProcessConfig
         ? JSON.stringify(template.postProcessConfig, null, 2)
@@ -277,6 +281,8 @@ export default function PromptsPage() {
     const map = { 0: '无灰度', 1: '按比例', 2: '白名单' } as const;
     return map[(strategy as keyof typeof map) || 0];
   };
+
+  const historyShowTime = formData.paramSchema?.historyShowTime !== false;
 
   return (
     <div className="p-6">
@@ -533,6 +539,29 @@ export default function PromptsPage() {
                   />
                 </div>
               )}
+
+              <div className="rounded-md border p-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={historyShowTime}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        paramSchema: {
+                          ...(formData.paramSchema || {}),
+                          historyShowTime: e.target.checked,
+                        },
+                      })
+                    }
+                  />
+                  聊天历史显示时间
+                </label>
+                <p className="mt-1 text-xs text-gray-500">
+                  关闭后，模板参数 history 中的每条记录不再带时间前缀。
+                </p>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">关联知识库条目 ID（英文逗号分隔）</label>

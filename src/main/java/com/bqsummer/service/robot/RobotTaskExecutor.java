@@ -334,7 +334,7 @@ public class RobotTaskExecutor {
                 template = promptTemplateService.getLatestByCharId(aiCharacterId);
                 if (template != null) {
                     // 模板存在，进行渲染
-                    Map<String, Object> templateParams = buildTemplateParams(payload, aiCharacterId);
+                    Map<String, Object> templateParams = buildTemplateParams(payload, aiCharacterId, template);
                     List<KnowledgeBaseTriggerService.TriggeredKnowledge> triggeredKnowledge =
                             knowledgeBaseTriggerService.resolveTriggeredKnowledge(
                                     template,
@@ -595,7 +595,9 @@ public class RobotTaskExecutor {
      * @param payload 消息发送载荷
      * @return 模板参数Map，包含userName、userId、content、receiverId、characterName
      */
-    private Map<String, Object> buildTemplateParams(SendMessagePayload payload, Long aiCharacterId) {
+    private Map<String, Object> buildTemplateParams(SendMessagePayload payload,
+                                                    Long aiCharacterId,
+                                                    PromptTemplate template) {
         Map<String, Object> params = new HashMap<>();
 
         try {
@@ -646,7 +648,7 @@ public class RobotTaskExecutor {
             params.put("charDetail", buildCharDetailString(defaultSetting, customSetting));
             params.put("charStatus", "");
             params.put("userDetail", buildUserDetailString(userProfile));
-            params.put("history", buildHistoryString(payload, aiCharacterId));
+            params.put("history", buildHistoryString(payload, aiCharacterId, template));
 
             params.put("userName", userName);
             params.put("userId", payload.getSenderId());
@@ -753,9 +755,12 @@ public class RobotTaskExecutor {
         return String.join(", ", parts);
     }
 
-    private String buildHistoryString(SendMessagePayload payload, Long aiCharacterId) {
+    private String buildHistoryString(SendMessagePayload payload,
+                                      Long aiCharacterId,
+                                      PromptTemplate template) {
         List<Map<String, Object>> history = new ArrayList<>();
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        boolean includeHistoryTime = shouldIncludeHistoryTime(template);
 
         // 缓存用户名和角色名
         Map<Long, String> userNameCache = new HashMap<>();
@@ -853,6 +858,7 @@ public class RobotTaskExecutor {
             String type = (String) item.get("type");
             LocalDateTime time = (LocalDateTime) item.get("time");
             String timeText = time != null ? time.format(timeFormatter) : "";
+            String timePrefix = includeHistoryTime && isNotBlank(timeText) ? "[" + timeText + "] " : "";
             if ("message".equals(type)) {
                 Message message = (Message) item.get("message");
                 if (message != null) {
@@ -867,15 +873,15 @@ public class RobotTaskExecutor {
                             senderName = "用户";
                         }
                     }
-                    parts.add("[" + timeText + "] " + senderName + ": " + message.getContent());
+                    parts.add(timePrefix + senderName + ": " + message.getContent());
                 }
             } else if ("conversation_summary".equals(type)) {
                 ConversationSummary summary = (ConversationSummary) item.get("conversation_summary");
-                parts.add("[" + timeText + "] 会话总结: "
+                parts.add(timePrefix + "会话总结: "
                         + (summary != null ? JsonUtil.toJson(summary.getSummaryJson()) : ""));
             } else if ("long_term_memory".equals(type)) {
                 LongTermMemory memory = (LongTermMemory) item.get("long_term_memory");
-                parts.add("[" + timeText + "] 长期记忆: " + (memory != null ? memory.getText() : ""));
+                parts.add(timePrefix + "长期记忆: " + (memory != null ? memory.getText() : ""));
             }
         }
         return String.join("\n", parts);
@@ -897,6 +903,50 @@ public class RobotTaskExecutor {
             }
         }
         return String.join("\n", parts);
+    }
+
+    private boolean shouldIncludeHistoryTime(PromptTemplate template) {
+        if (template == null || template.getParamSchema() == null) {
+            return true;
+        }
+
+        Map<String, Object> paramSchema = template.getParamSchema();
+        Boolean topLevelValue = parseBooleanValue(paramSchema.get("historyShowTime"));
+        if (topLevelValue != null) {
+            return topLevelValue;
+        }
+
+        Object historyConfig = paramSchema.get("history");
+        if (historyConfig instanceof Map<?, ?> historyMap) {
+            Boolean nestedValue = parseBooleanValue(historyMap.get("showTime"));
+            if (nestedValue != null) {
+                return nestedValue;
+            }
+        }
+
+        return true;
+    }
+
+    private Boolean parseBooleanValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Boolean boolValue) {
+            return boolValue;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.intValue() != 0;
+        }
+        if (value instanceof String stringValue) {
+            String normalized = stringValue.trim().toLowerCase();
+            if ("true".equals(normalized) || "1".equals(normalized) || "yes".equals(normalized)) {
+                return true;
+            }
+            if ("false".equals(normalized) || "0".equals(normalized) || "no".equals(normalized)) {
+                return false;
+            }
+        }
+        return null;
     }
 
     private boolean isNotBlank(String value) {
