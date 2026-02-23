@@ -309,7 +309,11 @@ export default function CharacterTestChatPage() {
                         <div className="whitespace-pre-wrap break-words">{message.content}</div>
                       )}
                       <div className={`mt-1 text-xs ${mine ? 'text-blue-100' : 'text-gray-400'}`}>
-                        model: {formatModelName(message.model)} | provider: {message.provider?.trim() || '-'} |{' '}
+                        {!mine && (
+                          <>
+                            model: {formatModelName(message.model)} | provider: {message.provider?.trim() || '-'} |{' '}
+                          </>
+                        )}
                         {new Date(message.createdAt).toLocaleString()}
                       </div>
                       {isLatestUserMessage && !isEditingThisMessage && (
