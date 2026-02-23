@@ -50,6 +50,8 @@ type ModelModalState = {
 };
 
 const MAX_TOTAL_WEIGHT = 100;
+const MODEL_PAGE_SIZE = 200;
+const MODEL_MAX_PAGES = 50;
 
 export default function StrategiesPage() {
   const [strategies, setStrategies] = useState<StrategyResponse[]>([]);
@@ -67,14 +69,35 @@ export default function StrategiesPage() {
   const [bindModelId, setBindModelId] = useState('');
   const [bindWeight, setBindWeight] = useState('');
   const [bindPriority, setBindPriority] = useState('0');
+  const [bindModelParams, setBindModelParams] = useState('{}');
   const [bindingLoading, setBindingLoading] = useState(false);
+
+  const loadAllModels = useCallback(async (): Promise<ModelResponse[]> => {
+    const allModels: ModelResponse[] = [];
+
+    for (let page = 1; page <= MODEL_MAX_PAGES; page += 1) {
+      const result = await listModels({ page, pageSize: MODEL_PAGE_SIZE });
+      const pageModels = result.list || [];
+      if (pageModels.length === 0) {
+        break;
+      }
+      allModels.push(...pageModels);
+      if (pageModels.length < MODEL_PAGE_SIZE) {
+        break;
+      }
+    }
+
+    const uniqueModels = new Map<number, ModelResponse>();
+    allModels.forEach((model) => uniqueModels.set(model.id, model));
+    return Array.from(uniqueModels.values()).sort((a, b) => a.id - b.id);
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [strategyData, modelData] = await Promise.all([
+      const [strategyData, allModels] = await Promise.all([
         listStrategies(),
-        listModels({ page: 1, pageSize: 200 }),
+        loadAllModels(),
       ]);
 
       const strategyModelPairs = await Promise.all(
@@ -86,14 +109,14 @@ export default function StrategiesPage() {
 
       setStrategies(strategyData || []);
       setStrategyModelBindingsMap(Object.fromEntries(strategyModelPairs));
-      setModels(modelData.list || []);
+      setModels(allModels);
     } catch (error) {
       console.error('加载路由策略失败:', error);
       alert('加载路由策略失败');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadAllModels]);
 
   useEffect(() => {
     loadData();
@@ -115,6 +138,43 @@ export default function StrategiesPage() {
   const getBindingWeightSum = useCallback((bindings: StrategyModelBinding[] = []) => {
     return bindings.reduce((sum, item) => sum + (Number.isFinite(item.weight) ? item.weight : 0), 0);
   }, []);
+
+  const formatModelParams = useCallback((value?: Record<string, unknown> | null) => {
+    if (!value || Object.keys(value).length === 0) {
+      return '{}';
+    }
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return '{}';
+    }
+  }, []);
+
+  const fillBindFormByBinding = useCallback(
+    (binding: StrategyModelBinding) => {
+      setBindModelId(String(binding.modelId));
+      setBindWeight(String(binding.weight ?? ''));
+      setBindPriority(String(binding.priority ?? 0));
+      setBindModelParams(formatModelParams(binding.modelParams));
+    },
+    [formatModelParams]
+  );
+
+  const bindModelOptions = useMemo(() => {
+    const optionMap = new Map<number, string>();
+    models.forEach((model) => {
+      optionMap.set(model.id, `${model.id} - ${model.name} (${model.provider})`);
+    });
+    (modelModal?.modelBindings || []).forEach((binding) => {
+      if (!optionMap.has(binding.modelId)) {
+        optionMap.set(binding.modelId, `模型 ${binding.modelId}（已绑定）`);
+      }
+    });
+
+    return Array.from(optionMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([id, label]) => ({ id, label }));
+  }, [modelModal, models]);
 
   const openCreateDialog = () => {
     setEditingStrategy(null);
@@ -180,6 +240,7 @@ export default function StrategiesPage() {
       setBindModelId('');
       setBindWeight('');
       setBindPriority('0');
+      setBindModelParams('{}');
     } catch (error) {
       console.error('加载策略模型失败:', error);
       alert('加载策略模型失败');
@@ -203,6 +264,8 @@ export default function StrategiesPage() {
     const modelId = Number(bindModelId);
     const weight = Number(bindWeight);
     const priority = Number(bindPriority) || 0;
+    const modelParamsText = bindModelParams.trim();
+    let modelParams: Record<string, unknown> | undefined;
 
     if (!Number.isInteger(modelId) || modelId <= 0) {
       alert('请选择模型');
@@ -212,6 +275,20 @@ export default function StrategiesPage() {
     if (!Number.isInteger(weight) || weight < 0 || weight > 100) {
       alert('权重必须是 0 到 100 的整数');
       return;
+    }
+
+    if (modelParamsText) {
+      try {
+        const parsed = JSON.parse(modelParamsText);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          alert('参数必须是 JSON 对象');
+          return;
+        }
+        modelParams = parsed as Record<string, unknown>;
+      } catch {
+        alert('参数 JSON 格式不正确');
+        return;
+      }
     }
 
     const otherWeightTotal = modelModal.modelBindings
@@ -226,7 +303,7 @@ export default function StrategiesPage() {
 
     try {
       setBindingLoading(true);
-      await bindStrategyModel(modelModal.strategy.id, { modelId, weight, priority });
+      await bindStrategyModel(modelModal.strategy.id, { modelId, weight, priority, modelParams });
       await refreshStrategyModels();
     } catch (error) {
       console.error('绑定模型失败:', error);
@@ -466,13 +543,28 @@ export default function StrategiesPage() {
               <select
                 className="w-full rounded-md border px-3 py-2"
                 value={bindModelId}
-                onChange={(event) => setBindModelId(event.target.value)}
+                onChange={(event) => {
+                  const nextModelId = event.target.value;
+                  setBindModelId(nextModelId);
+                  const selectedId = Number(nextModelId);
+                  if (!Number.isInteger(selectedId) || selectedId <= 0) {
+                    return;
+                  }
+                  const existingBinding = modelModal.modelBindings.find((item) => item.modelId === selectedId);
+                  if (existingBinding) {
+                    fillBindFormByBinding(existingBinding);
+                  } else {
+                    setBindWeight('');
+                    setBindPriority('0');
+                    setBindModelParams('{}');
+                  }
+                }}
                 disabled={bindingLoading}
               >
                 <option value="">选择模型</option>
-                {models.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.id} - {model.name} ({model.provider})
+                {bindModelOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -501,6 +593,18 @@ export default function StrategiesPage() {
               </Button>
             </div>
 
+            <div className="mb-4">
+              <label className="mb-1 block text-xs text-gray-600">模型参数（JSON）</label>
+              <textarea
+                className="w-full rounded-md border px-3 py-2 font-mono text-xs"
+                rows={8}
+                value={bindModelParams}
+                onChange={(event) => setBindModelParams(event.target.value)}
+                placeholder='{"temperature":1.2,"top_p":1,"top_k":64,"openai_max_tokens":8192}'
+                disabled={bindingLoading}
+              />
+            </div>
+
             <div className="mb-4 text-xs text-gray-500">
               规则: 权重必须是 0-100 的整数，且策略下所有模型权重总和不能超过 100。加权策略实际生效时要求总和为 100。
             </div>
@@ -522,16 +626,29 @@ export default function StrategiesPage() {
                           类型: {model?.modelType || '-'} | 权重: {binding.weight} | 优先级:{' '}
                           {binding.priority}
                         </div>
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-2 text-[11px] text-gray-600">
+                          {formatModelParams(binding.modelParams)}
+                        </pre>
                       </div>
 
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        disabled={bindingLoading}
-                        onClick={() => handleUnbindModel(binding.modelId)}
-                      >
-                        解绑
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={bindingLoading}
+                          onClick={() => fillBindFormByBinding(binding)}
+                        >
+                          编辑
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={bindingLoading}
+                          onClick={() => handleUnbindModel(binding.modelId)}
+                        >
+                          解绑
+                        </Button>
+                      </div>
                     </div>
                   );
                 })

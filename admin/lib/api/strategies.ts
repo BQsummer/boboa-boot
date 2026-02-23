@@ -38,12 +38,14 @@ export interface StrategyModelBindReq {
   modelId: number;
   weight: number;
   priority?: number;
+  modelParams?: Record<string, unknown>;
 }
 
 export interface StrategyModelBinding {
   modelId: number;
   weight: number;
   priority: number;
+  modelParams?: Record<string, unknown> | null;
   createdAt?: string | null;
 }
 

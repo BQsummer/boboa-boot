@@ -33,4 +33,24 @@ public interface PromptTemplateMapper extends BaseMapper<PromptTemplate> {
      */
     @Update("UPDATE prompt_template SET is_latest = FALSE WHERE char_id = #{charId} AND is_deleted = FALSE")
     int markAllAsNotLatest(@Param("charId") Long charId);
+
+    /**
+     * 统计角色下启用中的模板数量（排除指定模板ID）
+     *
+     * @param charId 角色ID
+     * @param enabledStatus 启用状态码
+     * @param excludeId 需要排除的模板ID
+     * @return 启用模板数量
+     */
+    @Select("""
+            SELECT COUNT(1)
+            FROM prompt_template
+            WHERE char_id = #{charId}
+              AND status = #{enabledStatus}
+              AND is_deleted = FALSE
+              AND id <> #{excludeId}
+            """)
+    long countEnabledByCharIdExcludingId(@Param("charId") Long charId,
+                                         @Param("enabledStatus") Integer enabledStatus,
+                                         @Param("excludeId") Long excludeId);
 }

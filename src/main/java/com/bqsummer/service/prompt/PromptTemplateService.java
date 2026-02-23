@@ -10,6 +10,7 @@ import com.bqsummer.common.vo.req.prompt.PromptTemplateUpdateRequest;
 import com.bqsummer.common.vo.resp.prompt.PromptTemplateResponse;
 import com.bqsummer.constant.GrayStrategy;
 import com.bqsummer.constant.TemplateStatus;
+import com.bqsummer.framework.exception.SnorlaxClientException;
 import com.bqsummer.mapper.PromptTemplateMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -151,6 +152,7 @@ public class PromptTemplateService {
             template.setParamSchema(request.getParamSchema());
         }
         if (request.getStatus() != null) {
+            validateCanDisableTemplate(template, request.getStatus());
             template.setStatus(request.getStatus());
         }
         if (request.getGrayStrategy() != null) {
@@ -219,6 +221,8 @@ public class PromptTemplateService {
         if (status == null || TemplateStatus.fromCode(status) == null) {
             throw new IllegalArgumentException("invalid template status: " + status);
         }
+
+        validateCanDisableTemplate(template, status);
 
         template.setStatus(status);
         template.setUpdatedBy(String.valueOf(updatedBy));
@@ -299,6 +303,30 @@ public class PromptTemplateService {
         response.setUpdatedBy(template.getUpdatedBy());
         response.setUpdatedAt(template.getUpdatedAt());
         return response;
+    }
+
+    /**
+     * 禁用模板前校验：同角色至少保留一个启用模板。
+     */
+    private void validateCanDisableTemplate(PromptTemplate template, Integer targetStatus) {
+        if (template == null || targetStatus == null) {
+            return;
+        }
+
+        boolean isDisabling = TemplateStatus.DISABLED.getCode() == targetStatus;
+        boolean isCurrentlyEnabled = TemplateStatus.ENABLED.getCode() == template.getStatus();
+        if (!isDisabling || !isCurrentlyEnabled) {
+            return;
+        }
+
+        long otherEnabledCount = promptTemplateMapper.countEnabledByCharIdExcludingId(
+                template.getCharId(),
+                TemplateStatus.ENABLED.getCode(),
+                template.getId()
+        );
+        if (otherEnabledCount <= 0) {
+            throw new SnorlaxClientException(400, "At least one enabled template must remain for this character");
+        }
     }
 }
 

@@ -113,6 +113,7 @@ public class ModelRoutingService {
                     AiModelBo enriched = aiModelStructMapper.toBo(model);
                     if (relation != null) {
                         enriched.setWeight(relation.getWeight());
+                        enriched.setRoutingParams(relation.getModelParams());
                     }
                     return enriched;
                 })

@@ -8,5 +8,7 @@ import org.mapstruct.Mapper;
 @Mapper(componentModel = "spring")
 public interface AiModelStructMapper {
 
+    @Mapping(target = "weight", ignore = true)
+    @Mapping(target = "routingParams", ignore = true)
     AiModelBo toBo(AiModel aiModel);
 }

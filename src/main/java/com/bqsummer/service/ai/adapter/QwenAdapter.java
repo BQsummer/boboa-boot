@@ -3,7 +3,6 @@ package com.bqsummer.service.ai.adapter;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.bqsummer.common.bo.ai.AiModelBo;
-import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
 import com.bqsummer.util.EncryptionUtil;
@@ -56,21 +55,16 @@ public class QwenAdapter implements ModelAdapter {
             headers.set("Authorization", "Bearer " + apiKey);
 
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", model.getVersion());
+            requestBody.put("model", resolveRuntimeModelCode(model));
 
             Map<String, String> message = new HashMap<>();
             message.put("role", "user");
             message.put("content", request.getPrompt());
             requestBody.put("messages", new Map[]{message});
 
-            if (request.getTemperature() != null) {
-                requestBody.put("temperature", request.getTemperature());
-            }
-            if (request.getMaxTokens() != null) {
-                requestBody.put("max_tokens", request.getMaxTokens());
-            }
-            if (request.getTopP() != null) {
-                requestBody.put("top_p", request.getTopP());
+            Map<String, Object> runtimeParams = RuntimeParamSupport.buildRequestParams(model, request);
+            for (Map.Entry<String, Object> entry : runtimeParams.entrySet()) {
+                requestBody.putIfAbsent(entry.getKey(), entry.getValue());
             }
 
             HttpEntity<Map<String, Object>> httpEntity = new HttpEntity<>(requestBody, headers);
@@ -124,5 +118,12 @@ public class QwenAdapter implements ModelAdapter {
     @Override
     public String getName() {
         return "Qwen Adapter";
+    }
+
+    private String resolveRuntimeModelCode(AiModelBo model) {
+        if (model.getVersion() != null && !model.getVersion().isBlank()) {
+            return model.getVersion();
+        }
+        return model.getName();
     }
 }

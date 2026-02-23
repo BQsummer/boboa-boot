@@ -788,6 +788,7 @@ CREATE TABLE strategy_model_relation (
                                          model_id BIGINT NOT NULL,
                                          priority INT DEFAULT 0,
                                          weight INT DEFAULT 1,
+                                         model_params JSON DEFAULT NULL,
 
                                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -796,6 +797,10 @@ CREATE TABLE strategy_model_relation (
 );
 CREATE INDEX idx_strategy_id ON strategy_model_relation (strategy_id);
 CREATE INDEX idx_model_id ON strategy_model_relation (model_id);
+
+-- Compatibility migration for existing databases:
+ALTER TABLE strategy_model_relation
+    ADD COLUMN IF NOT EXISTS model_params JSON;
 
 CREATE TABLE model_health_status (
                                      id BIGSERIAL PRIMARY KEY,

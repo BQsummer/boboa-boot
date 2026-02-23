@@ -1,23 +1,23 @@
 package com.bqsummer.service.ai.adapter;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.bqsummer.common.bo.ai.AiModelBo;
-import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
 import com.bqsummer.util.EncryptionUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.model.NoopApiKey;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -32,6 +32,8 @@ public class OpenAiAdapter implements ModelAdapter {
 
     @Autowired(required = false)
     private EncryptionUtil encryptionUtil;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
     public Set<String> supportedProviders() {
@@ -51,57 +53,44 @@ public class OpenAiAdapter implements ModelAdapter {
             if (encryptionUtil != null) {
                 apiKey = encryptionUtil.decrypt(apiKey);
             }
-            String bearerToken = ensureBearerToken(apiKey);
 
-            MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-            headers.add(HttpHeaders.AUTHORIZATION, bearerToken);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set(HttpHeaders.AUTHORIZATION, ensureBearerToken(apiKey));
 
-            OpenAiApi openAiApi = OpenAiApi.builder()
-                    .baseUrl(resolveOpenAiBaseUrl(model))
-                    .apiKey(new NoopApiKey())
-                    .headers(headers)
-                    .build();
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", resolveRuntimeModelCode(model));
 
-            OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
-                    .model(model.getName());
+            Map<String, String> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", request.getPrompt());
+            requestBody.put("messages", new Map[]{message});
 
-            if (request.getTemperature() != null) {
-                optionsBuilder.temperature(request.getTemperature());
-            }
-            if (request.getMaxTokens() != null) {
-                optionsBuilder.maxTokens(request.getMaxTokens());
-            }
-            if (request.getTopP() != null) {
-                optionsBuilder.topP(request.getTopP());
-            }
-            if (request.getFrequencyPenalty() != null) {
-                optionsBuilder.frequencyPenalty(request.getFrequencyPenalty());
-            }
-            if (request.getPresencePenalty() != null) {
-                optionsBuilder.presencePenalty(request.getPresencePenalty());
+            Map<String, Object> runtimeParams = RuntimeParamSupport.buildRequestParams(model, request);
+            for (Map.Entry<String, Object> entry : runtimeParams.entrySet()) {
+                requestBody.putIfAbsent(entry.getKey(), entry.getValue());
             }
 
-            OpenAiChatOptions options = optionsBuilder.build();
+            HttpEntity<Map<String, Object>> httpEntity = new HttpEntity<>(requestBody, headers);
+            String url = resolveChatCompletionsUrl(model);
+            ResponseEntity<String> responseEntity = restTemplate.postForEntity(url, httpEntity, String.class);
 
-            OpenAiChatModel chatModel = OpenAiChatModel.builder()
-                    .openAiApi(openAiApi)
-                    .defaultOptions(options)
-                    .build();
-
-            Prompt prompt = new Prompt(request.getPrompt(), options);
-            ChatResponse chatResponse = chatModel.call(prompt);
+            JSONObject responseJson = JSON.parseObject(responseEntity.getBody());
+            assertNoErrorObject(responseJson);
+            String content = extractContent(responseJson);
+            JSONObject usage = responseJson == null ? null : responseJson.getJSONObject("usage");
 
             InferenceResponse response = new InferenceResponse();
-            response.setContent(chatResponse.getResult().getOutput().getText());
+            response.setContent(content);
             response.setModelId(model.getId());
             response.setModelName(model.getName());
             response.setRequestId(requestId);
             response.setSuccess(true);
 
-            if (chatResponse.getMetadata() != null && chatResponse.getMetadata().getUsage() != null) {
-                response.setPromptTokens(chatResponse.getMetadata().getUsage().getPromptTokens().intValue());
-                response.setCompletionTokens(chatResponse.getMetadata().getUsage().getCompletionTokens().intValue());
-                response.setTotalTokens(chatResponse.getMetadata().getUsage().getTotalTokens().intValue());
+            if (usage != null) {
+                response.setPromptTokens(usage.getInteger("prompt_tokens"));
+                response.setCompletionTokens(usage.getInteger("completion_tokens"));
+                response.setTotalTokens(usage.getInteger("total_tokens"));
             }
 
             response.setResponseTimeMs((int) (System.currentTimeMillis() - startTime));
@@ -140,5 +129,49 @@ public class OpenAiAdapter implements ModelAdapter {
             return normalized;
         }
         return "Bearer " + normalized;
+    }
+
+    private String resolveRuntimeModelCode(AiModelBo model) {
+        // just name
+//        if (model.getVersion() != null && !model.getVersion().isBlank()) {
+//            return model.getVersion();
+//        }
+        return model.getName();
+    }
+
+    private void assertNoErrorObject(JSONObject responseJson) {
+        if (responseJson == null) {
+            throw new IllegalStateException("OpenAI response is empty");
+        }
+        JSONObject error = responseJson.getJSONObject("error");
+        if (error == null) {
+            return;
+        }
+        String message = error.getString("message");
+        if (message == null || message.isBlank()) {
+            message = error.toJSONString();
+        }
+        throw new IllegalStateException(message);
+    }
+
+    private String extractContent(JSONObject responseJson) {
+        JSONArray choices = responseJson.getJSONArray("choices");
+        if (choices == null || choices.isEmpty()) {
+            return "";
+        }
+        JSONObject firstChoice = choices.getJSONObject(0);
+        if (firstChoice == null) {
+            return "";
+        }
+        JSONObject message = firstChoice.getJSONObject("message");
+        if (message == null) {
+            return "";
+        }
+
+        Object content = message.get("content");
+        if (content == null) {
+            return "";
+        }
+        return content instanceof String ? (String) content : JSON.toJSONString(content);
     }
 }

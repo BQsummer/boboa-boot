@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class AiModelBo {
@@ -82,4 +83,9 @@ public class AiModelBo {
     private LocalDateTime updatedAt;
 
     private Integer weight;
+
+    /**
+     * 来自路由策略绑定的运行参数（JSON）。
+     */
+    private Map<String, Object> routingParams;
 }

@@ -229,6 +229,7 @@ public class RobotTaskScheduler {
                             // 从已加载集合中移除
                             loadedTaskIds.remove(task.getId());
                         } else {
+                            // bug 3条未处理就有可能走这个分支，多线程有问题
                             // 并发已满，延迟1秒后重试
                             log.info("并发槽位已满，延迟重试: taskId={}, actionType={}", task.getId(), actionType);
                             

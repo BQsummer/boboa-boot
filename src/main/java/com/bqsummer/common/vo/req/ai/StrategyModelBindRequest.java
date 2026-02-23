@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import java.util.Map;
 
 /**
  * 策略-模型绑定请求
@@ -29,4 +30,6 @@ public class StrategyModelBindRequest {
      * 优先级（用于 PRIORITY 策略）
      */
     private Integer priority;
+
+    private Map<String, Object> modelParams;
 }

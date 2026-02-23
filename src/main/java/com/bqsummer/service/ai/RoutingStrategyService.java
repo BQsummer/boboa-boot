@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -132,6 +133,7 @@ public class RoutingStrategyService {
         Long modelId = request.getModelId();
         Integer weight = request.getWeight();
         Integer priority = request.getPriority() != null ? request.getPriority() : 0;
+        Map<String, Object> modelParams = request.getModelParams();
 
         LambdaQueryWrapper<StrategyModelRelation> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(StrategyModelRelation::getStrategyId, strategyId)
@@ -147,6 +149,7 @@ public class RoutingStrategyService {
             relation.setModelId(modelId);
             relation.setPriority(priority);
             relation.setWeight(weight);
+            relation.setModelParams(modelParams);
             relation.setCreatedAt(LocalDateTime.now());
             relation.setUpdatedAt(LocalDateTime.now());
             relationMapper.insert(relation);
@@ -157,6 +160,7 @@ public class RoutingStrategyService {
 
         existing.setPriority(priority);
         existing.setWeight(weight);
+        existing.setModelParams(modelParams);
         existing.setUpdatedAt(LocalDateTime.now());
         relationMapper.updateById(existing);
         log.info("鏇存柊绛栫暐妯″瀷缁戝畾: strategyId={}, modelId={}, weight={}, priority={}",
@@ -189,6 +193,7 @@ public class RoutingStrategyService {
                     response.setModelId(relation.getModelId());
                     response.setWeight(relation.getWeight());
                     response.setPriority(relation.getPriority());
+                    response.setModelParams(relation.getModelParams());
                     response.setCreatedAt(relation.getCreatedAt());
                     return response;
                 })

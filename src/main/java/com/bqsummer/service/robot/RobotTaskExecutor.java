@@ -235,7 +235,7 @@ public class RobotTaskExecutor {
                     task.getId(), instanceId);
             return true;
         }
-
+// TODO  上面分支会不走
         log.info("任务领取失败: taskId={}, expectedStatus=PENDING, reason=已被其他实例领取或状态已变更",
                 task.getId());
         return false;
@@ -377,10 +377,10 @@ public class RobotTaskExecutor {
 
             // 4. 调用LLM推理服务
             InferenceRequest inferenceRequest = new InferenceRequest();
-            inferenceRequest.setModelId(selectedModel.getId());
+
+            // 后面策略会选id
+            // inferenceRequest.setModelId(selectedModel.getId());
             inferenceRequest.setPrompt(finalPrompt);
-            inferenceRequest.setTemperature(0.7);  // TODO: US3将从模板配置读取
-            inferenceRequest.setMaxTokens(2000);   // TODO: US3将从模板配置读取
 
             log.debug("调用LLM推理服务: modelId={}, prompt={}",
                     selectedModel.getId(), finalPrompt);
