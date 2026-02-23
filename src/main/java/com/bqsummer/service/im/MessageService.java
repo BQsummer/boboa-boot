@@ -209,32 +209,50 @@ public class MessageService {
 
     @Transactional(rollbackFor = Exception.class)
     public RegenerateResult regenerateLastAiReply(Long userId, Long peerId) {
+        return regenerateLastAiReply(userId, peerId, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public RegenerateResult regenerateLastAiReply(Long userId, Long peerId, String editedUserContent) {
         ReceiverResolution receiver = resolveReceiver(peerId);
-        Message latestAiReply = messageRepository.findLatestActiveMessageBySenderAndReceiver(
-                receiver.aiUserId(), userId);
-
-        if (latestAiReply == null) {
-            return new RegenerateResult(false, null, null, "暂无可重新生成的角色回复");
-        }
-
-        int deleted = messageRepository.softDeleteById(latestAiReply.getId());
-        if (deleted <= 0) {
-            return new RegenerateResult(false, null, null, "删除最新角色回复失败，请稍后重试");
-        }
-
         Message latestUserMessage = messageRepository.findLatestActiveMessageBySenderAndReceiver(
                 userId, receiver.aiUserId());
-        if (latestUserMessage == null || latestUserMessage.getContent() == null
-                || latestUserMessage.getContent().trim().isEmpty()) {
-            notifyUser(userId);
-            return new RegenerateResult(false, latestAiReply.getId(), null, "已删除最新角色回复，但未找到可用于重生成的用户消息");
+
+        if (latestUserMessage == null) {
+            return new RegenerateResult(false, null, null, "No latest user message to regenerate from");
+        }
+
+        if (editedUserContent != null) {
+            if (editedUserContent.trim().isEmpty()) {
+                return new RegenerateResult(false, null, null, "Edited user message content cannot be blank");
+            }
+            int updated = messageRepository.updateContentById(latestUserMessage.getId(), editedUserContent);
+            if (updated <= 0) {
+                return new RegenerateResult(false, null, null, "Failed to update latest user message");
+            }
+            latestUserMessage.setContent(editedUserContent);
+        }
+
+        if (latestUserMessage.getContent() == null || latestUserMessage.getContent().trim().isEmpty()) {
+            return new RegenerateResult(false, null, null, "Latest user message content is empty");
+        }
+
+        Long deletedMessageId = null;
+        Message latestAiReplyAfterUser = messageRepository.findLatestActiveMessageBySenderAndReceiverAfterId(
+                receiver.aiUserId(), userId, latestUserMessage.getId());
+        if (latestAiReplyAfterUser != null) {
+            int deleted = messageRepository.softDeleteById(latestAiReplyAfterUser.getId());
+            if (deleted <= 0) {
+                return new RegenerateResult(false, null, null, "Failed to delete latest AI reply after latest user message");
+            }
+            deletedMessageId = latestAiReplyAfterUser.getId();
         }
 
         notifyUser(receiver.aiUserId());
         notifyUser(userId);
 
         Long taskId = enqueueRobotTask(latestUserMessage, receiver);
-        return new RegenerateResult(true, latestAiReply.getId(), taskId, "已删除最新角色回复并触发重新生成");
+        return new RegenerateResult(true, deletedMessageId, taskId, "Regenerate task created");
     }
 
     private Long enqueueRobotTask(Message sourceMessage, ReceiverResolution receiver) {

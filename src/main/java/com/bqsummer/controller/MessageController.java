@@ -1,6 +1,7 @@
 package com.bqsummer.controller;
 
 import com.bqsummer.common.dto.im.Message;
+import com.bqsummer.common.vo.req.im.RegenerateLastReplyRequest;
 import com.bqsummer.common.vo.req.im.SendMessageRequest;
 import com.bqsummer.repository.MessageRepository;
 import com.bqsummer.service.im.MessageService;
@@ -72,9 +73,11 @@ public class MessageController {
 
     @PostMapping("/regenerate-last")
     @Operation(summary = "Regenerate last AI reply", description = "Soft-delete latest AI reply in current dialog and regenerate")
-    public Map<String, Object> regenerateLast(@RequestParam Long peerId) {
+    public Map<String, Object> regenerateLast(@RequestParam Long peerId,
+                                              @RequestBody(required = false) RegenerateLastReplyRequest request) {
         Long uid = (Long) SecurityContextHolder.getContext().getAuthentication().getDetails();
-        MessageService.RegenerateResult result = messageService.regenerateLastAiReply(uid, peerId);
+        String editedUserContent = request == null ? null : request.getEditedUserContent();
+        MessageService.RegenerateResult result = messageService.regenerateLastAiReply(uid, peerId, editedUserContent);
         Map<String, Object> resp = new HashMap<>();
         resp.put("regenerated", result.regenerated());
         resp.put("deletedMessageId", result.deletedMessageId());

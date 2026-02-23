@@ -94,11 +94,21 @@ export async function clearContext(peerId: number): Promise<{ updatedCount: numb
   });
 }
 
-export async function regenerateLastAiReply(peerId: number): Promise<RegenerateReplyResp> {
+export async function regenerateLastAiReply(
+  peerId: number,
+  editedUserContent?: string
+): Promise<RegenerateReplyResp> {
   const params = new URLSearchParams({
     peerId: String(peerId),
   });
+  const body =
+    typeof editedUserContent === 'string'
+      ? JSON.stringify({
+          editedUserContent,
+        })
+      : undefined;
   return fetchApi<RegenerateReplyResp>(`/api/v1/messages/regenerate-last?${params.toString()}`, {
     method: 'POST',
+    body,
   });
 }

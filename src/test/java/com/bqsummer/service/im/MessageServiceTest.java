@@ -2,6 +2,7 @@ package com.bqsummer.service.im;
 
 import com.bqsummer.BaseTest;
 import com.bqsummer.common.dto.auth.User;
+import com.bqsummer.common.dto.im.Message;
 import com.bqsummer.common.dto.robot.RobotTask;
 import com.bqsummer.common.dto.robot.SendMessagePayload;
 import com.bqsummer.common.vo.req.im.SendMessageRequest;
@@ -23,6 +24,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -167,6 +170,68 @@ class MessageServiceTest extends BaseTest {
         assertEquals(aiUserId, payload.getReceiverId(), "receiverId应该是AI用户ID");
         assertEquals(messageContent, payload.getContent(), "content应该正确");
         assertNotNull(payload.getModelId(), "modelId不应为空");
+    }
+
+    @Test
+    @DisplayName("编辑最近用户消息时，只删除该消息后的最近AI回复并触发重生")
+    void testRegenerateLastAiReplyWithEditedLatestUserMessage() {
+        Long userId = 1001L;
+        Long aiUserId = 3001L;
+
+        messageRepository.save(buildMessage(userId, aiUserId, "text", "older user"));
+        messageRepository.save(buildMessage(aiUserId, userId, "text", "older ai"));
+        Message latestUser = messageRepository.save(buildMessage(userId, aiUserId, "text", "need edit"));
+        Message aiAfterLatestUser = messageRepository.save(buildMessage(aiUserId, userId, "text", "ai to delete"));
+
+        MessageService.RegenerateResult result = messageService.regenerateLastAiReply(userId, aiUserId, "edited user");
+
+        assertTrue(result.regenerated(), "应该触发重生");
+        assertEquals(aiAfterLatestUser.getId(), result.deletedMessageId(), "应该删除最新user之后的最新AI回复");
+        assertNotNull(result.taskId(), "应该创建重生任务");
+
+        Message latestUserAfterUpdate = messageRepository.findLatestActiveMessageBySenderAndReceiver(userId, aiUserId);
+        assertNotNull(latestUserAfterUpdate, "应该还能查到最新用户消息");
+        assertEquals(latestUser.getId(), latestUserAfterUpdate.getId(), "不应替换最新用户消息ID");
+        assertEquals("edited user", latestUserAfterUpdate.getContent(), "最新用户消息内容应该被更新");
+
+        Message aiAfterLatestUserAfterDelete = messageRepository.findLatestActiveMessageBySenderAndReceiverAfterId(
+                aiUserId, userId, latestUser.getId());
+        assertNull(aiAfterLatestUserAfterDelete, "最新用户消息之后不应再有AI回复");
+    }
+
+    @Test
+    @DisplayName("最新用户消息后无AI回复时也能直接重生")
+    void testRegenerateLastAiReplyWhenNoAiAfterLatestUser() {
+        Long userId = 1001L;
+        Long aiUserId = 3002L;
+
+        messageRepository.save(buildMessage(userId, aiUserId, "text", "first user"));
+        messageRepository.save(buildMessage(aiUserId, userId, "text", "first ai"));
+        Message latestUser = messageRepository.save(buildMessage(userId, aiUserId, "text", "latest user"));
+
+        MessageService.RegenerateResult result = messageService.regenerateLastAiReply(userId, aiUserId);
+
+        assertTrue(result.regenerated(), "没有AI可删时也应该触发重生");
+        assertNull(result.deletedMessageId(), "没有AI可删时deletedMessageId应为空");
+        assertNotNull(result.taskId(), "应该创建重生任务");
+
+        Message latestUserAfterRegenerate = messageRepository.findLatestActiveMessageBySenderAndReceiver(userId, aiUserId);
+        assertNotNull(latestUserAfterRegenerate);
+        assertEquals(latestUser.getId(), latestUserAfterRegenerate.getId(), "重生不应影响最新用户消息");
+    }
+
+    private Message buildMessage(Long senderId, Long receiverId, String type, String content) {
+        Message msg = new Message();
+        msg.setSenderId(senderId);
+        msg.setReceiverId(receiverId);
+        msg.setType(type);
+        msg.setContent(content);
+        msg.setStatus("sent");
+        msg.setIsDeleted(false);
+        msg.setIsInContext(true);
+        msg.setCreatedAt(LocalDateTime.now());
+        msg.setUpdatedAt(LocalDateTime.now());
+        return msg;
     }
     
     // ========== Phase 6: 事务回滚测试 ==========
