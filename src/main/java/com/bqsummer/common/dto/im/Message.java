@@ -3,6 +3,7 @@ package com.bqsummer.common.dto.im;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -30,6 +31,15 @@ public class Message {
      * 消息内容（普通文本或简短消息）
      */
     private String content;
+
+    /**
+     * 实际调用模型（如 openai/gpt-4o-mini）
+     */
+    private String model;
+
+    private String provider;
+
+    private BigDecimal cost;
 
     /**
      * 消息状态（如 sent/received/read/撤回）

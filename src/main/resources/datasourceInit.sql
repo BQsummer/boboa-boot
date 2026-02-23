@@ -364,6 +364,9 @@ CREATE TABLE message (
                          receiver_id BIGINT NOT NULL,
                          type VARCHAR(32) NOT NULL,
                          content VARCHAR(2048) NOT NULL,
+                         model VARCHAR(200),
+                         provider VARCHAR(100),
+                         cost NUMERIC(20, 10),
                          status VARCHAR(16) NOT NULL DEFAULT 'sent',
                          is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
                          is_in_context BOOLEAN NOT NULL DEFAULT TRUE,
@@ -373,9 +376,6 @@ CREATE TABLE message (
 CREATE INDEX idx_receiver_id_id ON message (receiver_id, id);
 CREATE INDEX idx_both_users_time ON message (sender_id, receiver_id, id);
 
--- Compatibility migration for existing databases:
-ALTER TABLE message
-    ADD COLUMN IF NOT EXISTS is_in_context BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE TABLE inbox_message (
                              id BIGSERIAL PRIMARY KEY,
@@ -733,29 +733,31 @@ CREATE INDEX idx_instance_id ON robot_task_execution_log (instance_id);
 
 
 CREATE TABLE ai_model (
-                          id BIGSERIAL PRIMARY KEY,
-                          name VARCHAR(100) NOT NULL,
-                          version VARCHAR(50) NOT NULL,
-                          provider VARCHAR(50) NOT NULL,
-                          model_type VARCHAR(20) NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    api_kind VARCHAR(50) default 'openai' NOT NULL,
+    provider VARCHAR(50)  NULL,
 
-                          api_endpoint VARCHAR(500) NOT NULL,
-                          api_key TEXT NOT NULL,
+    model_type VARCHAR(20) NOT NULL,
 
-                          context_length INT,
-                          parameter_count VARCHAR(20),
+    api_endpoint VARCHAR(500) NOT NULL,
+    api_key TEXT NOT NULL,
 
-                          tags JSON,
-                          weight INT DEFAULT 1,
+    context_length INT,
+    parameter_count VARCHAR(20),
 
-                          enabled BOOLEAN DEFAULT TRUE,
+    tags JSON,
+    weight INT DEFAULT 1,
 
-                          created_by BIGINT,
-                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                          updated_by BIGINT,
-                          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    enabled BOOLEAN DEFAULT TRUE,
 
-                          CONSTRAINT uk_name_version UNIQUE (name, version)
+    created_by BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by BIGINT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_name_version UNIQUE (name, version)
 );
 CREATE INDEX idx_provider ON ai_model (provider);
 CREATE INDEX idx_model_type ON ai_model (model_type);

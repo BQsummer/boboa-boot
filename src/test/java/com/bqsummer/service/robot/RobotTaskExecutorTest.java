@@ -25,6 +25,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -77,8 +78,11 @@ class RobotTaskExecutorTest extends BaseTest {
         InferenceResponse mockResponse = new InferenceResponse();
         mockResponse.setSuccess(true);
         mockResponse.setContent("这是AI生成的回复内容");
+        mockResponse.setModelName("openai/gpt-4o-mini");
         mockResponse.setTotalTokens(50);
         mockResponse.setResponseTimeMs(1200);
+        mockResponse.setProvider("openai");
+        mockResponse.setCost(new BigDecimal("0.000092"));
         when(inferenceService.chat(any(InferenceRequest.class))).thenReturn(mockResponse);
         
         // Mock消息保存成功
@@ -193,6 +197,9 @@ class RobotTaskExecutorTest extends BaseTest {
         assertEquals("这是AI生成的回复内容", aiReply.getContent(), "content应该是LLM响应内容");
         assertEquals("text", aiReply.getType(), "type应该是text");
         assertEquals("sent", aiReply.getStatus(), "status应该是sent");
+        assertEquals("openai/gpt-4o-mini", aiReply.getModel(), "model should be persisted");
+        assertEquals("openai", aiReply.getProvider(), "provider should be persisted");
+        assertEquals(0, new BigDecimal("0.000092").compareTo(aiReply.getCost()), "cost should be persisted");
     }
     
     // ========== US2: 任务执行失败自动重试测试 ==========

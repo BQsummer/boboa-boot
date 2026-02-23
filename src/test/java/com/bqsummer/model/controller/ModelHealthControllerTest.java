@@ -53,7 +53,7 @@ class ModelHealthControllerTest {
         testModel = new AiModel();
         testModel.setName("健康检查测试模型");
         testModel.setVersion("v1");
-        testModel.setProvider("test");
+        testModel.setApiKind("test");
         testModel.setApiEndpoint("http://test.example.com");
         testModel.setApiKey("test-key");
         testModel.setModelType(ModelType.CHAT);

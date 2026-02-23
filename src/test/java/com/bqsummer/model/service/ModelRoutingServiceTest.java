@@ -215,7 +215,7 @@ class ModelRoutingServiceTest {
         model.setId(id);
         model.setName(name);
         model.setVersion("v1");
-        model.setProvider("test");
+        model.setApiKind("test");
         model.setModelType(ModelType.CHAT);
         model.setApiEndpoint("http://localhost");
         model.setApiKey("test");
@@ -229,7 +229,7 @@ class ModelRoutingServiceTest {
         bo.setId(model.getId());
         bo.setName(model.getName());
         bo.setVersion(model.getVersion());
-        bo.setProvider(model.getProvider());
+        bo.setApiKind(model.getApiKind());
         bo.setModelType(model.getModelType());
         bo.setApiEndpoint(model.getApiEndpoint());
         bo.setApiKey(model.getApiKey());

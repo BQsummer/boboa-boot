@@ -6,6 +6,8 @@ export interface ImMessage {
   receiverId: number;
   type: string;
   content: string;
+  model?: string | null;
+  provider?: string | null;
   status: string;
   isDeleted: boolean;
   isInContext?: boolean;

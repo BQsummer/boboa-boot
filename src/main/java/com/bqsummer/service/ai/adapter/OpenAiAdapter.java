@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -25,9 +26,10 @@ import java.util.UUID;
 @Component
 public class OpenAiAdapter implements ModelAdapter {
 
-    private static final Set<String> SUPPORTED_PROVIDERS = Set.of(
-            ModelProviderCodes.OPENAI,
-            ModelProviderCodes.AZURE_OPENAI
+    private static final Set<String> SUPPORTED_APIKINDS = Set.of(
+            ModelApikindCodes.OPENAI,
+            ModelApikindCodes.AZURE_OPENAI,
+            ModelApikindCodes.OPENROUTER
     );
 
     @Autowired(required = false)
@@ -36,8 +38,8 @@ public class OpenAiAdapter implements ModelAdapter {
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
-    public Set<String> supportedProviders() {
-        return SUPPORTED_PROVIDERS;
+    public Set<String> supportedApiKinds() {
+        return SUPPORTED_APIKINDS;
     }
 
     @Override
@@ -86,12 +88,17 @@ public class OpenAiAdapter implements ModelAdapter {
             response.setModelName(model.getName());
             response.setRequestId(requestId);
             response.setSuccess(true);
+            String resolvedModelName = resolveUsedModelName(responseJson, responseEntity.getHeaders());
+            if (hasText(resolvedModelName)) {
+                response.setModelName(resolvedModelName.trim());
+            }
 
             if (usage != null) {
                 response.setPromptTokens(usage.getInteger("prompt_tokens"));
                 response.setCompletionTokens(usage.getInteger("completion_tokens"));
                 response.setTotalTokens(usage.getInteger("total_tokens"));
             }
+            populateProviderAndCost(response, responseJson, usage, responseEntity.getHeaders());
 
             response.setResponseTimeMs((int) (System.currentTimeMillis() - startTime));
 
@@ -106,6 +113,7 @@ public class OpenAiAdapter implements ModelAdapter {
             InferenceResponse errorResponse = new InferenceResponse();
             errorResponse.setModelId(model.getId());
             errorResponse.setModelName(model.getName());
+            errorResponse.setApikind(model.getApiKind());
             errorResponse.setRequestId(requestId);
             errorResponse.setSuccess(false);
             errorResponse.setErrorMessage(e.getMessage());
@@ -173,5 +181,179 @@ public class OpenAiAdapter implements ModelAdapter {
             return "";
         }
         return content instanceof String ? (String) content : JSON.toJSONString(content);
+    }
+
+    private void populateProviderAndCost(InferenceResponse response,
+                                         JSONObject responseJson,
+                                         JSONObject usage,
+                                         HttpHeaders responseHeaders) {
+        String provider = resolveProvider(responseJson, usage, responseHeaders);
+        if (hasText(provider)) {
+            response.setProvider(provider.trim());
+        }
+
+        BigDecimal cost = resolveCost(responseJson, usage);
+        if (cost != null) {
+            response.setCost(cost);
+        }
+    }
+
+    private String resolveProvider(JSONObject responseJson, JSONObject usage, HttpHeaders responseHeaders) {
+        String provider = resolveProviderFromHeaders(responseHeaders);
+        if (!hasText(provider)) {
+            provider = readProviderValue(responseJson == null ? null : responseJson.get("provider"));
+        }
+        if (!hasText(provider) && usage != null) {
+            provider = readProviderValue(usage.get("provider"));
+        }
+        return provider;
+    }
+
+    private String resolveProviderFromHeaders(HttpHeaders responseHeaders) {
+        if (responseHeaders == null || responseHeaders.isEmpty()) {
+            return null;
+        }
+
+        String provider = responseHeaders.getFirst("x-openrouter-provider");
+        if (!hasText(provider)) {
+            provider = responseHeaders.getFirst("openrouter-provider");
+        }
+        return hasText(provider) ? provider.trim() : null;
+    }
+
+    private String resolveUsedModelName(JSONObject responseJson, HttpHeaders responseHeaders) {
+        if (responseHeaders != null && !responseHeaders.isEmpty()) {
+            String modelFromHeader = responseHeaders.getFirst("x-openrouter-model");
+            if (!hasText(modelFromHeader)) {
+                modelFromHeader = responseHeaders.getFirst("openrouter-model");
+            }
+            if (hasText(modelFromHeader)) {
+                return modelFromHeader;
+            }
+        }
+
+        if (responseJson != null) {
+            String modelFromBody = responseJson.getString("model");
+            if (hasText(modelFromBody)) {
+                return modelFromBody;
+            }
+        }
+        return null;
+    }
+
+    private String readProviderValue(Object providerValue) {
+        if (providerValue == null) {
+            return null;
+        }
+
+        if (providerValue instanceof String provider) {
+            return provider;
+        }
+
+        if (providerValue instanceof JSONObject providerObj) {
+            String fromName = providerObj.getString("name");
+            if (hasText(fromName)) {
+                return fromName;
+            }
+            String fromId = providerObj.getString("id");
+            if (hasText(fromId)) {
+                return fromId;
+            }
+            String fromCode = providerObj.getString("code");
+            if (hasText(fromCode)) {
+                return fromCode;
+            }
+            String nestedProvider = providerObj.getString("provider");
+            if (hasText(nestedProvider)) {
+                return nestedProvider;
+            }
+        }
+
+        String fallback = providerValue.toString();
+        return hasText(fallback) ? fallback : null;
+    }
+
+    private BigDecimal resolveCost(JSONObject responseJson, JSONObject usage) {
+        BigDecimal cost = readBigDecimal(responseJson, "cost");
+        if (cost != null) {
+            return cost;
+        }
+
+        cost = readBigDecimal(responseJson, "total_cost");
+        if (cost != null) {
+            return cost;
+        }
+
+        if (usage != null) {
+            cost = readBigDecimal(usage, "cost");
+            if (cost != null) {
+                return cost;
+            }
+            cost = readBigDecimal(usage, "total_cost");
+            if (cost != null) {
+                return cost;
+            }
+        }
+
+        return null;
+    }
+
+    private BigDecimal readBigDecimal(JSONObject source, String key) {
+        if (source == null || !hasText(key)) {
+            return null;
+        }
+        return parseBigDecimal(source.get(key));
+    }
+
+    private BigDecimal parseBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+
+        if (value instanceof Number number) {
+            try {
+                return new BigDecimal(number.toString());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+
+        if (value instanceof String text) {
+            String normalized = text.trim();
+            if (!hasText(normalized)) {
+                return null;
+            }
+            try {
+                return new BigDecimal(normalized);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+
+        if (value instanceof JSONObject objectValue) {
+            BigDecimal nested = readBigDecimal(objectValue, "total");
+            if (nested != null) {
+                return nested;
+            }
+            nested = readBigDecimal(objectValue, "total_cost");
+            if (nested != null) {
+                return nested;
+            }
+            nested = readBigDecimal(objectValue, "amount");
+            if (nested != null) {
+                return nested;
+            }
+            return readBigDecimal(objectValue, "value");
+        }
+
+        return null;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

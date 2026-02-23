@@ -31,7 +31,7 @@ class OpenAiAdapterTest {
         testModel.setId(1L);
         testModel.setName("GPT-4");
         testModel.setVersion("gpt-4-turbo");
-        testModel.setProvider("openai");
+        testModel.setApiKind("openai");
         testModel.setModelType(ModelType.CHAT);
         testModel.setApiEndpoint("https://api.openai.com/v1");
         testModel.setApiKey("sk-test-key-12345");
@@ -55,7 +55,7 @@ class OpenAiAdapterTest {
             
             // 测试不支持的提供商
             AiModelBo unsupportedModel = new AiModelBo();
-            unsupportedModel.setProvider("qwen");
+            unsupportedModel.setApiKind("qwen");
             assertFalse(adapter.supports(unsupportedModel));
         }
     }

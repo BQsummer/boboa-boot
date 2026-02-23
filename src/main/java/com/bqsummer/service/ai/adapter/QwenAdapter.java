@@ -24,7 +24,7 @@ import java.util.UUID;
 @Component
 public class QwenAdapter implements ModelAdapter {
 
-    private static final Set<String> SUPPORTED_PROVIDERS = Set.of(ModelProviderCodes.QWEN);
+    private static final Set<String> SUPPORTED_APIKINDS = Set.of(ModelApikindCodes.QWEN);
 
     @Autowired(required = false)
     private EncryptionUtil encryptionUtil;
@@ -32,8 +32,8 @@ public class QwenAdapter implements ModelAdapter {
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
-    public Set<String> supportedProviders() {
-        return SUPPORTED_PROVIDERS;
+    public Set<String> supportedApiKinds() {
+        return SUPPORTED_APIKINDS;
     }
 
     @Override

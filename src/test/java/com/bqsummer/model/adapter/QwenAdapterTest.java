@@ -32,7 +32,7 @@ class QwenAdapterTest {
         testModel.setId(2L);
         testModel.setName("Qwen");
         testModel.setVersion("qwen-turbo");
-        testModel.setProvider("qwen");
+        testModel.setApiKind("qwen");
         testModel.setModelType(ModelType.CHAT);
         testModel.setApiEndpoint("https://dashscope.aliyuncs.com/api/v1");
         testModel.setApiKey("qwen-test-key-12345");
@@ -40,13 +40,13 @@ class QwenAdapterTest {
     }
 
     @Test
-    @DisplayName("测试 Qwen 适配器支持的提供商")
+    @DisplayName("测试 Qwen 适配器支持的接口类型")
     void testSupports() {
         assertTrue(adapter.supports(testModel));
 
-        // 测试不支持的提供商
+        // 测试不支持的接口类型
         AiModelBo unsupportedModel = new AiModelBo();
-        unsupportedModel.setProvider("openai");
+        unsupportedModel.setApiKind("openai");
         assertFalse(adapter.supports(unsupportedModel));
     }
 

@@ -130,7 +130,7 @@ export default function StrategiesPage() {
     (modelId: number) => {
       const model = modelMap.get(modelId);
       if (!model) return `模型 ${modelId}`;
-      return `${model.id} - ${model.name} (${model.provider})`;
+      return `${model.id} - ${model.name} (${model.apiKind})`;
     },
     [modelMap]
   );
@@ -163,7 +163,7 @@ export default function StrategiesPage() {
   const bindModelOptions = useMemo(() => {
     const optionMap = new Map<number, string>();
     models.forEach((model) => {
-      optionMap.set(model.id, `${model.id} - ${model.name} (${model.provider})`);
+      optionMap.set(model.id, `${model.id} - ${model.name} (${model.apiKind})`);
     });
     (modelModal?.modelBindings || []).forEach((binding) => {
       if (!optionMap.has(binding.modelId)) {

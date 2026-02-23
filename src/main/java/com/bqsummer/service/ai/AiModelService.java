@@ -41,8 +41,8 @@ public class AiModelService {
     
     @Transactional(rollbackFor = Exception.class)
     public ModelResponse registerModel(ModelRegisterRequest request, Long userId) {
-        log.info("开始注册模型: name={}, version={}, provider={}", 
-                request.getName(), request.getVersion(), request.getProvider());
+        log.info("开始注册模型: name={}, version={}, apiKind={}", 
+                request.getName(), request.getVersion(), request.getApiKind());
         
         // 1. 验证必填字段
         validateRequiredFields(request, true);
@@ -81,15 +81,15 @@ public class AiModelService {
     }
     
     public List<ModelResponse> listModels(ModelQueryRequest request) {
-        log.info("查询模型列表: page={}, pageSize={}, provider={}, modelType={}, enabled={}", 
-                request.getPage(), request.getPageSize(), request.getProvider(), 
+        log.info("查询模型列表: page={}, pageSize={}, apiKind={}, modelType={}, enabled={}", 
+                request.getPage(), request.getPageSize(), request.getApiKind(), 
                 request.getModelType(), request.getEnabled());
         
         // 构建查询条件
         LambdaQueryWrapper<AiModel> queryWrapper = new LambdaQueryWrapper<>();
         
-        if (request.getProvider() != null && !request.getProvider().isEmpty()) {
-            queryWrapper.eq(AiModel::getProvider, request.getProvider());
+        if (request.getApiKind() != null && !request.getApiKind().isEmpty()) {
+            queryWrapper.eq(AiModel::getApiKind, request.getApiKind());
         }
         
         if (request.getModelType() != null) {
@@ -126,13 +126,13 @@ public class AiModelService {
                 .collect(Collectors.toList());
     }
 
-    public List<String> listModelProviders() {
+    public List<String> listModelApiKinds() {
         return adapters.stream()
                 .flatMap(adapter -> {
-                    if (adapter.supportedProviders() == null) {
+                    if (adapter.supportedApiKinds() == null) {
                         return Stream.empty();
                     }
-                    return adapter.supportedProviders().stream();
+                    return adapter.supportedApiKinds().stream();
                 })
                 .filter(code -> code != null && !code.trim().isEmpty())
                 .map(String::trim)
@@ -226,8 +226,8 @@ public class AiModelService {
         if (request.getVersion() == null || request.getVersion().trim().isEmpty()) {
             throw new ModelValidationException("模型版本不能为空");
         }
-        if (request.getProvider() == null || request.getProvider().trim().isEmpty()) {
-            throw new ModelValidationException("提供商不能为空");
+        if (request.getApiKind() == null || request.getApiKind().trim().isEmpty()) {
+            throw new ModelValidationException("接口类型不能为空");
         }
         if (request.getModelType() == null) {
             throw new ModelValidationException("模型类型不能为空");

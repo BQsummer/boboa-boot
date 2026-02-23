@@ -31,9 +31,9 @@ public class ModelResponse {
     private String version;
     
     /**
-     * 提供商
+     * 接口类型
      */
-    private String provider;
+    private String apiKind;
     
     /**
      * 模型类型

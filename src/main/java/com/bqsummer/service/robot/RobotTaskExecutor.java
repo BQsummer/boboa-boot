@@ -412,6 +412,9 @@ public class RobotTaskExecutor {
             aiReply.setReceiverId(payload.getSenderId()); // 原始发送者ID
             aiReply.setType("text");
             aiReply.setContent(finalContent);
+            aiReply.setModel(inferenceResponse.getModelName());
+            aiReply.setProvider(inferenceResponse.getProvider());
+            aiReply.setCost(inferenceResponse.getCost());
             aiReply.setStatus("sent");
             aiReply.setIsDeleted(false);
             aiReply.setIsInContext(true);

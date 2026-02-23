@@ -1,7 +1,6 @@
 package com.bqsummer.service.ai.adapter;
 
 import com.bqsummer.common.bo.ai.AiModelBo;
-import com.bqsummer.common.dto.ai.AiModel;
 import com.bqsummer.common.vo.req.ai.InferenceRequest;
 import com.bqsummer.common.vo.resp.ai.InferenceResponse;
 
@@ -17,22 +16,22 @@ public interface ModelAdapter {
      * Whether this adapter supports the given model.
      */
     default boolean supports(AiModelBo model) {
-        if (model == null || model.getProvider() == null) {
+        if (model == null || model.getApiKind() == null) {
             return false;
         }
 
-        String provider = model.getProvider().trim();
-        if (provider.isEmpty()) {
+        String apiKind = model.getApiKind().trim();
+        if (apiKind.isEmpty()) {
             return false;
         }
 
-        return supportedProviders().stream().anyMatch(code -> code.equalsIgnoreCase(provider));
+        return supportedApiKinds().stream().anyMatch(code -> code.equalsIgnoreCase(apiKind));
     }
 
     /**
      * Provider codes supported by this adapter.
      */
-    default Set<String> supportedProviders() {
+    default Set<String> supportedApiKinds() {
         return Collections.emptySet();
     }
 

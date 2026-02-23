@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * 通用适配器
- * 用于尚未明确支持的模型提供商
+ * 用于尚未明确支持的模型接口类型
  * 
  * @author Boboa Boot Team
  * @date 2025-10-21
@@ -30,8 +30,8 @@ public class GenericAdapter implements ModelAdapter {
     public InferenceResponse chat(AiModelBo model, InferenceRequest request) {
         String requestId = UUID.randomUUID().toString();
         
-        log.warn("使用通用适配器: modelId={}, provider={}, 可能需要实现专用适配器", 
-                model.getId(), model.getProvider());
+        log.warn("使用通用适配器: modelId={}, apiKind={}, 可能需要实现专用适配器", 
+                model.getId(), model.getApiKind());
         
         // 返回错误响应，提示需要实现专用适配器
         InferenceResponse response = new InferenceResponse();
@@ -40,7 +40,7 @@ public class GenericAdapter implements ModelAdapter {
         response.setRequestId(requestId);
         response.setSuccess(false);
         response.setErrorMessage(String.format(
-                "模型提供商 '%s' 尚未支持，请实现专用适配器", model.getProvider()));
+                "模型接口类型 '%s' 尚未支持，请实现专用适配器", model.getApiKind()));
         
         return response;
     }

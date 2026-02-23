@@ -42,7 +42,7 @@ class UnifiedInferenceServiceTest {
         testModel = new AiModel();
         testModel.setName("测试模型");
         testModel.setVersion("test-v1");
-        testModel.setProvider("test_provider");
+        testModel.setApiKind("test_provider");
         testModel.setApiEndpoint("http://test.example.com");
         testModel.setApiKey("test-key");
         testModel.setModelType(ModelType.CHAT);

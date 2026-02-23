@@ -29,10 +29,10 @@ public class ModelRegisterRequest {
     private String version;
     
     /**
-     * 提供商
+     * 接口类型
      */
-    @NotBlank(message = "提供商不能为空")
-    private String provider;
+    @NotBlank(message = "接口类型不能为空")
+    private String apiKind;
     
     /**
      * 模型类型

@@ -43,7 +43,7 @@ class AiModelControllerTest {
         validRequest = new ModelRegisterRequest();
         validRequest.setName("GPT-4");
         validRequest.setVersion("gpt-4-turbo");
-        validRequest.setProvider("openai");
+        validRequest.setApiKind("openai");
         validRequest.setModelType(ModelType.CHAT);
         validRequest.setApiEndpoint("https://api.openai.com/v1");
         validRequest.setApiKey("sk-test-key-12345");
@@ -69,7 +69,7 @@ class AiModelControllerTest {
                 .andExpect(jsonPath("$.data.id").exists())
                 .andExpect(jsonPath("$.data.name").value("GPT-4"))
                 .andExpect(jsonPath("$.data.version").value("gpt-4-turbo"))
-                .andExpect(jsonPath("$.data.provider").value("openai"))
+                .andExpect(jsonPath("$.data.apiKind").value("openai"))
                 .andExpect(jsonPath("$.data.modelType").value("CHAT"))
                 .andExpect(jsonPath("$.data.enabled").value(true))
                 .andExpect(jsonPath("$.data.apiKey").doesNotExist());
@@ -124,7 +124,7 @@ class AiModelControllerTest {
     }
 
     @Test
-    @DisplayName("测试 GET /api/v1/models - 按提供商过滤")
+    @DisplayName("测试 GET /api/v1/models - 按接口类型过滤")
     @WithMockUser(roles = "ADMIN")
     void testListModels_FilterByProvider() throws Exception {
         // 注册 OpenAI 模型
@@ -137,7 +137,7 @@ class AiModelControllerTest {
         ModelRegisterRequest qwenRequest = new ModelRegisterRequest();
         qwenRequest.setName("Qwen");
         qwenRequest.setVersion("qwen-turbo");
-        qwenRequest.setProvider("qwen");
+        qwenRequest.setApiKind("qwen");
         qwenRequest.setModelType(ModelType.CHAT);
         qwenRequest.setApiEndpoint("https://api.qwen.com/v1");
         qwenRequest.setApiKey("qwen-key-12345");
@@ -150,7 +150,7 @@ class AiModelControllerTest {
 
         // 按 provider 过滤
         mockMvc.perform(get("/api/v1/models")
-                        .param("provider", "openai"))
+                        .param("apiKind", "openai"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.list").isArray());

@@ -56,6 +56,7 @@ public class UnifiedInferenceService {
             
             // 3. 执行推理（带重试）
             response = executeWithRetry(adapter, model, request);
+            fillResponseDefaults(response, model);
             
             // 4. 记录日志（独立事务）
             requestLogService.logRequest(model, request, response, System.currentTimeMillis() - startTime);
@@ -68,6 +69,9 @@ public class UnifiedInferenceService {
             // 记录失败日志
             if (model != null) {
                 InferenceResponse errorResponse = new InferenceResponse();
+                errorResponse.setModelId(model.getId());
+                errorResponse.setModelName(model.getName());
+                errorResponse.setApikind(model.getApiKind());
                 errorResponse.setSuccess(false);
                 errorResponse.setErrorMessage(e.getMessage());
                 errorResponse.setResponseTimeMs((int) (System.currentTimeMillis() - startTime));
@@ -81,6 +85,11 @@ public class UnifiedInferenceService {
             }
             
             InferenceResponse errorResponse = new InferenceResponse();
+            if (model != null) {
+                errorResponse.setModelId(model.getId());
+                errorResponse.setModelName(model.getName());
+                errorResponse.setApikind(model.getApiKind());
+            }
             errorResponse.setSuccess(false);
             errorResponse.setErrorMessage(e.getMessage());
             errorResponse.setResponseTimeMs((int) (System.currentTimeMillis() - startTime));
@@ -148,7 +157,7 @@ public class UnifiedInferenceService {
             }
         }
         
-        throw new RoutingException("没有可用的适配器支持模型: " + model.getProvider());
+        throw new RoutingException("没有可用的适配器支持模型: " + model.getApiKind());
     }
     
     /**
@@ -193,5 +202,28 @@ public class UnifiedInferenceService {
         }
         
         throw new RoutingException("推理失败，没有有效响应");
+    }
+
+    private void fillResponseDefaults(InferenceResponse response, AiModelBo model) {
+        if (response == null || model == null) {
+            return;
+        }
+
+        if (response.getModelId() == null) {
+            response.setModelId(model.getId());
+        }
+        if (!hasText(response.getModelName())) {
+            response.setModelName(model.getName());
+        }
+        if (!hasText(response.getApikind())) {
+            response.setApikind(model.getApiKind());
+        }
+        if (!hasText(response.getProvider()) && hasText(model.getProvider())) {
+            response.setProvider(model.getProvider().trim());
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

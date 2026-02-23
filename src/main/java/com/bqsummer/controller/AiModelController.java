@@ -100,18 +100,18 @@ public class AiModelController {
     }
 
     /**
-     * 查询可用模型提供商下拉选项
-     * GET /api/v1/models/providers
+     * 查询可用模型接口类型下拉选项
+     * GET /api/v1/models/apikinds
      */
-    @GetMapping("/providers")
+    @GetMapping("/apikinds")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> listModelProviders() {
-        List<String> providers = aiModelService.listModelProviders();
+    public ResponseEntity<Map<String, Object>> listModelApiKinds() {
+        List<String> apiKinds = aiModelService.listModelApiKinds();
 
         Map<String, Object> result = new HashMap<>();
         result.put("code", 0);
         result.put("message", "success");
-        result.put("data", providers);
+        result.put("data", apiKinds);
 
         return ResponseEntity.ok(result);
     }

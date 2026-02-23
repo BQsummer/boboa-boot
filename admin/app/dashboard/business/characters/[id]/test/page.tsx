@@ -24,6 +24,14 @@ function mergeMessages(existing: ImMessage[], incoming: ImMessage[]): ImMessage[
   return Array.from(map.values()).sort((a, b) => a.id - b.id);
 }
 
+function formatModelName(model?: string | null): string {
+  const value = model?.trim();
+  if (!value) return '-';
+  const parts = value.split('/').filter((part) => part.length > 0);
+  if (parts.length === 0) return value;
+  return parts[parts.length - 1];
+}
+
 export default function CharacterTestChatPage() {
   const params = useParams();
   const router = useRouter();
@@ -301,7 +309,8 @@ export default function CharacterTestChatPage() {
                         <div className="whitespace-pre-wrap break-words">{message.content}</div>
                       )}
                       <div className={`mt-1 text-xs ${mine ? 'text-blue-100' : 'text-gray-400'}`}>
-                        #{message.id} {new Date(message.createdAt).toLocaleString()}
+                        model: {formatModelName(message.model)} | provider: {message.provider?.trim() || '-'} |{' '}
+                        {new Date(message.createdAt).toLocaleString()}
                       </div>
                       {isLatestUserMessage && !isEditingThisMessage && (
                         <div className="mt-2 flex justify-end">

@@ -23,9 +23,9 @@ public class ModelQueryRequest {
     private Integer pageSize = 20;
     
     /**
-     * 过滤：提供商
+     * 过滤：接口类型
      */
-    private String provider;
+    private String apiKind;
     
     /**
      * 过滤：模型类型

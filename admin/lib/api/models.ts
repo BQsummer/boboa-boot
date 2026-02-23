@@ -10,7 +10,7 @@ export interface ModelResponse {
   id: number;
   name: string;
   version: string;
-  provider: string;
+  apiKind: string;
   modelType: ModelType;
   apiEndpoint: string;
   apiKey?: string | null;
@@ -28,7 +28,7 @@ export interface ModelResponse {
 export interface CreateModelReq {
   name: string;
   version: string;
-  provider: string;
+  apiKind: string;
   modelType: ModelType;
   apiEndpoint: string;
   apiKey: string;
@@ -46,7 +46,7 @@ export interface UpdateModelReq extends Omit<CreateModelReq, 'apiKey'> {
 export interface ModelQueryReq {
   page?: number;
   pageSize?: number;
-  provider?: string;
+  apiKind?: string;
   modelType?: ModelType;
   enabled?: boolean;
 }
@@ -87,7 +87,7 @@ export async function listModels(query: ModelQueryReq): Promise<ModelListData> {
   const params = new URLSearchParams();
   if (query.page !== undefined) params.append('page', query.page.toString());
   if (query.pageSize !== undefined) params.append('pageSize', query.pageSize.toString());
-  if (query.provider) params.append('provider', query.provider);
+  if (query.apiKind) params.append('apiKind', query.apiKind);
   if (query.modelType) params.append('modelType', query.modelType);
   if (query.enabled !== undefined) params.append('enabled', query.enabled.toString());
 
@@ -110,8 +110,8 @@ export async function listModelCodes(): Promise<string[]> {
 /**
  * List model provider codes from adapters
  */
-export async function listModelProviders(): Promise<string[]> {
-  const result = await fetchApi<ApiResult<string[]>>('/api/v1/models/providers', {
+export async function listModelApikinds(): Promise<string[]> {
+  const result = await fetchApi<ApiResult<string[]>>('/api/v1/models/apikinds', {
     method: 'GET',
   });
   return unwrap(result) || [];

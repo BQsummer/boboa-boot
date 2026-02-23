@@ -10,7 +10,7 @@ import {
   CreateModelReq,
   UpdateModelReq,
   listModels,
-  listModelProviders,
+  listModelApikinds,
   createModel,
   updateModel,
   deleteModel,
@@ -23,7 +23,7 @@ const PAGE_SIZE = 10;
 const DEFAULT_FORM: CreateModelReq = {
   name: '',
   version: '',
-  provider: '',
+  apiKind: '',
   modelType: 'CHAT',
   apiEndpoint: '',
   apiKey: '',
@@ -43,10 +43,10 @@ export default function ModelsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  const [filterProvider, setFilterProvider] = useState('');
+  const [filterApikind, setFilterApikind] = useState('');
   const [filterModelType, setFilterModelType] = useState<ModelType | ''>('');
   const [filterEnabled, setFilterEnabled] = useState<'ALL' | 'TRUE' | 'FALSE'>('ALL');
-  const [providerOptions, setProviderOptions] = useState<string[]>([]);
+  const [apikindOptions, setApikindOptions] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<CreateModelReq>(DEFAULT_FORM);
   const [tagsInput, setTagsInput] = useState('');
@@ -59,7 +59,7 @@ export default function ModelsPage() {
       const result = await listModels({
         page: currentPage,
         pageSize: PAGE_SIZE,
-        provider: filterProvider || undefined,
+        apiKind: filterApikind || undefined,
         modelType: filterModelType || undefined,
         enabled:
           filterEnabled === 'ALL'
@@ -75,24 +75,24 @@ export default function ModelsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, filterProvider, filterModelType, filterEnabled]);
+  }, [currentPage, filterApikind, filterModelType, filterEnabled]);
 
   useEffect(() => {
     loadModels();
   }, [loadModels]);
 
   useEffect(() => {
-    const loadProviders = async () => {
+    const loadApikinds = async () => {
       try {
-        const providers = await listModelProviders();
-        setProviderOptions(providers || []);
+        const apikinds = await listModelApikinds();
+        setApikindOptions(apikinds || []);
       } catch (error) {
-        console.error('加载提供商选项失败:', error);
-        setProviderOptions([]);
+        console.error('加载接口类型选项失败:', error);
+        setApikindOptions([]);
       }
     };
 
-    loadProviders();
+    loadApikinds();
   }, []);
 
   const handleCreate = () => {
@@ -107,7 +107,7 @@ export default function ModelsPage() {
     setFormData({
       name: model.name,
       version: model.version,
-      provider: model.provider,
+      apiKind: model.apiKind,
       modelType: model.modelType,
       apiEndpoint: model.apiEndpoint,
       apiKey: '',
@@ -188,7 +188,7 @@ export default function ModelsPage() {
   };
 
   const resetFilters = () => {
-    setFilterProvider('');
+    setFilterApikind('');
     setFilterModelType('');
     setFilterEnabled('ALL');
     setCurrentPage(1);
@@ -201,10 +201,10 @@ export default function ModelsPage() {
     return <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-800">停用</span>;
   };
 
-  const providerOptionsForForm =
-    formData.provider && !providerOptions.includes(formData.provider)
-      ? [formData.provider, ...providerOptions]
-      : providerOptions;
+  const apikindOptionsForForm =
+    formData.apiKind && !apikindOptions.includes(formData.apiKind)
+      ? [formData.apiKind, ...apikindOptions]
+      : apikindOptions;
 
   return (
     <div className="p-6">
@@ -216,19 +216,19 @@ export default function ModelsPage() {
       <Card className="p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block text-sm font-medium mb-1">提供商</label>
+            <label className="block text-sm font-medium mb-1">接口类型</label>
             <select
               className="w-full px-3 py-2 border rounded-md"
-              value={filterProvider}
+              value={filterApikind}
               onChange={(e) => {
-                setFilterProvider(e.target.value);
+                setFilterApikind(e.target.value);
                 setCurrentPage(1);
               }}
             >
-              <option value="">全部提供商</option>
-              {providerOptions.map((provider) => (
-                <option key={provider} value={provider}>
-                  {provider}
+              <option value="">全部接口类型</option>
+              {apikindOptions.map((apikind) => (
+                <option key={apikind} value={apikind}>
+                  {apikind}
                 </option>
               ))}
             </select>
@@ -291,7 +291,7 @@ export default function ModelsPage() {
                       {statusBadge(model.enabled)}
                     </div>
                     <div className="text-sm text-gray-600 space-y-1">
-                      <p>提供商: {model.provider}</p>
+                      <p>接口类型: {model.apiKind}</p>
                       <p>类型: {model.modelType}</p>
                       <p className="break-all">API Endpoint: {model.apiEndpoint}</p>
                       <p>
@@ -373,20 +373,20 @@ export default function ModelsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      提供商 <span className="text-red-500">*</span>
+                      接口类型 <span className="text-red-500">*</span>
                     </label>
                     <select
                       className="w-full px-3 py-2 border rounded-md"
-                      value={formData.provider}
-                      onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+                      value={formData.apiKind}
+                      onChange={(e) => setFormData({ ...formData, apiKind: e.target.value })}
                       required
                     >
                       <option value="" disabled>
-                        请选择提供商
+                        请选择接口类型
                       </option>
-                      {providerOptionsForForm.map((provider) => (
-                        <option key={provider} value={provider}>
-                          {provider}
+                      {apikindOptionsForForm.map((apikind) => (
+                        <option key={apikind} value={apikind}>
+                          {apikind}
                         </option>
                       ))}
                     </select>

@@ -46,7 +46,7 @@ class AiModelServiceTest {
         validRequest = new ModelRegisterRequest();
         validRequest.setName("GPT-4");
         validRequest.setVersion("gpt-4-turbo");
-        validRequest.setProvider("openai");
+        validRequest.setApiKind("openai");
         validRequest.setModelType(ModelType.CHAT);
         validRequest.setApiEndpoint("https://api.openai.com/v1");
         validRequest.setApiKey("sk-test-key-12345");
@@ -68,7 +68,7 @@ class AiModelServiceTest {
         assertNotNull(response.getId());
         assertEquals("GPT-4", response.getName());
         assertEquals("gpt-4-turbo", response.getVersion());
-        assertEquals("openai", response.getProvider());
+        assertEquals("openai", response.getApiKind());
         assertEquals(ModelType.CHAT, response.getModelType());
         assertTrue(response.getEnabled());
         
@@ -127,7 +127,7 @@ class AiModelServiceTest {
         ModelRegisterRequest request2 = new ModelRegisterRequest();
         request2.setName("GPT-3.5");
         request2.setVersion("gpt-3.5-turbo");
-        request2.setProvider("openai");
+        request2.setApiKind("openai");
         request2.setModelType(ModelType.CHAT);
         request2.setApiEndpoint("https://api.openai.com/v1");
         request2.setApiKey("sk-test-key-67890");
@@ -147,15 +147,15 @@ class AiModelServiceTest {
     }
 
     @Test
-    @DisplayName("测试模型列表查询 - 按提供商过滤")
+    @DisplayName("测试模型列表查询 - 按接口类型过滤")
     void testListModels_FilterByProvider() {
-        // Given: 注册不同提供商的模型
+        // Given: 注册不的接口类型的模型
         aiModelService.registerModel(validRequest, 1L);
 
         ModelRegisterRequest qwenRequest = new ModelRegisterRequest();
         qwenRequest.setName("Qwen");
         qwenRequest.setVersion("qwen-turbo");
-        qwenRequest.setProvider("qwen");
+        qwenRequest.setApiKind("qwen");
         qwenRequest.setModelType(ModelType.CHAT);
         qwenRequest.setApiEndpoint("https://api.qwen.com/v1");
         qwenRequest.setApiKey("qwen-key-12345");
@@ -164,7 +164,7 @@ class AiModelServiceTest {
 
         // When: 按 provider 过滤
         ModelQueryRequest queryRequest = new ModelQueryRequest();
-        queryRequest.setProvider("openai");
+        queryRequest.setApiKind("openai");
         queryRequest.setPage(1);
         queryRequest.setPageSize(10);
         
@@ -172,7 +172,7 @@ class AiModelServiceTest {
 
         // Then: 只返回 openai 的模型
         assertNotNull(models);
-        assertTrue(models.stream().allMatch(m -> "openai".equals(m.getProvider())));
+        assertTrue(models.stream().allMatch(m -> "openai".equals(m.getApiKind())));
     }
 
     @Test
@@ -184,7 +184,7 @@ class AiModelServiceTest {
         ModelRegisterRequest embeddingRequest = new ModelRegisterRequest();
         embeddingRequest.setName("Text-Embedding");
         embeddingRequest.setVersion("text-embedding-ada-002");
-        embeddingRequest.setProvider("openai");
+        embeddingRequest.setApiKind("openai");
         embeddingRequest.setModelType(ModelType.EMBEDDING);
         embeddingRequest.setApiEndpoint("https://api.openai.com/v1");
         embeddingRequest.setApiKey("sk-embed-key-12345");
@@ -213,7 +213,7 @@ class AiModelServiceTest {
         ModelRegisterRequest disabledRequest = new ModelRegisterRequest();
         disabledRequest.setName("Disabled-Model");
         disabledRequest.setVersion("v1.0");
-        disabledRequest.setProvider("openai");
+        disabledRequest.setApiKind("openai");
         disabledRequest.setModelType(ModelType.CHAT);
         disabledRequest.setApiEndpoint("https://api.openai.com/v1");
         disabledRequest.setApiKey("sk-disabled-key");
@@ -241,7 +241,7 @@ class AiModelServiceTest {
             ModelRegisterRequest request = new ModelRegisterRequest();
             request.setName("Model-" + i);
             request.setVersion("v1.0");
-            request.setProvider("openai");
+            request.setApiKind("openai");
             request.setModelType(ModelType.CHAT);
             request.setApiEndpoint("https://api.openai.com/v1");
             request.setApiKey("sk-key-" + i);

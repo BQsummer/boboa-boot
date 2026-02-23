@@ -35,7 +35,13 @@ public class AiModel {
     private String version;
     
     /**
-     * 提供商：openai/azure/qwen/gemini 等
+     * 接口类型：openai/azure/qwen/gemini 等
+     */
+    @TableField("api_kind")
+    private String apiKind;
+
+    /**
+     * 实际模型提供商（用于记录与展示）
      */
     private String provider;
     

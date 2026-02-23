@@ -1,4 +1,4 @@
-package com.bqsummer.common.bo.ai;
+﻿package com.bqsummer.common.bo.ai;
 
 import com.bqsummer.common.dto.ai.ModelType;
 import lombok.Data;
@@ -13,79 +13,84 @@ public class AiModelBo {
     private Long id;
 
     /**
-     * 模型名称，如 GPT-4
+     * 妯″瀷鍚嶇О锛屽 GPT-4
      */
     private String name;
 
     /**
-     * 模型版本，如 gpt-4-turbo
+     * 妯″瀷鐗堟湰锛屽 gpt-4-turbo
      */
     private String version;
 
     /**
-     * 提供商：openai/azure/qwen/gemini 等
+     * 鎺ュ彛绫诲瀷锛歰penai/azure/qwen/gemini 绛?
+     */
+    private String apiKind;
+
+    /**
+     * Actual model provider persisted in ai_model.provider.
      */
     private String provider;
 
     /**
-     * 模型类型：CHAT/EMBEDDING/RERANKER
+     * 妯″瀷绫诲瀷锛欳HAT/EMBEDDING/RERANKER
      */
     private ModelType modelType;
 
     /**
-     * API 端点 URL
+     * API 绔偣 URL
      */
     private String apiEndpoint;
 
     /**
-     * API 密钥（AES-256 加密存储）
+     * API 瀵嗛挜锛圓ES-256 鍔犲瘑瀛樺偍锛?
      */
     private String apiKey;
 
     /**
-     * 上下文长度（token 数），如 8192
+     * 涓婁笅鏂囬暱搴︼紙token 鏁帮級锛屽 8192
      */
     private Integer contextLength;
 
     /**
-     * 参数量，如 175B
+     * 鍙傛暟閲忥紝濡?175B
      */
     private String parameterCount;
 
     /**
-     * 自定义标签，如 ["fast", "cheap"]
+     * 鑷畾涔夋爣绛撅紝濡?["fast", "cheap"]
      */
     private List<String> tags;
 
     /**
-     * 是否启用：true-启用 false-禁用
+     * 鏄惁鍚敤锛歵rue-鍚敤 false-绂佺敤
      */
     private Boolean enabled;
 
     /**
-     * 创建人用户ID
+     * 鍒涘缓浜虹敤鎴稩D
      */
     private Long createdBy;
 
     /**
-     * 创建时间
+     * 鍒涘缓鏃堕棿
      */
     private LocalDateTime createdAt;
 
     /**
-     * 最后更新人用户ID
+     * 鏈€鍚庢洿鏂颁汉鐢ㄦ埛ID
      */
     private Long updatedBy;
 
     /**
-     * 更新时间
+     * 鏇存柊鏃堕棿
      */
     private LocalDateTime updatedAt;
 
     private Integer weight;
 
     /**
-     * 来自路由策略绑定的运行参数（JSON）。
+     * 鏉ヨ嚜璺敱绛栫暐缁戝畾鐨勮繍琛屽弬鏁帮紙JSON锛夈€?
      */
     private Map<String, Object> routingParams;
 }

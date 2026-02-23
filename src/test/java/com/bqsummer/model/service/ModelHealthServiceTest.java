@@ -46,7 +46,7 @@ class ModelHealthServiceTest {
         testModel = new AiModel();
         testModel.setName("健康检查测试模型");
         testModel.setVersion("v1");
-        testModel.setProvider("test");
+        testModel.setApiKind("test");
         testModel.setApiEndpoint("http://test.example.com");
         testModel.setApiKey("test-key");
         testModel.setModelType(ModelType.CHAT);
@@ -148,7 +148,7 @@ class ModelHealthServiceTest {
         AiModel model2 = new AiModel();
         model2.setName("模型2");
         model2.setVersion("v1");
-        model2.setProvider("test");
+        model2.setApiKind("test");
         model2.setApiEndpoint("http://test2.example.com");
         model2.setApiKey("key2");
         model2.setModelType(ModelType.CHAT);
