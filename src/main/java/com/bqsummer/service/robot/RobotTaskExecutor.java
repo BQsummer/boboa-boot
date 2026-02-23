@@ -79,6 +79,7 @@ import java.util.concurrent.CompletableFuture;
 public class RobotTaskExecutor {
     private static final String HISTORY_PREFIX_MODE_ROLE = "role";
     private static final String HISTORY_PREFIX_MODE_SYSTEM = "system";
+    private static final int DEFAULT_PROMPT_HISTORY_MESSAGE_LIMIT = 20;
 
     private final RobotTaskMapper robotTaskMapper;
     private final RobotTaskExecutionLogMapper executionLogMapper;
@@ -785,8 +786,12 @@ public class RobotTaskExecutor {
         userNameCache.put(payload.getReceiverId(), historyAssistantPrefix);
 
         try {
+            Integer configuredHistoryLimit = configs.getPromptHistoryMessageLimit();
+            int historyMessageLimit = configuredHistoryLimit != null && configuredHistoryLimit > 0
+                    ? configuredHistoryLimit
+                    : DEFAULT_PROMPT_HISTORY_MESSAGE_LIMIT;
             List<Message> messages = messageRepository.findDialogHistoryForPrompt(
-                    payload.getSenderId(), payload.getReceiverId(), null, 20);
+                    payload.getSenderId(), payload.getReceiverId(), null, historyMessageLimit);
             for (Message message : messages) {
                 Map<String, Object> item = new HashMap<>();
                 item.put("type", "message");

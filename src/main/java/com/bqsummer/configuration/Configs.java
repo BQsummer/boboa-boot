@@ -110,4 +110,10 @@ public class Configs {
     @ConfigEle(name = "long_turns_threshold")
     public Integer longTurnsThreshold = 12;
 
+    /**
+     * 构建提示词时加载的历史消息条数
+     */
+    @ConfigEle(name = "prompt_history_message_limit")
+    public Integer promptHistoryMessageLimit = 20;
+
 }

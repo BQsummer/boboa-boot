@@ -14,7 +14,7 @@ function unwrap<T>(result: ApiResult<T> | T): T {
 }
 
 export interface ConfigItem {
-  id: number;
+  id: string;
   env?: string | null;
   application?: string | null;
   name: string;
@@ -55,7 +55,7 @@ export interface CreateConfigReq {
 }
 
 export interface UpdateConfigReq extends CreateConfigReq {
-  id: number;
+  id: string;
 }
 
 export async function listConfigs(query: ConfigListQuery = {}): Promise<ConfigPageResult> {
