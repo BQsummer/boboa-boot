@@ -347,13 +347,13 @@ public class RobotTaskExecutor {
                                     templateParams
                             );
                     String knowledgeBlock = buildKnowledgeBlock(triggeredKnowledge);
-                    List<String> knowledgeItems = new ArrayList<>();
                     for (KnowledgeBaseTriggerService.TriggeredKnowledge item : triggeredKnowledge) {
-                        knowledgeItems.add(item.content());
+                        if (item == null || !isNotBlank(item.content())) {
+                            continue;
+                        }
+                        templateParams.put("knowledgeItem_" + item.id(), item.content());
                     }
                     templateParams.put("knowledge", knowledgeBlock);
-                    templateParams.put("knowledgeItems", knowledgeItems);
-                    templateParams.put("knowledgeCount", triggeredKnowledge.size());
 
                     try {
                         finalPrompt = beetlTemplateService.render(template.getContent(), templateParams);

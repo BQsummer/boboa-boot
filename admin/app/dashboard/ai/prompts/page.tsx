@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,10 +19,10 @@ import {
 import { listCharacters, AiCharacter } from '@/lib/api/characters';
 import { listModelCodes } from '@/lib/api/models';
 import { listPostProcessPipelines, PostProcessPipeline } from '@/lib/api/post-process-pipelines';
+import { KbEntry, listKbEntries } from '@/lib/api/kb-entries';
 
 type FormData = CreatePromptTemplateReq & {
   postProcessConfigText: string;
-  kbEntryIdsText: string;
 };
 type HistoryPrefixMode = 'role' | 'system';
 
@@ -34,16 +34,6 @@ function parseJsonOrUndefined(text: string): Record<string, any> | undefined {
   return JSON.parse(value);
 }
 
-function parseIdList(text: string): number[] | undefined {
-  const value = text.trim();
-  if (!value) return undefined;
-  const ids = value
-    .split(',')
-    .map((item) => Number.parseInt(item.trim(), 10))
-    .filter((id) => Number.isInteger(id) && id > 0);
-  return ids.length ? ids : undefined;
-}
-
 function resolveHistoryPrefixMode(paramSchema?: Record<string, any>): HistoryPrefixMode {
   return paramSchema?.historyPrefixMode === 'system' ? 'system' : DEFAULT_HISTORY_PREFIX_MODE;
 }
@@ -53,6 +43,7 @@ export default function PromptsPage() {
   const [characters, setCharacters] = useState<AiCharacter[]>([]);
   const [modelCodes, setModelCodes] = useState<string[]>([]);
   const [pipelines, setPipelines] = useState<PostProcessPipeline[]>([]);
+  const [kbEntries, setKbEntries] = useState<KbEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isRenderDialogOpen, setIsRenderDialogOpen] = useState(false);
@@ -64,6 +55,10 @@ export default function PromptsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [filterCharId, setFilterCharId] = useState<number | undefined>();
   const [filterStatus, setFilterStatus] = useState<number | undefined>();
+  const [kbDropdownOpen, setKbDropdownOpen] = useState(false);
+  const [kbSearchText, setKbSearchText] = useState('');
+  const kbSelectorRef = useRef<HTMLDivElement>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
     charId: 0,
@@ -77,7 +72,7 @@ export default function PromptsPage() {
     priority: 0,
     postProcessPipelineId: undefined,
     postProcessConfigText: '',
-    kbEntryIdsText: '',
+    kbEntryIds: [],
   });
 
   const pipelineMap = useMemo(() => {
@@ -85,6 +80,28 @@ export default function PromptsPage() {
     pipelines.forEach((p) => map.set(p.id, p));
     return map;
   }, [pipelines]);
+
+  const kbEntryMap = useMemo(() => {
+    const map = new Map<number, KbEntry>();
+    kbEntries.forEach((entry) => map.set(entry.id, entry));
+    return map;
+  }, [kbEntries]);
+
+  const filteredKbEntries = useMemo(() => {
+    const keyword = kbSearchText.trim().toLowerCase();
+    if (!keyword) return kbEntries;
+    return kbEntries.filter((entry) => {
+      const title = entry.title?.toLowerCase() || '';
+      return title.includes(keyword) || String(entry.id).includes(keyword);
+    });
+  }, [kbEntries, kbSearchText]);
+
+  const selectedKbEntries = useMemo(() => {
+    return (formData.kbEntryIds || []).map((id) => ({
+      id,
+      title: kbEntryMap.get(id)?.title?.trim() || `条目 #${id}`,
+    }));
+  }, [formData.kbEntryIds, kbEntryMap]);
 
   const loadCharacters = async () => {
     try {
@@ -113,6 +130,27 @@ export default function PromptsPage() {
     }
   };
 
+  const loadKbEntries = async () => {
+    try {
+      const pageSize = 100;
+      const allEntries: KbEntry[] = [];
+      let page = 1;
+      let totalPages = 1;
+
+      do {
+        const result = await listKbEntries({ page, pageSize });
+        allEntries.push(...(result.records || []));
+        totalPages = result.pages || 1;
+        page += 1;
+      } while (page <= totalPages);
+
+      setKbEntries(allEntries);
+    } catch (error) {
+      console.error('load kb entries failed', error);
+      setKbEntries([]);
+    }
+  };
+
   const loadTemplates = useCallback(async () => {
     try {
       setLoading(true);
@@ -136,14 +174,30 @@ export default function PromptsPage() {
     loadCharacters();
     loadModelCodes();
     loadPipelines();
+    loadKbEntries();
   }, []);
 
   useEffect(() => {
     loadTemplates();
   }, [loadTemplates]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!kbSelectorRef.current) return;
+      if (!kbSelectorRef.current.contains(event.target as Node)) {
+        setKbDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handleCreate = () => {
     setEditingTemplate(null);
+    setKbSearchText('');
+    setKbDropdownOpen(false);
     setFormData({
       charId: characters[0]?.id || 0,
       description: '',
@@ -157,13 +211,15 @@ export default function PromptsPage() {
       paramSchema: { historyShowTime: true, historyPrefixMode: DEFAULT_HISTORY_PREFIX_MODE },
       postProcessPipelineId: undefined,
       postProcessConfigText: '',
-      kbEntryIdsText: '',
+      kbEntryIds: [],
     });
     setIsDialogOpen(true);
   };
 
   const handleEdit = (template: PromptTemplate) => {
     setEditingTemplate(template);
+    setKbSearchText('');
+    setKbDropdownOpen(false);
     setFormData({
       charId: template.charId,
       description: template.description || '',
@@ -185,7 +241,7 @@ export default function PromptsPage() {
       postProcessConfigText: template.postProcessConfig
         ? JSON.stringify(template.postProcessConfig, null, 2)
         : '',
-      kbEntryIdsText: (template.kbEntryIds || []).join(','),
+      kbEntryIds: template.kbEntryIds || [],
     });
     setIsDialogOpen(true);
   };
@@ -194,7 +250,7 @@ export default function PromptsPage() {
     e.preventDefault();
     try {
       const postProcessConfig = parseJsonOrUndefined(formData.postProcessConfigText);
-      const kbEntryIds = parseIdList(formData.kbEntryIdsText);
+      const kbEntryIds = formData.kbEntryIds?.length ? formData.kbEntryIds : undefined;
       if (editingTemplate) {
         const updateData: UpdatePromptTemplateReq = {
           description: formData.description,
@@ -220,7 +276,6 @@ export default function PromptsPage() {
           postProcessConfig,
         };
         delete (createData as any).postProcessConfigText;
-        delete (createData as any).kbEntryIdsText;
         await createPromptTemplate(createData);
       }
       setIsDialogOpen(false);
@@ -229,6 +284,45 @@ export default function PromptsPage() {
       console.error('save template failed', error);
       alert('保存模板失败，请检查 JSON 格式');
     }
+  };
+
+  const toggleKbEntry = (entryId: number) => {
+    const selectedIds = formData.kbEntryIds || [];
+    if (selectedIds.includes(entryId)) {
+      setFormData({
+        ...formData,
+        kbEntryIds: selectedIds.filter((id) => id !== entryId),
+      });
+      return;
+    }
+    setFormData({
+      ...formData,
+      kbEntryIds: [...selectedIds, entryId],
+    });
+  };
+
+  const insertContentPlaceholder = (paramName: string) => {
+    const token = `\${${paramName}!""}`;
+    const textarea = contentTextareaRef.current;
+
+    if (!textarea) {
+      setFormData((prev) => ({ ...prev, content: `${prev.content}${token}` }));
+      return;
+    }
+
+    const start = textarea.selectionStart ?? formData.content.length;
+    const end = textarea.selectionEnd ?? formData.content.length;
+
+    setFormData((prev) => ({
+      ...prev,
+      content: `${prev.content.slice(0, start)}${token}${prev.content.slice(end)}`,
+    }));
+
+    requestAnimationFrame(() => {
+      const cursor = start + token.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
+    });
   };
 
   const handleDelete = async (id: number) => {
@@ -493,12 +587,39 @@ export default function PromptsPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">模板内容 *</label>
                 <textarea
+                  ref={contentTextareaRef}
                   className="w-full px-3 py-2 border rounded-md font-mono text-sm"
                   rows={10}
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   required
                 />
+                <div className="mt-2 rounded-md border bg-gray-50 p-3">
+                  <p className="text-xs font-medium text-gray-700 mb-2">知识库参数（点击插入占位符）</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100"
+                      onClick={() => insertContentPlaceholder('knowledge')}
+                    >
+                      全部知识 {'${knowledge!""}'}
+                    </button>
+                    {selectedKbEntries.map((entry) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className="inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                        onClick={() => insertContentPlaceholder(`knowledgeItem_${entry.id}`)}
+                      >
+                        {entry.title}
+                        <span className="ml-1 text-gray-400">#{entry.id}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedKbEntries.length === 0 && (
+                    <p className="mt-2 text-xs text-gray-500">先在下方“关联知识库条目”中选择条目后，可插入对应参数。</p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
@@ -621,12 +742,69 @@ export default function PromptsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">关联知识库条目 ID（英文逗号分隔）</label>
-                <Input
-                  value={formData.kbEntryIdsText}
-                  onChange={(e) => setFormData({ ...formData, kbEntryIdsText: e.target.value })}
-                  placeholder="例如: 1,2,3"
-                />
+                <label className="block text-sm font-medium mb-1">关联知识库条目（多选）</label>
+                <div className="relative" ref={kbSelectorRef}>
+                  <div
+                    className="w-full min-h-10 px-2 py-1 border rounded-md flex flex-wrap items-center gap-1 cursor-text"
+                    onClick={() => setKbDropdownOpen(true)}
+                  >
+                    {(formData.kbEntryIds || []).map((id) => (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 rounded bg-blue-100 text-blue-800 px-2 py-0.5 text-xs"
+                      >
+                        {kbEntryMap.get(id)?.title?.trim() || `条目 #${id}`}
+                        <button
+                          type="button"
+                          className="text-blue-700 hover:text-blue-900"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleKbEntry(id);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      className="flex-1 min-w-[120px] py-1 px-1 text-sm outline-none"
+                      value={kbSearchText}
+                      onFocus={() => setKbDropdownOpen(true)}
+                      onChange={(e) => {
+                        setKbSearchText(e.target.value);
+                        setKbDropdownOpen(true);
+                      }}
+                      placeholder={(formData.kbEntryIds || []).length ? '继续搜索添加' : '搜索并选择知识库条目'}
+                    />
+                  </div>
+
+                  {kbDropdownOpen && (
+                    <div className="absolute z-30 mt-1 w-full rounded-md border bg-white shadow-md max-h-64 overflow-y-auto">
+                      {filteredKbEntries.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-500">无匹配条目</div>
+                      ) : (
+                        filteredKbEntries.map((entry) => {
+                          const selected = (formData.kbEntryIds || []).includes(entry.id);
+                          return (
+                            <button
+                              key={entry.id}
+                              type="button"
+                              className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                selected ? 'bg-blue-50 text-blue-700' : ''
+                              }`}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => toggleKbEntry(entry.id)}
+                            >
+                              {entry.title?.trim() ? entry.title : `条目 #${entry.id}`}
+                              <span className="ml-2 text-xs text-gray-500">#{entry.id}</span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">已选 {(formData.kbEntryIds || []).length} 条。</p>
               </div>
 
               <div>
