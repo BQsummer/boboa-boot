@@ -24,6 +24,9 @@ type FormData = CreatePromptTemplateReq & {
   postProcessConfigText: string;
   kbEntryIdsText: string;
 };
+type HistoryPrefixMode = 'role' | 'system';
+
+const DEFAULT_HISTORY_PREFIX_MODE: HistoryPrefixMode = 'role';
 
 function parseJsonOrUndefined(text: string): Record<string, any> | undefined {
   const value = text.trim();
@@ -39,6 +42,10 @@ function parseIdList(text: string): number[] | undefined {
     .map((item) => Number.parseInt(item.trim(), 10))
     .filter((id) => Number.isInteger(id) && id > 0);
   return ids.length ? ids : undefined;
+}
+
+function resolveHistoryPrefixMode(paramSchema?: Record<string, any>): HistoryPrefixMode {
+  return paramSchema?.historyPrefixMode === 'system' ? 'system' : DEFAULT_HISTORY_PREFIX_MODE;
 }
 
 export default function PromptsPage() {
@@ -147,7 +154,7 @@ export default function PromptsPage() {
       grayStrategy: 0,
       grayRatio: 0,
       priority: 0,
-      paramSchema: { historyShowTime: true },
+      paramSchema: { historyShowTime: true, historyPrefixMode: DEFAULT_HISTORY_PREFIX_MODE },
       postProcessPipelineId: undefined,
       postProcessConfigText: '',
       kbEntryIdsText: '',
@@ -172,6 +179,7 @@ export default function PromptsPage() {
       paramSchema: {
         ...(template.paramSchema || {}),
         historyShowTime: template.paramSchema?.historyShowTime !== false,
+        historyPrefixMode: resolveHistoryPrefixMode(template.paramSchema),
       },
       postProcessPipelineId: template.postProcessPipelineId,
       postProcessConfigText: template.postProcessConfig
@@ -283,6 +291,7 @@ export default function PromptsPage() {
   };
 
   const historyShowTime = formData.paramSchema?.historyShowTime !== false;
+  const historyPrefixMode = resolveHistoryPrefixMode(formData.paramSchema);
 
   return (
     <div className="p-6">
@@ -539,6 +548,54 @@ export default function PromptsPage() {
                   />
                 </div>
               )}
+
+              <div className="rounded-md border p-3">
+                <label className="block text-sm font-medium mb-2">聊天历史前缀</label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2 rounded border p-2">
+                    <input
+                      type="radio"
+                      name="historyPrefixMode"
+                      className="mt-0.5 h-4 w-4"
+                      checked={historyPrefixMode === 'role'}
+                      onChange={() =>
+                        setFormData({
+                          ...formData,
+                          paramSchema: {
+                            ...(formData.paramSchema || {}),
+                            historyPrefixMode: 'role',
+                          },
+                        })
+                      }
+                    />
+                    <span className="text-sm">
+                      <span className="block font-medium">角色前缀</span>
+                      <span className="block text-xs text-gray-500">{`使用 {user} / {char}`}</span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 rounded border p-2">
+                    <input
+                      type="radio"
+                      name="historyPrefixMode"
+                      className="mt-0.5 h-4 w-4"
+                      checked={historyPrefixMode === 'system'}
+                      onChange={() =>
+                        setFormData({
+                          ...formData,
+                          paramSchema: {
+                            ...(formData.paramSchema || {}),
+                            historyPrefixMode: 'system',
+                          },
+                        })
+                      }
+                    />
+                    <span className="text-sm">
+                      <span className="block font-medium">系统前缀</span>
+                      <span className="block text-xs text-gray-500">使用 User / Assistant</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
 
               <div className="rounded-md border p-3">
                 <label className="flex items-center gap-2 text-sm font-medium">

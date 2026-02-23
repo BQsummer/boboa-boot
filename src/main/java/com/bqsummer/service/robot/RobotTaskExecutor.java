@@ -77,6 +77,8 @@ import java.util.concurrent.CompletableFuture;
 @Service
 @RequiredArgsConstructor
 public class RobotTaskExecutor {
+    private static final String HISTORY_PREFIX_MODE_ROLE = "role";
+    private static final String HISTORY_PREFIX_MODE_SYSTEM = "system";
 
     private final RobotTaskMapper robotTaskMapper;
     private final RobotTaskExecutionLogMapper executionLogMapper;
@@ -645,13 +647,22 @@ public class RobotTaskExecutor {
 
             String userName = resolveUserName(user);
             String characterName = resolveCharacterName(character, defaultSetting, customSetting);
+            boolean useSystemHistoryPrefix = shouldUseSystemHistoryPrefix(template);
+            String historyUserPrefix = useSystemHistoryPrefix ? "User" : userName;
+            String historyAssistantPrefix = useSystemHistoryPrefix ? "Assistant" : characterName;
 
             params.put("user", userName);
             params.put("char", characterName);
             params.put("charDetail", buildCharDetailString(defaultSetting, customSetting));
             params.put("charStatus", "");
             params.put("userDetail", buildUserDetailString(userProfile));
-            params.put("history", buildHistoryString(payload, aiCharacterId, template));
+            params.put("history", buildHistoryString(
+                    payload,
+                    aiCharacterId,
+                    template,
+                    useSystemHistoryPrefix,
+                    historyUserPrefix,
+                    historyAssistantPrefix));
 
             params.put("userName", userName);
             params.put("userId", payload.getSenderId());
@@ -760,48 +771,18 @@ public class RobotTaskExecutor {
 
     private String buildHistoryString(SendMessagePayload payload,
                                       Long aiCharacterId,
-                                      PromptTemplate template) {
+                                      PromptTemplate template,
+                                      boolean useSystemHistoryPrefix,
+                                      String historyUserPrefix,
+                                      String historyAssistantPrefix) {
         List<Map<String, Object>> history = new ArrayList<>();
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         boolean includeHistoryTime = shouldIncludeHistoryTime(template);
 
         // 缓存用户名和角色名
         Map<Long, String> userNameCache = new HashMap<>();
-        User currentUser = null;
-        AiCharacter character = null;
-        AiCharacterSetting defaultSetting = null;
-        AiCharacterSetting customSetting = null;
-
-        try {
-            currentUser = userMapper.findById(payload.getSenderId());
-            if (currentUser != null) {
-                userNameCache.put(currentUser.getId(), resolveUserName(currentUser));
-            }
-        } catch (Exception e) {
-            log.warn("query current user failed: userId={}, error={}", payload.getSenderId(), e.getMessage());
-        }
-
-        try {
-            character = aiCharacterMapper.findById(aiCharacterId);
-        } catch (Exception e) {
-            log.warn("query ai character failed: charId={}, error={}", aiCharacterId, e.getMessage());
-        }
-
-        try {
-            defaultSetting = aiCharacterSettingMapper.findDefaultByCharacter(aiCharacterId);
-        } catch (Exception e) {
-            log.warn("query default ai character setting failed: charId={}, error={}", aiCharacterId, e.getMessage());
-        }
-
-        try {
-            customSetting = aiCharacterSettingMapper.findByUserAndCharacter(payload.getSenderId(), aiCharacterId);
-        } catch (Exception e) {
-            log.warn("query custom ai character setting failed: userId={}, charId={}, error={}",
-                    payload.getSenderId(), aiCharacterId, e.getMessage());
-        }
-
-        String characterName = resolveCharacterName(character, defaultSetting, customSetting);
-        userNameCache.put(payload.getReceiverId(), characterName);
+        userNameCache.put(payload.getSenderId(), historyUserPrefix);
+        userNameCache.put(payload.getReceiverId(), historyAssistantPrefix);
 
         try {
             List<Message> messages = messageRepository.findDialogHistoryForPrompt(
@@ -868,12 +849,18 @@ public class RobotTaskExecutor {
                     // 获取发送者名称
                     String senderName = userNameCache.get(message.getSenderId());
                     if (senderName == null) {
-                        try {
-                            User sender = userMapper.findById(message.getSenderId());
-                            senderName = resolveUserName(sender);
-                            userNameCache.put(message.getSenderId(), senderName);
-                        } catch (Exception e) {
-                            senderName = "用户";
+                        if (useSystemHistoryPrefix) {
+                            senderName = payload.getSenderId().equals(message.getSenderId())
+                                    ? "User"
+                                    : "Assistant";
+                        } else {
+                            try {
+                                User sender = userMapper.findById(message.getSenderId());
+                                senderName = resolveUserName(sender);
+                                userNameCache.put(message.getSenderId(), senderName);
+                            } catch (Exception e) {
+                                senderName = "用户";
+                            }
                         }
                     }
                     parts.add(timePrefix + senderName + ": " + message.getContent());
@@ -888,6 +875,46 @@ public class RobotTaskExecutor {
             }
         }
         return String.join("\n", parts);
+    }
+
+    private boolean shouldUseSystemHistoryPrefix(PromptTemplate template) {
+        String prefixMode = resolveHistoryPrefixMode(template);
+        return HISTORY_PREFIX_MODE_SYSTEM.equals(prefixMode);
+    }
+
+    private String resolveHistoryPrefixMode(PromptTemplate template) {
+        if (template == null || template.getParamSchema() == null) {
+            return HISTORY_PREFIX_MODE_ROLE;
+        }
+
+        Map<String, Object> paramSchema = template.getParamSchema();
+        String topLevelMode = parseHistoryPrefixMode(paramSchema.get("historyPrefixMode"));
+        if (topLevelMode != null) {
+            return topLevelMode;
+        }
+
+        Object historyConfig = paramSchema.get("history");
+        if (historyConfig instanceof Map<?, ?> historyMap) {
+            String nestedMode = parseHistoryPrefixMode(historyMap.get("prefixMode"));
+            if (nestedMode != null) {
+                return nestedMode;
+            }
+        }
+
+        return HISTORY_PREFIX_MODE_ROLE;
+    }
+
+    private String parseHistoryPrefixMode(Object value) {
+        if (!(value instanceof String stringValue)) {
+            return null;
+        }
+
+        String normalized = stringValue.trim().toLowerCase();
+        if (HISTORY_PREFIX_MODE_ROLE.equals(normalized) || HISTORY_PREFIX_MODE_SYSTEM.equals(normalized)) {
+            return normalized;
+        }
+
+        return null;
     }
 
     private String buildKnowledgeBlock(List<KnowledgeBaseTriggerService.TriggeredKnowledge> knowledgeList) {
