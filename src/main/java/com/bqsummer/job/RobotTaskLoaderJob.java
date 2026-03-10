@@ -74,7 +74,9 @@ public class RobotTaskLoaderJob extends JobExecutor {
             if (remaining > 0) {
                 List<RobotTask> timeoutTasks = queryTimeoutRunningTasks(remaining);
                 if (!timeoutTasks.isEmpty()) {
-                    List<RobotTask> resetTasks = resetTimeoutTasksToPending(timeoutTasks);
+                    LocalDateTime timeoutThreshold = LocalDateTime.now()
+                            .minusSeconds(configs.getTimeoutTask());
+                    List<RobotTask> resetTasks = resetTimeoutTasksToPending(timeoutTasks, timeoutThreshold);
                     if (!resetTasks.isEmpty()) {
                         int loaded = robotTaskScheduler.loadTasks(resetTasks);
                         totalLoaded += loaded;
@@ -156,7 +158,9 @@ public class RobotTaskLoaderJob extends JobExecutor {
 
         QueryWrapper<RobotTask> wrapper = new QueryWrapper<>();
         wrapper.eq("status", TaskStatus.RUNNING.name())
-               .le("updated_time", timeoutThreshold)  // 更新时间小于等于阈值 = 超时
+               .and(w -> w.le("heartbeat_at", timeoutThreshold)
+                       .or(sub -> sub.isNull("heartbeat_at")
+                               .le("started_at", timeoutThreshold)))
                .orderByAsc("updated_time", "id")
                .last("LIMIT " + limit);
 
@@ -172,7 +176,7 @@ public class RobotTaskLoaderJob extends JobExecutor {
      * @param tasks 超时任务列表
      * @return 成功重置的任务列表
      */
-    private List<RobotTask> resetTimeoutTasksToPending(List<RobotTask> tasks) {
+    private List<RobotTask> resetTimeoutTasksToPending(List<RobotTask> tasks, LocalDateTime timeoutThreshold) {
         List<RobotTask> resetTasks = new java.util.ArrayList<>();
 
         for (RobotTask task : tasks) {
@@ -181,9 +185,16 @@ public class RobotTaskLoaderJob extends JobExecutor {
             // 使用条件更新确保原子性和并发安全
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", task.getId())
-                        .eq("status", TaskStatus.RUNNING.name())  // 确保状态仍为RUNNING
+                        .eq("status", TaskStatus.RUNNING.name())  // 确保状态仍为RUNNING且仍为原所有者
+                        .eq(task.getLockedBy() != null, "locked_by", task.getLockedBy())
+                        .isNull(task.getLockedBy() == null, "locked_by")
+                        .and(w -> w.le("heartbeat_at", timeoutThreshold)
+                                .or(sub -> sub.isNull("heartbeat_at")
+                                        .le("started_at", timeoutThreshold)))
                         .set("status", TaskStatus.PENDING.name())
                         .set("locked_by", (Object) null)          // 清空锁定，允许重新领取
+                        .set("started_at", (Object) null)
+                        .set("heartbeat_at", (Object) null)
                         .set("error_message", String.format(
                             "检测到超时（超过%d分钟，阈值%d分钟），重置状态并重新调度",
                             timeoutMinutes, config.getTimeoutThresholdMinutes()
@@ -195,6 +206,8 @@ public class RobotTaskLoaderJob extends JobExecutor {
                 // 更新本地task对象状态，便于后续加载
                 task.setStatus(TaskStatus.PENDING.name());
                 task.setLockedBy(null);
+                task.setStartedAt(null);
+                task.setHeartbeatAt(null);
                 task.setErrorMessage(String.format(
                     "检测到超时（超过%d分钟，阈值%d分钟），重置状态并重新调度",
                     timeoutMinutes, config.getTimeoutThresholdMinutes()

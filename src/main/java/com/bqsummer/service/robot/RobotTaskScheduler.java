@@ -68,6 +68,11 @@ public class RobotTaskScheduler {
      * 动作类型 -> 因并发满而延迟重试的任务数统计
      */
     private final Map<String, AtomicLong> delayedRetryCount = new ConcurrentHashMap<>();
+
+    /**
+     * 动作类型 -> 待扣减许可数（用于动态下调并发限制时延迟生效）
+     */
+    private final Map<String, AtomicLong> pendingPermitReductions = new ConcurrentHashMap<>();
     
     /**
      * 消费者线程池
@@ -131,6 +136,7 @@ public class RobotTaskScheduler {
             concurrencySemaphores.put(actionTypeName, new Semaphore(concurrency));
             actionConcurrencyConfig.put(actionTypeName, concurrency);  // 存储配置值
             delayedRetryCount.put(actionTypeName, new AtomicLong(0));
+            pendingPermitReductions.put(actionTypeName, new AtomicLong(0));
             totalConcurrency += concurrency;
             
             log.info("初始化并发控制信号量 - {}: {}", actionTypeName, concurrency);
@@ -215,8 +221,8 @@ public class RobotTaskScheduler {
                             
                             // 异步执行，并在完成后释放信号量
                             taskExecutor.executeAsync(task).whenComplete((result, ex) -> {
-                                // 无论成功还是失败，都释放信号量
-                                semaphore.release();
+                                // 无论成功还是失败，都释放或扣减信号量
+                                releasePermit(actionType, semaphore);
                                 if (ex != null) {
                                     log.error("任务执行异常: taskId={}, actionType={}", 
                                              task.getId(), actionType, ex);
@@ -224,12 +230,10 @@ public class RobotTaskScheduler {
                                     log.debug("任务执行完成，释放并发槽位: taskId={}, actionType={}, 剩余槽位={}", 
                                              task.getId(), actionType, semaphore.availablePermits());
                                 }
+                                // 任务执行完成后从已加载集合中移除，防止重复加载
+                                loadedTaskIds.remove(task.getId());
                             });
-                            
-                            // 从已加载集合中移除
-                            loadedTaskIds.remove(task.getId());
                         } else {
-                            // bug 3条未处理就有可能走这个分支，多线程有问题
                             // 并发已满，延迟1秒后重试
                             log.info("并发槽位已满，延迟重试: taskId={}, actionType={}", task.getId(), actionType);
                             
@@ -416,17 +420,12 @@ public class RobotTaskScheduler {
         
         Semaphore semaphore = concurrencySemaphores.get(actionType);
         if (semaphore == null) {
-            // 如果动作类型不存在，创建新的信号量和配置
-            semaphore = new Semaphore(newLimit);
-            concurrencySemaphores.put(actionType, semaphore);
-            actionConcurrencyConfig.put(actionType, newLimit);
-            delayedRetryCount.put(actionType, new AtomicLong(0));
-            log.info("创建新的并发控制信号量: actionType={}, limit={}", actionType, newLimit);
-            return;
+            throw new IllegalArgumentException("不支持的动作类型: " + actionType);
         }
         
         int oldLimit = getConcurrencyLimit(actionType);
         int diff = newLimit - oldLimit;
+        AtomicLong pendingReduction = pendingPermitReductions.computeIfAbsent(actionType, k -> new AtomicLong(0));
         
         if (diff == 0) {
             // 无需修改
@@ -439,15 +438,26 @@ public class RobotTaskScheduler {
         // 2. 只更新 actionConcurrencyConfig 不会影响已创建的 Semaphore 对象
         // 3. 需要确保并发限制即时生效，而不是等到下次重启或重新初始化
         if (diff > 0) {
-            // 增加许可：直接释放差值数量的许可
-            semaphore.release(diff);
+            // 增加限制时优先抵消“待扣减许可”，剩余部分再真正增加可用许可
+            long debt = pendingReduction.get();
+            long offset = Math.min(debt, diff);
+            if (offset > 0) {
+                pendingReduction.addAndGet(-offset);
+            }
+            int permitsToRelease = (int) (diff - offset);
+            if (permitsToRelease > 0) {
+                semaphore.release(permitsToRelease);
+            }
             log.debug("增加并发限制: actionType={}, oldLimit={}, newLimit={}, diff=+{}", 
                      actionType, oldLimit, newLimit, diff);
         } else {
-            // 减少许可：尝试获取差值数量的许可（非阻塞）
-            // 注意：如果当前可用许可不足，只会获取实际可用的数量
-            // 这确保了正在执行的任务不会被中断
-            int acquired = semaphore.tryAcquire(-diff) ? -diff : semaphore.drainPermits();
+            // 减少许可：先回收当前可用许可，不足部分记入待扣减，后续在任务完成释放时扣减
+            int needed = -diff;
+            int acquired = semaphore.tryAcquire(needed) ? needed : semaphore.drainPermits();
+            int debt = needed - acquired;
+            if (debt > 0) {
+                pendingReduction.addAndGet(debt);
+            }
             log.debug("减少并发限制: actionType={}, oldLimit={}, newLimit={}, diff={}, acquired={}", 
                      actionType, oldLimit, newLimit, diff, acquired);
         }
@@ -457,6 +467,25 @@ public class RobotTaskScheduler {
         
         log.info("并发限制修改成功: actionType={}, oldLimit={}, newLimit={}, availablePermits={}", 
                 actionType, oldLimit, newLimit, semaphore.availablePermits());
+    }
+
+    /**
+     * 释放并发槽位。
+     * 如果该动作类型存在待扣减许可，则优先扣减以确保下调限制最终生效。
+     */
+    private void releasePermit(String actionType, Semaphore semaphore) {
+        AtomicLong pendingReduction = pendingPermitReductions.computeIfAbsent(actionType, k -> new AtomicLong(0));
+        while (true) {
+            long debt = pendingReduction.get();
+            if (debt <= 0) {
+                semaphore.release();
+                return;
+            }
+            if (pendingReduction.compareAndSet(debt, debt - 1)) {
+                log.debug("扣减待释放许可: actionType={}, remainingDebt={}", actionType, debt - 1);
+                return;
+            }
+        }
     }
     
     /**

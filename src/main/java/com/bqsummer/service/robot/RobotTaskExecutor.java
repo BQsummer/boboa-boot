@@ -100,6 +100,15 @@ public class RobotTaskExecutor {
     @Autowired
     private PostProcessRuntimeService postProcessRuntimeService;
 
+    /**
+     * 任务状态迁移冲突异常（通常由并发更新或所有权变化引起）
+     */
+    private static class TaskStateConflictException extends RuntimeException {
+        TaskStateConflictException(String message) {
+            super(message);
+        }
+    }
+
     // 自我注入：用于调用事务方法，确保通过代理调用
     private RobotTaskExecutor self;
 
@@ -150,14 +159,18 @@ public class RobotTaskExecutor {
 
         try {
             executeAction(task);
-            success = true;
             completedTime = LocalDateTime.now();
 
             // 更新任务状态为 DONE（通过self调用确保事务生效）
             self.updateTaskStatusToDone(task, completedTime);
+            success = true;
 
             log.info("任务执行成功: taskId={}", taskId);
 
+        } catch (TaskStateConflictException e) {
+            completedTime = LocalDateTime.now();
+            errorMessage = e.getMessage();
+            log.warn("任务执行完成但状态迁移冲突，跳过失败回写: taskId={}, error={}", taskId, errorMessage);
         } catch (Exception e) {
             log.error("任务执行失败: taskId=" + taskId, e);
             errorMessage = e.getMessage();
@@ -185,6 +198,7 @@ public class RobotTaskExecutor {
 
         UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", task.getId())
+                    .eq("status", TaskStatus.RUNNING.name())
                     .eq("locked_by", instanceId)  // 验证所有权
                     .set("status", TaskStatus.DONE.name())
                     .set("completed_at", completedTime);
@@ -196,8 +210,9 @@ public class RobotTaskExecutor {
                     task.getId(), instanceId,
                     Duration.between(task.getStartedAt(), completedTime).toMillis());
         } else {
-            log.error("任务状态更新失败，所有权验证失败: taskId={}, currentInstanceId={}",
-                    task.getId(), instanceId);
+            throw new TaskStateConflictException(String.format(
+                    "任务状态更新失败，所有权或状态不匹配: taskId=%d, instanceId=%s",
+                    task.getId(), instanceId));
         }
     }
 
@@ -486,17 +501,26 @@ public class RobotTaskExecutor {
         int retryCount = task.getRetryCount() + 1;
         int maxRetryCount = task.getMaxRetryCount();
         String previousLockedBy = task.getLockedBy();
+        String currentInstanceId = InstanceIdGenerator.getInstanceId();
 
         if (retryCount >= maxRetryCount) {
             // 超过最大重试次数，标记为 FAILED
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", task.getId())
+                        .eq("status", TaskStatus.RUNNING.name())
+                        .eq("locked_by", currentInstanceId)
                         .set("status", TaskStatus.FAILED.name())
                         .set("retry_count", retryCount)
                         .set("completed_at", LocalDateTime.now())
                         .set("error_message", errorMessage)
                         .set("locked_by", null);  // 清空所有权
-            robotTaskMapper.update(null, updateWrapper);
+            int updated = robotTaskMapper.update(null, updateWrapper);
+
+            if (updated == 0) {
+                log.warn("任务失败后更新FAILED被跳过（所有权或状态已变化）: taskId={}, instanceId={}, previousLockedBy={}",
+                        task.getId(), currentInstanceId, previousLockedBy);
+                return;
+            }
 
             log.warn("任务失败且超过最大重试次数: taskId={}, retryCount={}, previousLockedBy={}",
                     task.getId(), retryCount, previousLockedBy);
@@ -511,12 +535,20 @@ public class RobotTaskExecutor {
             // 重置状态为 PENDING，增加重试计数，释放所有权
             UpdateWrapper<RobotTask> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", task.getId())
+                        .eq("status", TaskStatus.RUNNING.name())
+                        .eq("locked_by", currentInstanceId)
                         .set("status", TaskStatus.PENDING.name())
                         .set("retry_count", retryCount)
                         .set("scheduled_at", nextExecuteAt)
                         .set("error_message", errorMessage)
                         .set("locked_by", null);  // 清空所有权，允许其他实例重试
-            robotTaskMapper.update(null, updateWrapper);
+            int updated = robotTaskMapper.update(null, updateWrapper);
+
+            if (updated == 0) {
+                log.warn("任务失败后重置PENDING被跳过（所有权或状态已变化）: taskId={}, instanceId={}, previousLockedBy={}",
+                        task.getId(), currentInstanceId, previousLockedBy);
+                return;
+            }
 
             log.warn("任务失败重试，释放所有权: taskId={}, previousLockedBy={}, retryCount={}, nextScheduledAt={}",
                     task.getId(), previousLockedBy, retryCount, nextExecuteAt);
@@ -1001,6 +1033,5 @@ public class RobotTaskExecutor {
         return payload.getReceiverId();
     }
 }
-
 
 

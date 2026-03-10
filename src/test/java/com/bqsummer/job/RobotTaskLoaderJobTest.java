@@ -196,7 +196,6 @@ class RobotTaskLoaderJobTest {
         
         // 乐观锁冲突：update返回0
         when(robotTaskMapper.update(any(), any())).thenReturn(0);
-        when(robotTaskScheduler.getQueueSize()).thenReturn(0);
         
         // When: 执行任务加载
         loaderJob.execute(null);
